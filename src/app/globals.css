@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/*
+ * Kaamdaar brand palette (brand kit):
+ *   Primary Navy   #0B1F3A — brand, headings, navbar
+ *   Primary Blue   #1261A0 — buttons, links, active states
+ *   Accent Orange  #FF7A00 — CTA, icons, highlights
+ *   Light Orange   #FFB15C — hover, secondary highlights
+ *   Off White      #F7F9FC — backgrounds, cards
+ * Ratio target: navy 35% | blue 25% | white 25% | orange 15%
+ */
+@theme {
+  --color-navy: #0b1f3a;
+  --color-navy-800: #12304f;
+  --color-navy-700: #1b4270;
+
+  --color-flame: #ff7a00;
+  --color-flame-600: #e85f00;
+  --color-flame-400: #ffb15c;
+  --color-flame-100: #ffe3cc;
+  --color-flame-50: #fff3e6;
+
+  --color-offwhite: #f7f9fc;
+
+  /* Primary blue replaces Tailwind's blue scale */
+  --color-blue-50: #eff6fd;
+  --color-blue-100: #d9e9f7;
+  --color-blue-200: #b6d2ec;
+  --color-blue-300: #8ab6e0;
+  --color-blue-400: #5894d1;
+  --color-blue-500: #2f7cbe;
+  --color-blue-600: #1261a0;
+  --color-blue-700: #0e4f84;
+  --color-blue-800: #0d4069;
+  --color-blue-900: #0b3455;
+
+  /* Text leans navy instead of neutral slate */
+  --color-slate-700: #1e3a5f;
+  --color-slate-800: #12304f;
+  --color-slate-900: #0b1f3a;
+
+  /* Ratings and highlights use brand orange */
+  --color-amber-50: #fff3e6;
+  --color-amber-100: #ffe3cc;
+  --color-amber-200: #ffd9b0;
+  --color-amber-300: #ffc38a;
+  --color-amber-400: #ffb15c;
+  --color-amber-500: #ff9430;
+  --color-amber-600: #c25a00;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@utility section-shell {
+  @apply mx-auto max-w-7xl px-4 sm:px-6;
+}
+
+@utility card {
+  @apply rounded-2xl border border-slate-200 bg-white;
+}
+
+@utility btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+/* Orange CTA — brand accent, navy text keeps it readable */
+@utility btn-accent {
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-flame px-5 py-2.5 text-sm font-semibold text-navy transition hover:bg-flame-400 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+@utility btn-ghost {
+  @apply inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50;
+}
+
+@utility field {
+  @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100;
+}
