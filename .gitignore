@@ -37,6 +37,7 @@ yarn-error.log*
 
 # local dev log
 .dev.log
+.wrangler-dev.log
 
 # Freebuff platform runtime state
 .freebuff/
@@ -47,3 +48,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+/freebuff-sites-build/
+/.open-next/
+/.wrangler/
