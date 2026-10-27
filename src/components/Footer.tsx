@@ -24,15 +24,6 @@ export default function Footer() {
         { href: "/delete-account", label: "Request account deletion" },
       ],
     },
-    {
-      title: "For Providers",
-      links: [
-        { href: "/for-providers", label: "Join as a Provider" },
-        { href: "/login", label: "Provider Login" },
-        { href: "/help", label: "Help & Support" },
-        { href: "/terms", label: "Terms & Conditions" },
-      ],
-    },
   ];
 
   const socials = [
@@ -44,7 +35,7 @@ export default function Footer() {
 
   return (
     <footer className="mt-16 bg-navy text-white">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-5">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-4">
         <div className="lg:col-span-2">
           <Link href="/" className="inline-block">
             <Image

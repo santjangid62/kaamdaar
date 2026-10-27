@@ -73,8 +73,9 @@ function LoginFlow() {
       if (!record) record = await createUser(phone);
       handledRedirect.current = true;
       signIn(record);
-      // first-time users complete their profile before browsing
-      router.replace(isNew ? "/profile?setup=1" : next);
+      // returning users land on their dashboard, first-timers complete their
+      // profile before browsing
+      router.replace(isNew ? "/profile?setup=1" : "/dashboard");
     } catch {
       setError("Verification failed. Please try again.");
       setBusy(false);

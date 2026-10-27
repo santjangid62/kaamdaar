@@ -48,7 +48,6 @@ export default function Navbar() {
     { href: "/", label: "Home" },
     { href: "/services", label: "Services" },
     { href: "/#how-it-works", label: "How it works" },
-    { href: "/for-providers", label: "For Providers" },
     { href: "/about", label: "About" },
     { href: "/help", label: "Help" },
   ];
@@ -124,7 +123,7 @@ export default function Navbar() {
         {ready && user ? (
           <div className="flex items-center gap-2">
             <Link
-              href="/profile"
+              href="/dashboard"
               className="hidden items-center gap-2 rounded-full border border-slate-200 py-1.5 pl-1.5 pr-3.5 text-sm font-semibold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 sm:flex"
             >
               {user.photo ? (
@@ -156,20 +155,12 @@ export default function Navbar() {
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-            <Link
-              href="/login"
-              className="hidden px-2 text-sm font-semibold text-slate-700 transition hover:text-blue-600 sm:block"
-            >
-              Login
-            </Link>
-            <Link
-              href="/login"
-              className="rounded-full bg-flame px-4 py-2 text-sm font-semibold text-navy transition hover:bg-flame-400"
-            >
-              Sign Up
-            </Link>
-          </div>
+          <Link
+            href="/login"
+            className="whitespace-nowrap rounded-full bg-flame px-4 py-2 text-sm font-semibold text-navy transition hover:bg-flame-400"
+          >
+            Login / Sign Up
+          </Link>
         )}
 
         <button
@@ -234,22 +225,13 @@ export default function Navbar() {
                 </button>
               </>
             ) : (
-              <div className="mt-1 flex gap-2">
-                <Link
-                  href="/login"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex-1 rounded-lg border border-slate-200 px-2 py-2.5 text-center text-sm font-semibold text-slate-700"
-                >
-                  Login
-                </Link>
-                <Link
-                  href="/login"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex-1 rounded-lg bg-flame px-2 py-2.5 text-center text-sm font-semibold text-navy"
-                >
-                  Sign Up
-                </Link>
-              </div>
+              <Link
+                href="/login"
+                onClick={() => setMenuOpen(false)}
+                className="mt-1 rounded-lg bg-flame px-2 py-2.5 text-center text-sm font-semibold text-navy"
+              >
+                Login / Sign Up
+              </Link>
             )}
           </div>
         </div>

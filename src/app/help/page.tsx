@@ -22,8 +22,8 @@ const CATEGORIES = [
   { icon: Wrench, title: "Service Quality", body: "Raise a concern about a completed job" },
   { icon: UserRound, title: "Account Issues", body: "Login, OTP, profile and addresses" },
   { icon: XCircle, title: "Cancellations & Refunds", body: "Cancel rules and refund status" },
-  { icon: BadgeCheck, title: "For Providers", body: "Partner onboarding and payouts" },
-  { icon: CreditCard, title: "Other Help", body: "Anything else we can assist with" },
+  { icon: CreditCard, title: "Bookings & Rescheduling", body: "Change date, slot or service" },
+  { icon: BadgeCheck, title: "Other Help", body: "Anything else we can assist with" },
 ];
 
 const ARTICLES = [

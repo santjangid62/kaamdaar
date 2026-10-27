@@ -11,7 +11,6 @@ import {
   Fan,
   LayoutGrid,
   MapPin,
-  Package,
   Refrigerator,
   Search,
   ShieldCheck,
@@ -114,6 +113,17 @@ export default function HomePage() {
       <section className="relative overflow-hidden bg-navy">
         <div className="absolute -right-40 -top-40 h-96 w-96 rounded-full bg-blue-700/40 blur-3xl" />
         <div className="absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-flame/20 blur-3xl" />
+        <div className="absolute -left-24 top-1/3 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl" />
+        {/* dotted grid, fading out towards the bottom */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-25 [mask-image:linear-gradient(to_bottom,black,transparent_70%)]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, #8ab6e0 1px, transparent 1px)",
+            backgroundSize: "24px 24px",
+          }}
+        />
 
         <div className="section-shell relative grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-2">
           <div>
@@ -122,10 +132,13 @@ export default function HomePage() {
               Trusted home services
             </span>
 
-            <h1 className="mt-5 text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
+            <h1 className="mt-5 text-4xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-6xl">
               Har Ghar Ka
               <br />
-              Har Kaam <span className="text-flame">Turant</span>
+              Har Kaam{" "}
+              <span className="text-flame drop-shadow-[0_0_24px_rgba(255,122,0,0.45)]">
+                Turant
+              </span>
             </h1>
 
             <p className="mt-4 max-w-lg text-lg leading-7 text-blue-200">
@@ -135,6 +148,28 @@ export default function HomePage() {
 
             <div className="mt-7">
               <HeroSearch />
+            </div>
+
+            {/* social proof */}
+            <div className="mt-6 flex items-center gap-3">
+              <div className="flex -space-x-2">
+                {[
+                  { n: "PS", tone: "bg-flame" },
+                  { n: "AV", tone: "bg-blue-500" },
+                  { n: "NC", tone: "bg-blue-700" },
+                ].map((a) => (
+                  <span
+                    key={a.n}
+                    className={`grid h-8 w-8 place-items-center rounded-full border-2 border-navy text-[10px] font-bold text-white ${a.tone}`}
+                  >
+                    {a.n}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs leading-5 text-blue-200">
+                <span className="font-bold text-white">10,000+</span> bookings
+                completed this month
+              </p>
             </div>
 
             <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
@@ -154,8 +189,12 @@ export default function HomePage() {
           </div>
 
           {/* booking preview card */}
-          <div className="mx-auto hidden w-full max-w-sm lg:block">
-            <div className="card border-0 p-5 shadow-2xl">
+          <div className="hero-float relative mx-auto hidden w-full max-w-sm lg:block">
+            <span className="absolute -left-10 -top-6 flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-xl">
+              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />{" "}
+              4.8 · 256 reviews
+            </span>
+            <div className="card border-0 p-5 shadow-2xl ring-1 ring-black/5">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-sm font-bold text-slate-900">
                   <span className="grid h-8 w-8 place-items-center rounded-lg bg-navy text-sm font-extrabold text-white">
@@ -197,7 +236,7 @@ export default function HomePage() {
                 </li>
               </ul>
             </div>
-            <div className="card -mt-5 w-48 border-0 p-4 shadow-xl">
+            <div className="card -mt-5 w-52 border-0 p-4 shadow-xl ring-1 ring-black/5">
               <p className="text-xs font-semibold text-slate-700">
                 Book AC Service in Jaipur
               </p>
@@ -442,43 +481,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── become a provider ──────────────────────────────── */}
-      <section className="section-shell py-14">
-        <div className="flex flex-col items-center gap-6 rounded-3xl bg-navy p-8 text-white sm:p-10 lg:flex-row lg:justify-between">
-          <div>
-            <h2 className="text-2xl font-extrabold">
-              Become a Service Provider
-            </h2>
-            <p className="mt-1.5 text-sm text-blue-200">
-              Grow your business with Kaamdaar
-            </p>
-            <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-blue-100">
-              {[
-                "Get more customers",
-                "Flexible working hours",
-                "Secure payments",
-                "Build your reputation",
-              ].map((perk) => (
-                <li key={perk} className="flex items-center gap-2">
-                  <BadgeCheck className="h-4 w-4 text-flame-400" /> {perk}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="flex flex-col items-center gap-3">
-            <Link
-              href="/for-providers"
-              className="btn-accent px-8 py-3 text-base"
-            >
-              Register Now
-            </Link>
-            <span className="flex items-center gap-2 text-xs text-blue-300">
-              <Package className="h-3.5 w-3.5" /> Android & iOS apps coming
-              soon
-            </span>
-          </div>
-        </div>
-      </section>
+      {/* ── become a provider removed: providers are onboarded by the admin team only ── */}
     </div>
   );
 }

@@ -3,9 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Search } from "lucide-react";
-import LocationButton from "./LocationButton";
 
-/** Big hero search bar — location on the left, query, orange Search CTA. */
+/**
+ * Big hero search bar — plain query field plus the orange Search CTA.
+ * Location is shown in the navbar, so it does not repeat here.
+ */
 export default function HeroSearch() {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -19,22 +21,19 @@ export default function HeroSearch() {
   return (
     <form
       onSubmit={submit}
-      className="flex w-full max-w-2xl flex-col gap-2 rounded-3xl bg-white p-2.5 shadow-2xl shadow-black/20 sm:flex-row sm:items-center sm:rounded-full"
+      className="flex w-full max-w-xl items-center gap-2 rounded-full bg-white p-2 shadow-2xl shadow-black/30"
     >
-      <div className="flex items-center px-2 sm:px-1">
-        <LocationButton variant="inline" className="min-w-0" />
-      </div>
-      <div className="hidden h-6 w-px bg-slate-200 sm:block" />
+      <Search className="ml-3 h-4 w-4 shrink-0 text-slate-400" />
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="What service do you need?"
         aria-label="Search a service"
-        className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+        className="min-w-0 flex-1 bg-transparent py-2 pr-1 text-sm text-slate-900 outline-none placeholder:text-slate-400"
       />
       <button
         type="submit"
-        className="btn-accent shrink-0 px-6 py-3 text-base sm:rounded-full"
+        className="btn-accent shrink-0 px-6 py-2.5 text-sm sm:rounded-full"
       >
         <Search className="h-4 w-4" /> Search
       </button>
