@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -29,6 +29,7 @@ type Origin = "current" | "address";
 function ProvidersFlow() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
+  const search = useSearchParams();
   const slug = params.slug;
   const service = getService(slug);
   const { location, user, locating } = useApp();
@@ -68,6 +69,19 @@ function ProvidersFlow() {
     () => (service && center ? nearbyProviders(service.id, center, DEFAULT_RADIUS_KM) : []),
     [service, center],
   );
+
+  const [sortBy, setSortBy] = useState<"distance" | "rating" | "experience">("distance");
+  const sorted = useMemo(() => {
+    const list = [...results];
+    if (sortBy === "rating") list.sort((a, b) => b.provider.rating - a.provider.rating);
+    if (sortBy === "distance") list.sort((a, b) => a.distanceKm - b.distanceKm);
+    if (sortBy === "experience") list.sort((a, b) => b.provider.experience - a.provider.experience);
+    return list;
+  }, [results, sortBy]);
+
+  // date & time chosen on the service detail page
+  const dateParam = search.get("date");
+  const timeParam = search.get("time");
 
   // funnel start: one event per providers page visit, once a location is known
   const viewedRef = useRef<string | null>(null);
@@ -128,16 +142,26 @@ function ProvidersFlow() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-            {service.name} providers near you
+            {results.length} {service.name} professionals near you
           </h1>
           <p className="mt-1.5 text-slate-500">
             Verified Pros within {DEFAULT_RADIUS_KM} km • starting ₹{service.price}/
             {service.unit.replace("per ", "")}
+            {dateParam && timeParam ? ` • ${dateParam} · ${timeParam}` : ""}
           </p>
         </div>
-        <div className="rounded-full bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">
-          {results.length} available
-        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-500">
+          Sort by
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as "distance" | "rating" | "experience")}
+            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-slate-700 outline-none focus:border-blue-400"
+          >
+            <option value="distance">Nearest first</option>
+            <option value="rating">Rating</option>
+            <option value="experience">Experience</option>
+          </select>
+        </label>
       </div>
 
       {/* location origin */}
@@ -209,7 +233,7 @@ function ProvidersFlow() {
         </div>
       ) : (
         <div className="mt-6 grid gap-4 md:grid-cols-2">
-          {results.map(({ provider, distanceKm }) => (
+          {sorted.map(({ provider, distanceKm }) => (
             <div key={provider.id} className="card flex flex-col p-5">
               <div className="flex items-start gap-3">
                 <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-base font-bold text-white">
@@ -269,11 +293,15 @@ function ProvidersFlow() {
                       serviceId: service.id,
                       providerId: provider.id,
                     });
-                    router.push(`/book/${service.id}/${provider.id}`);
+                    const qs =
+                      dateParam && timeParam
+                        ? `?date=${encodeURIComponent(dateParam)}&time=${encodeURIComponent(timeParam)}`
+                        : "";
+                    router.push(`/book/${service.id}/${provider.id}${qs}`);
                   }}
-                  className="btn-primary px-5 py-2"
+                  className="btn-accent px-5 py-2"
                 >
-                  Book now
+                  Book Now
                 </button>
               </div>
             </div>

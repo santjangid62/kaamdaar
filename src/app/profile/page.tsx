@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
-import { CheckCircle2, Loader2, MapPin, UserRound } from "lucide-react";
+import { CheckCircle2, Loader2, UserRound } from "lucide-react";
 import { useApp } from "../../components/AppProvider";
 import ProfileDetails from "../../components/ProfileDetails";
 import AddressBook from "../../components/AddressBook";
@@ -91,30 +91,17 @@ function ProfileContent() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <ProfileDetails key={user.phone} />
-          <AddressBook />
-          <MyBookings key={tab ?? "current"} initialTab={tab} />
-        </div>
+      <div className="mt-6 grid gap-6 lg:grid-cols-[248px_1fr]">
+        <ProfileMenu />
 
-        <div className="space-y-6">
-          <ProfileMenu />
-          <section className="card p-6">
-            <h2 className="flex items-center gap-2 font-bold text-slate-900">
-              <MapPin className="h-4 w-4 text-blue-600" /> Refer & Earn
-            </h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Share your code{" "}
-              <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-bold text-slate-700">
-                {user.referralCode}
-              </span>{" "}
-              with friends and earn credits on their first booking.
-            </p>
-            <Link href="/refer" className="btn-ghost mt-4 w-full">
-              Know more
-            </Link>
+        <div className="space-y-6 min-w-0">
+          <section id="profile" className="scroll-mt-24">
+            <ProfileDetails key={user.phone} />
           </section>
+          <section id="addresses" className="scroll-mt-24">
+            <AddressBook />
+          </section>
+          <MyBookings key={tab ?? "current"} initialTab={tab} />
         </div>
       </div>
     </div>

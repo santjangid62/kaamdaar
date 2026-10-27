@@ -64,7 +64,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
             onClick={() => setTab(t)}
             className={
               active === t
-                ? "rounded-full bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white"
+                ? "rounded-full bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white"
                 : "rounded-full px-4 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-100"
             }
           >
@@ -84,9 +84,13 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
         )}
 
         {grouped[active].map((b) => (
-          <article key={b.id} className="rounded-xl border border-slate-200 p-4">
+          <article key={b.id} className="rounded-xl border border-slate-200 p-4 transition hover:border-blue-300">
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600">
+                  <CalendarDays className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-bold text-slate-900">{b.serviceName}</h3>
                   <span
@@ -98,6 +102,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
                   {b.mode === "recurring" && <Repeat className="h-3.5 w-3.5 text-indigo-500" />}
                 </div>
                 <p className="mt-1 text-sm text-slate-500">Pro: {b.providerName}</p>
+                </div>
               </div>
               <span className="flex items-center gap-1 font-extrabold text-slate-900">
                 <IndianRupee className="h-3.5 w-3.5" />

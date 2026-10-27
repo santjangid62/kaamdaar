@@ -45,9 +45,11 @@ export default function Navbar() {
   }
 
   const links = [
+    { href: "/", label: "Home" },
     { href: "/services", label: "Services" },
     { href: "/#how-it-works", label: "How it works" },
-    { href: "/cities", label: "Cities" },
+    { href: "/for-providers", label: "For Providers" },
+    { href: "/about", label: "About" },
     { href: "/help", label: "Help" },
   ];
 
@@ -154,12 +156,20 @@ export default function Navbar() {
             </button>
           </div>
         ) : (
-          <Link
-            href="/login"
-            className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-          >
-            Login
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/login"
+              className="hidden px-2 text-sm font-semibold text-slate-700 transition hover:text-blue-600 sm:block"
+            >
+              Login
+            </Link>
+            <Link
+              href="/login"
+              className="rounded-full bg-flame px-4 py-2 text-sm font-semibold text-navy transition hover:bg-flame-400"
+            >
+              Sign Up
+            </Link>
+          </div>
         )}
 
         <button
@@ -224,13 +234,22 @@ export default function Navbar() {
                 </button>
               </>
             ) : (
-              <Link
-                href="/login"
-                onClick={() => setMenuOpen(false)}
-                className="rounded-lg bg-blue-600 px-2 py-2.5 text-center text-sm font-semibold text-white"
-              >
-                Login / Register
-              </Link>
+              <div className="mt-1 flex gap-2">
+                <Link
+                  href="/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex-1 rounded-lg border border-slate-200 px-2 py-2.5 text-center text-sm font-semibold text-slate-700"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex-1 rounded-lg bg-flame px-2 py-2.5 text-center text-sm font-semibold text-navy"
+                >
+                  Sign Up
+                </Link>
+              </div>
             )}
           </div>
         </div>

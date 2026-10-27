@@ -1,204 +1,304 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
   BadgeCheck,
+  CalendarCheck,
+  Car,
+  ChefHat,
   Clock,
+  Droplets,
+  Fan,
+  LayoutGrid,
   MapPin,
-  Phone,
-  Quote,
+  Package,
+  Refrigerator,
+  Search,
+  ShieldCheck,
+  Shirt,
+  Sparkles,
+  SprayCan,
   Star,
+  Utensils,
   Wallet,
+  Wind,
 } from "lucide-react";
-import ServiceCard from "../components/ServiceCard";
-import { CITIES, SERVICES, SERVICE_CATEGORIES } from "../lib/seed";
+import HeroSearch from "../components/HeroSearch";
+import { CITIES, SERVICES } from "../lib/seed";
 
 export const metadata: Metadata = {
   title: "Kaamdaar — Har Kaam Turant | Trusted house help in minutes",
 };
 
+/** Icon tiles — the mockup's "Popular Services" grid, mapped to our catalogue. */
+const TILES: Array<{ id: string; label: string; icon: typeof Clock }> = [
+  { id: "hourly-bookings", label: "Hourly Bookings", icon: Clock },
+  { id: "kitchen-cleaning", label: "Kitchen Cleaning", icon: SprayCan },
+  { id: "kitchen-prep", label: "Kitchen Prep", icon: ChefHat },
+  { id: "utensils", label: "Utensils", icon: Utensils },
+  { id: "bathroom-cleaning", label: "Bathroom Cleaning", icon: Droplets },
+  { id: "sweeping-mopping", label: "Sweeping & Mopping", icon: Sparkles },
+  { id: "laundry", label: "Laundry", icon: Shirt },
+  { id: "ironing-folding", label: "Ironing & Folding", icon: Wind },
+  { id: "fridge-cleaning", label: "Fridge Cleaning", icon: Refrigerator },
+  { id: "fan-cleaning", label: "Fan Cleaning", icon: Fan },
+  { id: "car-surface-cleaning", label: "Car Cleaning", icon: Car },
+];
+
+const STEPS = [
+  {
+    title: "Search",
+    body: "Choose your service and location",
+    icon: Search,
+    tone: "bg-blue-600",
+  },
+  {
+    title: "Book",
+    body: "Select time and confirm booking",
+    icon: CalendarCheck,
+    tone: "bg-flame",
+  },
+  {
+    title: "Track",
+    body: "Follow your booking and Pro status",
+    icon: MapPin,
+    tone: "bg-blue-600",
+  },
+  {
+    title: "Relax",
+    body: "Get your work done and pay safely",
+    icon: ShieldCheck,
+    tone: "bg-flame",
+  },
+];
+
+const STATS = [
+  { value: "20,000+", label: "Happy Customers" },
+  { value: "4.9 ★", label: "Average Rating" },
+  { value: "100+", label: "Services" },
+  { value: "500+", label: "Verified Professionals" },
+];
+
+const TRUST = [
+  { icon: BadgeCheck, label: "Verified Professionals" },
+  { icon: Wallet, label: "Upfront Pricing" },
+  { icon: MapPin, label: "Live Tracking" },
+  { icon: ShieldCheck, label: "Secure Payments" },
+];
+
+const testimonials = [
+  {
+    quote:
+      "Very professional service. Booked AC service and the technician arrived on time. Highly recommended!",
+    name: "Priya Sharma",
+    place: "Malviya Nagar, Jaipur",
+  },
+  {
+    quote:
+      "Transparent pricing and an easy booking process. The Pro was courteous and finished before time.",
+    name: "Amit Verma",
+    place: "Sector 56, Gurugram",
+  },
+  {
+    quote:
+      "Great platform with verified professionals. Booking from the website takes less than a minute.",
+    name: "Neha Chawla",
+    place: "Jagatpura, Jaipur",
+  },
+];
+
 export default function HomePage() {
-  const popular = SERVICES.filter((s) => s.popular);
-  const steps = [
-    {
-      icon: MapPin,
-      title: "We detect your location",
-      body: "Open the site anywhere — your current area shows in the navbar so you only see services and Pro rates relevant to you.",
-    },
-    {
-      icon: Phone,
-      title: "Login with your phone number",
-      body: "Enter the number, verify the OTP, and you stay signed in until you log out. First time users are taken straight to profile setup.",
-    },
-    {
-      icon: BadgeCheck,
-      title: "Pick a Pro within 2–3 km",
-      body: "Choose a service and every verified provider nearby is listed with rating, distance and rate. Confirm and the Pro is assigned.",
-    },
-  ];
-
-  const testimonials = [
-    {
-      quote:
-        "Booked a kitchen cleanup at 9 pm, a Pro was at my door the next morning. The rates on the site were exactly what I paid.",
-      name: "Ridhi Saluja",
-      place: "Sector 56, Gurugram",
-    },
-    {
-      quote:
-        "I use the hourly booking every weekend. Login once with OTP and my address is remembered for every order.",
-      name: "Aditya Menon",
-      place: "Koramangala, Bengaluru",
-    },
-    {
-      quote:
-        "Transparent rates and trained help. My mother books from her phone without any help from me.",
-      name: "Priya Deshpande",
-      place: "Baner, Pune",
-    },
-  ];
-
   return (
     <div>
-      {/* hero */}
-      <section className="relative overflow-hidden border-b border-slate-100 bg-gradient-to-b from-blue-50 via-white to-white">
-        <div className="section-shell grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-2">
+      {/* ── hero ───────────────────────────────────────────── */}
+      <section className="relative overflow-hidden bg-navy">
+        <div className="absolute -right-40 -top-40 h-96 w-96 rounded-full bg-blue-700/40 blur-3xl" />
+        <div className="absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-flame/20 blur-3xl" />
+
+        <div className="section-shell relative grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-2">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700">
-              <MapPin className="h-3.5 w-3.5" /> Serving homes across India
+            <span className="inline-flex items-center gap-2 rounded-full border border-flame-400/40 bg-white/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-white">
+              <BadgeCheck className="h-3.5 w-3.5 text-flame-400" />
+              Trusted home services
             </span>
-            <h1 className="mt-5 text-4xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-5xl">
-              Trusted house help
-              <span className="text-flame-600"> in minutes</span>
+
+            <h1 className="mt-5 text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
+              Har Ghar Ka
+              <br />
+              Har Kaam <span className="text-flame">Turant</span>
             </h1>
-            <p className="mt-4 max-w-lg text-lg leading-7 text-slate-600">
-              Cleaning, laundry, kitchen prep, hourly help and more — book a
-              trained Kaamdaar Pro from the website itself, at transparent
-              rates.
+
+            <p className="mt-4 max-w-lg text-lg leading-7 text-blue-200">
+              Verified professionals for all your home and business needs. Book
+              easily, track live, pay safely.
             </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link href="/services" className="btn-accent px-6 py-3 text-base">
-                Browse services <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link href="/#how-it-works" className="btn-ghost px-6 py-3 text-base">
-                How it works
-              </Link>
+
+            <div className="mt-7">
+              <HeroSearch />
             </div>
-            <dl className="mt-9 grid max-w-md grid-cols-3 gap-4">
-              {[
-                ["20+", "Services"],
-                ["2–3 km", "Pro radius"],
-                ["4.5★", "App rating"],
-              ].map(([value, label]) => (
-                <div key={label}>
-                  <dt className="text-2xl font-extrabold text-slate-900">{value}</dt>
-                  <dd className="text-xs uppercase tracking-wide text-slate-400">{label}</dd>
-                </div>
-              ))}
-            </dl>
+
+            <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+              {TRUST.map((t) => {
+                const Icon = t.icon;
+                return (
+                  <li
+                    key={t.label}
+                    className="flex items-center gap-2 text-xs font-semibold text-blue-100 sm:text-sm"
+                  >
+                    <Icon className="h-4 w-4 shrink-0 text-flame-400" />
+                    {t.label}
+                  </li>
+                );
+              })}
+            </ul>
           </div>
 
-          {/* booking mock */}
-          <div className="relative">
-            <div className="card mx-auto max-w-sm p-5 shadow-2xl shadow-blue-100">
+          {/* booking preview card */}
+          <div className="mx-auto hidden w-full max-w-sm lg:block">
+            <div className="card border-0 p-5 shadow-2xl">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                  <Image
-                    src="/kaamdaar-icon.png"
-                    alt=""
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 rounded-lg"
-                  />
+                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-navy text-sm font-extrabold text-white">
+                    K
+                  </span>
                   Kaamdaar Pro
                 </span>
-                <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
-                  Assigned
+                <span className="rounded-full bg-flame-50 px-2.5 py-1 text-xs font-semibold text-flame-600">
+                  On the way
                 </span>
               </div>
               <div className="mt-4 rounded-xl bg-slate-50 p-4">
-                <p className="text-sm font-bold text-slate-900">Kitchen Cleaning</p>
-                <p className="mt-0.5 text-xs text-slate-500">Today · 5:00 PM – 6:00 PM</p>
+                <p className="text-sm font-bold text-slate-900">
+                  Kitchen Cleaning
+                </p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Today · 5:00 PM – 6:00 PM
+                </p>
                 <div className="mt-3 flex items-center justify-between text-sm">
                   <span className="flex items-center gap-1 text-amber-600">
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> 4.8 · Sunita Sharma
+                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />{" "}
+                    4.8 · Sunita Sharma
                   </span>
                   <span className="font-bold text-slate-900">₹349</span>
                 </div>
               </div>
               <ul className="mt-4 space-y-2 text-xs text-slate-500">
                 <li className="flex items-center gap-2">
-                  <Clock className="h-3.5 w-3.5 text-blue-600" /> Pro arriving in ~15 minutes
+                  <Clock className="h-3.5 w-3.5 text-blue-600" /> Pro arriving
+                  in ~15 minutes
                 </li>
                 <li className="flex items-center gap-2">
-                  <MapPin className="h-3.5 w-3.5 text-blue-600" /> 1.2 km away from your address
+                  <MapPin className="h-3.5 w-3.5 text-blue-600" /> 1.2 km away
+                  from your address
                 </li>
                 <li className="flex items-center gap-2">
-                  <Wallet className="h-3.5 w-3.5 text-blue-600" /> Paid via UPI — no cash needed
+                  <Wallet className="h-3.5 w-3.5 text-blue-600" /> Paid via
+                  UPI — no cash needed
                 </li>
               </ul>
             </div>
-            <div className="card absolute -bottom-6 -left-4 hidden w-44 p-3 shadow-xl sm:block">
-              <p className="text-xs font-semibold text-slate-700">OTP verified</p>
-              <p className="mt-1 font-mono text-lg font-bold tracking-[0.3em] text-blue-600">••••••</p>
-              <p className="mt-1 text-[10px] text-slate-400">Phone-only login</p>
+            <div className="card -mt-5 w-48 border-0 p-4 shadow-xl">
+              <p className="text-xs font-semibold text-slate-700">
+                Book AC Service in Jaipur
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                42 verified pros nearby
+              </p>
+              <Link
+                href="/services"
+                className="mt-2 inline-block text-xs font-bold text-flame-600 hover:underline"
+              >
+                Browse services →
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* services */}
+      {/* ── popular service tiles ──────────────────────────── */}
       <section className="section-shell py-14">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
-              Popular services
+              Popular Services
             </h2>
-            <p className="mt-1.5 text-slate-500">Starting rates shown upfront — no surprises.</p>
+            <p className="mt-1.5 text-slate-500">
+              Choose from {SERVICES.length}+ professional services — rates
+              shown upfront.
+            </p>
           </div>
-          <Link href="/services" className="text-sm font-semibold text-blue-600 hover:underline">
-            View all services →
+          <Link
+            href="/services"
+            className="text-sm font-semibold text-blue-600 hover:underline"
+          >
+            View All →
           </Link>
         </div>
-        <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {popular.slice(0, 6).map((s) => (
-            <ServiceCard key={s.id} service={s} />
-          ))}
-        </div>
 
-        <div className="mt-8 flex flex-wrap gap-2">
-          {SERVICE_CATEGORIES.map((c) => (
-            <Link
-              key={c}
-              href={`/services?cat=${encodeURIComponent(c)}`}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-blue-300 hover:text-blue-700"
-            >
-              {c}
-            </Link>
-          ))}
+        <div className="mt-7 grid grid-cols-3 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-6">
+          {TILES.map((t) => {
+            const Icon = t.icon;
+            return (
+              <Link
+                key={t.id}
+                href={`/services/${t.id}`}
+                className="card group flex flex-col items-center gap-3 p-4 text-center transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg"
+              >
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-50 text-blue-600 transition group-hover:bg-flame group-hover:text-white">
+                  <Icon className="h-6 w-6" />
+                </span>
+                <span className="text-xs font-semibold leading-4 text-slate-700 sm:text-sm">
+                  {t.label}
+                </span>
+              </Link>
+            );
+          })}
+          <Link
+            href="/services"
+            className="card group flex flex-col items-center gap-3 p-4 text-center transition hover:-translate-y-0.5 hover:border-flame-400 hover:shadow-lg"
+          >
+            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-flame-50 text-flame-600 transition group-hover:bg-flame group-hover:text-white">
+              <LayoutGrid className="h-6 w-6" />
+            </span>
+            <span className="text-xs font-semibold leading-4 text-slate-700 sm:text-sm">
+              More Services
+            </span>
+          </Link>
         </div>
       </section>
 
-      {/* how it works */}
-      <section id="how-it-works" className="border-y border-slate-100 bg-slate-50 py-14">
+      {/* ── how it works ───────────────────────────────────── */}
+      <section
+        id="how-it-works"
+        className="border-y border-slate-100 bg-offwhite py-14"
+      >
         <div className="section-shell">
           <h2 className="text-center text-2xl font-extrabold text-slate-900 sm:text-3xl">
-            Booking takes less than a minute
+            How Kaamdaar Works?
           </h2>
-          <div className="mt-9 grid gap-5 md:grid-cols-3">
-            {steps.map((s, i) => {
+          <p className="mt-2 text-center text-slate-500">
+            Get your service in 4 simple steps
+          </p>
+
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {STEPS.map((s, i) => {
               const Icon = s.icon;
               return (
-                <div key={s.title} className="card p-6">
-                  <div className="flex items-center gap-3">
-                    <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-white">
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span className="text-sm font-bold text-blue-600">Step {i + 1}</span>
-                  </div>
-                  <h3 className="mt-4 font-bold text-slate-900">{s.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">{s.body}</p>
+                <div key={s.title} className="relative text-center">
+                  {i < STEPS.length - 1 && (
+                    <ArrowRight className="absolute -right-4 top-8 hidden h-5 w-5 text-blue-300 lg:block" />
+                  )}
+                  <span
+                    className={`mx-auto grid h-16 w-16 place-items-center rounded-full text-white ${s.tone}`}
+                  >
+                    <Icon className="h-7 w-7" />
+                  </span>
+                  <p className="mt-4 text-lg font-extrabold text-slate-900">
+                    {i + 1}. {s.title}
+                  </p>
+                  <p className="mx-auto mt-1 max-w-[14rem] text-sm leading-6 text-slate-500">
+                    {s.body}
+                  </p>
                 </div>
               );
             })}
@@ -206,33 +306,127 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* testimonials */}
+      {/* ── verified professionals ─────────────────────────── */}
       <section className="section-shell py-14">
-        <h2 className="text-center text-2xl font-extrabold text-slate-900 sm:text-3xl">
-          Homes that run smoother
+        <div className="grid items-center gap-8 lg:grid-cols-2">
+          <div className="card relative overflow-hidden bg-navy p-8 text-white">
+            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-flame/25 blur-2xl" />
+            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-flame text-white">
+              <BadgeCheck className="h-7 w-7" />
+            </span>
+            <p className="mt-5 text-3xl font-extrabold leading-tight">
+              Trained, verified
+              <br />
+              Kaamdaar Pros
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              {["Background checked", "Trained", "Insured", "Rated 4.5+"].map(
+                (chip) => (
+                  <span
+                    key={chip}
+                    className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-blue-100"
+                  >
+                    {chip}
+                  </span>
+                ),
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
+              Verified Professionals at Your Service
+            </h2>
+            <ul className="mt-5 space-y-3">
+              {[
+                "Background Verified",
+                "Trained & Experienced",
+                "Rated by Customers",
+              ].map((item) => (
+                <li
+                  key={item}
+                  className="flex items-center gap-2.5 font-semibold text-slate-700"
+                >
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-green-50">
+                    <BadgeCheck className="h-4 w-4 text-green-600" />
+                  </span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <Link href="/services" className="btn-accent mt-7 px-7 py-3 text-base">
+              Book Now <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── stats ──────────────────────────────────────────── */}
+      <section className="border-y border-slate-100 bg-flame-50 py-10">
+        <dl className="section-shell grid grid-cols-2 gap-6 text-center lg:grid-cols-4">
+          {STATS.map((s) => (
+            <div key={s.label}>
+              <dt className="text-3xl font-extrabold text-flame-600 sm:text-4xl">
+                {s.value}
+              </dt>
+              <dd className="mt-1 text-sm font-medium text-slate-600">
+                {s.label}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      {/* ── testimonials ───────────────────────────────────── */}
+      <section className="section-shell py-14">
+        <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
+          What Our Customers Say
         </h2>
         <div className="mt-8 grid gap-5 md:grid-cols-3">
           {testimonials.map((t) => (
             <figure key={t.name} className="card p-6">
-              <Quote className="h-6 w-6 text-blue-200" />
+              <div className="flex gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star
+                    key={i}
+                    className="h-4 w-4 fill-amber-400 text-amber-400"
+                  />
+                ))}
+              </div>
               <blockquote className="mt-3 text-sm leading-6 text-slate-600">
                 “{t.quote}”
               </blockquote>
-              <figcaption className="mt-4 text-sm">
-                <span className="font-bold text-slate-900">{t.name}</span>
-                <span className="block text-xs text-slate-400">{t.place}</span>
+              <figcaption className="mt-4 flex items-center gap-3">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                  {t.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </span>
+                <span className="text-sm">
+                  <span className="block font-bold text-slate-900">
+                    {t.name}
+                  </span>
+                  <span className="block text-xs text-slate-400">
+                    {t.place}
+                  </span>
+                </span>
               </figcaption>
             </figure>
           ))}
         </div>
       </section>
 
-      {/* cities */}
-      <section className="border-t border-slate-100 bg-gradient-to-b from-white to-blue-50 py-14">
+      {/* ── cities ─────────────────────────────────────────── */}
+      <section className="border-t border-slate-100 bg-offwhite py-12">
         <div className="section-shell text-center">
-          <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">Cities we serve</h2>
-          <p className="mt-2 text-slate-500">Trained Pros across {CITIES.length} cities.</p>
-          <div className="mt-7 flex flex-wrap justify-center gap-2.5">
+          <h2 className="text-2xl font-extrabold text-slate-900">
+            Cities we serve
+          </h2>
+          <p className="mt-2 text-slate-500">
+            Trained Pros across {CITIES.length} cities.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-2.5">
             {CITIES.map((c) => (
               <span
                 key={c}
@@ -242,39 +436,46 @@ export default function HomePage() {
               </span>
             ))}
           </div>
-          <Link href="/cities" className="btn-ghost mt-7">
+          <Link href="/cities" className="btn-ghost mt-6">
             See coverage details
           </Link>
         </div>
       </section>
 
-      {/* apps */}
+      {/* ── become a provider ──────────────────────────────── */}
       <section className="section-shell py-14">
-        <div className="grid items-center gap-6 rounded-3xl bg-slate-900 p-8 text-white sm:p-10 md:grid-cols-2">
+        <div className="flex flex-col items-center gap-6 rounded-3xl bg-navy p-8 text-white sm:p-10 lg:flex-row lg:justify-between">
           <div>
-            <h2 className="text-2xl font-extrabold">Kaamdaar on your phone</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-300">
-              The customer app and the Pro partner app are coming soon — same
-              phone-OTP login, same saved addresses, same bookings.
+            <h2 className="text-2xl font-extrabold">
+              Become a Service Provider
+            </h2>
+            <p className="mt-1.5 text-sm text-blue-200">
+              Grow your business with Kaamdaar
             </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <span className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300">
-                Android — coming soon
-              </span>
-              <span className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300">
-                iOS — coming soon
-              </span>
-            </div>
+            <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-blue-100">
+              {[
+                "Get more customers",
+                "Flexible working hours",
+                "Secure payments",
+                "Build your reputation",
+              ].map((perk) => (
+                <li key={perk} className="flex items-center gap-2">
+                  <BadgeCheck className="h-4 w-4 text-flame-400" /> {perk}
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="rounded-2xl bg-slate-800/60 p-5 text-sm text-slate-300">
-            <p className="font-bold text-white">Web booking already works</p>
-            <p className="mt-2 leading-6">
-              Everything — location detection, search, rates, OTP login, profile
-              and nearby Pro selection — runs right here in the browser.
-            </p>
-            <Link href="/services" className="btn-primary mt-4">
-              Book a service
+          <div className="flex flex-col items-center gap-3">
+            <Link
+              href="/for-providers"
+              className="btn-accent px-8 py-3 text-base"
+            >
+              Register Now
             </Link>
+            <span className="flex items-center gap-2 text-xs text-blue-300">
+              <Package className="h-3.5 w-3.5" /> Android & iOS apps coming
+              soon
+            </span>
           </div>
         </div>
       </section>
