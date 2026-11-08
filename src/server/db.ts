@@ -41,7 +41,15 @@ export const COLLECTIONS: Collection[] = [
 export type Store = Partial<Record<Collection, Record<string, Doc>>> & { seeded?: boolean };
 export type Doc = Record<string, unknown> & { id: string };
 
-const DATA_DIR = path.join(process.cwd(), ".data");
+/**
+ * Local/self-hosted runs keep the data file in the repo (.data/db.json).
+ * Serverless hosts (Vercel) mount the deployment read-only, so writes go to
+ * /tmp instead: the app works, but that file is per-instance and does not
+ * survive a cold start — point `db.ts` at a real database for persistence.
+ */
+const DATA_DIR = process.env.VERCEL
+  ? path.join("/tmp", "kaamdaar-data")
+  : path.join(process.cwd(), ".data");
 const DB_FILE = path.join(DATA_DIR, "db.json");
 
 function err(message: string, cause?: unknown): never {
