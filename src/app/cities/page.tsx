@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MapPin } from "lucide-react";
-import { CITIES, SERVICES } from "../../lib/seed";
+import { CITIES } from "../../lib/seed";
+import { getServices } from "../../server/catalog";
+
+// reads the live catalogue from the database at request time
+export const instant = false;
 
 export const metadata: Metadata = {
   title: "Cities we serve",
   description: "Kaamdaar home-services coverage across Indian cities.",
 };
 
-export default function CitiesPage() {
+export default async function CitiesPage() {
+  const serviceCount = (await getServices()).length;
   return (
     <div className="section-shell py-12">
       <div className="max-w-2xl">
@@ -27,7 +32,7 @@ export default function CitiesPage() {
             <span className="flex items-center gap-2 font-bold text-slate-900">
               <MapPin className="h-4 w-4 text-blue-600" /> {city}
             </span>
-            <p className="mt-1 text-sm text-slate-500">All {SERVICES.length} services available</p>
+            <p className="mt-1 text-sm text-slate-500">All {serviceCount} services available</p>
           </div>
         ))}
       </div>

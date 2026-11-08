@@ -3,10 +3,13 @@
 import { useRef, useState } from "react";
 import { Camera, Check, Loader2 } from "lucide-react";
 import { useApp } from "./AppProvider";
+import { useLang } from "../lib/i18n";
 import { updateUser } from "../lib/store";
+import { isValidEmail, isValidName } from "../lib/validation";
 
 export default function ProfileDetails() {
   const { user, signIn, ready } = useApp();
+  const { s } = useLang();
   const [form, setForm] = useState(() => ({
     firstName: user?.firstName ?? "",
     lastName: user?.lastName ?? "",
@@ -15,6 +18,7 @@ export default function ProfileDetails() {
   const [photo, setPhoto] = useState<string | undefined>(user?.photo);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!ready || !user) return null;
@@ -28,6 +32,12 @@ export default function ProfileDetails() {
   }
 
   async function save() {
+    const next: Record<string, string> = {};
+    if (!isValidName(form.firstName)) next.firstName = s.validation.invalidName;
+    if (!isValidName(form.lastName)) next.lastName = s.validation.invalidName;
+    if (form.email.trim() && !isValidEmail(form.email)) next.email = s.validation.invalidEmail;
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
     setBusy(true);
     try {
       const updated = await updateUser(user!.id, {
@@ -50,9 +60,9 @@ export default function ProfileDetails() {
   return (
     <section className="card p-6">
       <div className="flex items-center justify-between">
-        <h2 className="font-bold text-slate-900">Basic details</h2>
+        <h2 className="font-bold text-slate-900">{s.profile.basic}</h2>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-          Profile completion {user.firstName && user.email ? "100%" : user.firstName ? "75%" : "50%"}
+          {s.profile.completion} {user.firstName && user.email ? "100%" : user.firstName ? "75%" : "50%"}
         </span>
       </div>
 
@@ -76,49 +86,50 @@ export default function ProfileDetails() {
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={pickPhoto} />
         <div>
           <p className="text-lg font-bold text-slate-900">
-            {user.firstName ? `${user.firstName} ${user.lastName}`.trim() : "Complete your profile"}
+            {user.firstName ? `${user.firstName} ${user.lastName}`.trim() : s.profile.completeNow}
           </p>
           <p className="text-sm text-slate-500">+91 {user.phone.replace("+91", "")}</p>
-          <p className="mt-0.5 text-xs text-slate-400">
-            Tap the photo to upload a profile picture
-          </p>
+          <p className="mt-0.5 text-xs text-slate-400">{s.profile.tapPhoto}</p>
         </div>
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <label className="block">
-          <span className="mb-1.5 block text-sm font-semibold text-slate-700">First name *</span>
+          <span className="mb-1.5 block text-sm font-semibold text-slate-700">{s.profile.firstName}</span>
           <input
-            className="field"
+            className={`field ${errors.firstName ? "border-red-300 focus:border-red-400 focus:ring-red-100" : ""}`}
             value={form.firstName}
             onChange={(e) => setForm({ ...form, firstName: e.target.value })}
             placeholder="Aditi"
           />
+          {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName}</p>}
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-sm font-semibold text-slate-700">Last name *</span>
+          <span className="mb-1.5 block text-sm font-semibold text-slate-700">{s.profile.lastName}</span>
           <input
-            className="field"
+            className={`field ${errors.lastName ? "border-red-300 focus:border-red-400 focus:ring-red-100" : ""}`}
             value={form.lastName}
             onChange={(e) => setForm({ ...form, lastName: e.target.value })}
             placeholder="Sharma"
           />
+          {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName}</p>}
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-sm font-semibold text-slate-700">Mobile number</span>
+          <span className="mb-1.5 block text-sm font-semibold text-slate-700">{s.profile.mobile}</span>
           <input className="field bg-slate-50 text-slate-500" value={user.phone} readOnly />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-sm font-semibold text-slate-700">
-            Email <span className="font-normal text-slate-400">(optional)</span>
+            {s.profile.email}
           </span>
           <input
-            className="field"
+            className={`field ${errors.email ? "border-red-300 focus:border-red-400 focus:ring-red-100" : ""}`}
             type="email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             placeholder="you@example.com"
           />
+          {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
         </label>
       </div>
 
@@ -130,14 +141,14 @@ export default function ProfileDetails() {
           className="btn-primary"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-          Save details
+          {s.profile.save}
         </button>
         {!form.firstName.trim() && (
-          <span className="text-xs text-slate-400">First and last name are required</span>
+          <span className="text-xs text-slate-400">{s.profile.required}</span>
         )}
         {saved && (
           <span className="flex items-center gap-1 text-sm font-medium text-green-600">
-            <Check className="h-4 w-4" /> Saved
+            <Check className="h-4 w-4" /> {s.profile.saved}
           </span>
         )}
       </div>

@@ -10,15 +10,21 @@ import {
   Fan,
   Feather,
   Fence,
+  Hammer,
   Package,
   PartyPopper,
+  Plug,
   Refrigerator,
   Shirt,
   Sparkles,
   SprayCan,
   Sprout,
+  Wrench,
+  PaintRoller,
+  AirVent,
   Utensils,
   Wind,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 
@@ -45,6 +51,40 @@ export const SERVICE_ICONS: Record<string, LucideIcon> = {
   "packing-unpacking": Package,
   "plant-care": Sprout,
 };
+
+/**
+ * Icon picker for the Admin panel — every service can name its own icon here
+ * (the "Icon" dropdown in Services). Keys are stored on the service row and
+ * resolved on the customer site through `resolveIcon`.
+ */
+export const ICONS: Record<string, LucideIcon> = {
+  ...SERVICE_ICONS,
+  clock: Clock,
+  hammer: Hammer,
+  wrench: Wrench,
+  plug: Plug,
+  paint: PaintRoller,
+  airvent: AirVent,
+  car: Car,
+  package: Package,
+  sprout: Sprout,
+  feather: Feather,
+  party: PartyPopper,
+  broom: Broom,
+  grid: AppWindow,
+  star: Sparkles,
+};
+
+/** Values shown in the Admin “Icon” dropdown. */
+export const ICON_NAMES = Object.keys(ICONS).sort();
+
+/**
+ * Icon lookup rule used at every call site:
+ *   (service.icon ? ICONS[service.icon] : undefined) ?? SERVICE_ICONS[service.id] ?? LayoutGrid
+ * Kept as plain object reads (no factory call) so react-hooks/static-components
+ * sees stable component identities during render.
+ */
+export const FALLBACK_ICON = LayoutGrid;
 
 /** Brand-palette gradient for the icon tile, chosen by category. */
 export function serviceTone(category: string): string {

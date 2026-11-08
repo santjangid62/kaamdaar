@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { MapPin, Search, X } from "lucide-react";
 import ServiceCard from "./ServiceCard";
 import { useApp } from "./AppProvider";
+import { fill, useCatLabel, useLang } from "../lib/i18n";
 import type { Service } from "../lib/types";
 
 interface Props {
@@ -15,12 +16,7 @@ interface Props {
 
 type Sort = "relevance" | "price-asc" | "price-desc" | "name";
 
-const SORTS: Array<{ id: Sort; label: string }> = [
-  { id: "relevance", label: "Recommended" },
-  { id: "price-asc", label: "Price: low to high" },
-  { id: "price-desc", label: "Price: high to low" },
-  { id: "name", label: "Name: A to Z" },
-];
+const SORT_IDS: Sort[] = ["relevance", "price-asc", "price-desc", "name"];
 
 /** Remounts whenever the URL query changes. */
 export default function ServicesExplorer(props: Props) {
@@ -31,6 +27,8 @@ export default function ServicesExplorer(props: Props) {
 function Explorer({ initialQuery, initialCategory, services }: Props) {
   const router = useRouter();
   const { location } = useApp();
+  const { s } = useLang();
+  const catLabel = useCatLabel();
   const [q, setQ] = useState(initialQuery);
   const [cat, setCat] = useState(initialCategory);
   const [maxPrice, setMaxPrice] = useState(() =>
@@ -76,16 +74,24 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
     return sorted;
   }, [services, q, cat, maxPrice, sort]);
 
-  const place = location?.label?.split(",")[0] ?? "your area";
+  const place = location?.label?.split(",")[0] ?? s.services.yourArea;
   const activeFilters = (cat !== "All" ? 1 : 0) + (maxPrice < priceCeiling ? 1 : 0);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[264px_1fr]">
+    <div>
+      <div className="mb-8 max-w-2xl">
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+          {s.services.heading}
+        </h1>
+        <p className="mt-2 text-slate-500">{s.services.sub}</p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[264px_1fr]">
       {/* ── filters sidebar ─────────────────────────────── */}
       <aside className="card h-fit p-5">
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-            Filters
+            {s.services.filters}
           </h2>
           {activeFilters > 0 && (
             <button
@@ -96,13 +102,13 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
               }}
               className="flex items-center gap-1 text-xs font-semibold text-flame-600 hover:underline"
             >
-              <X className="h-3.5 w-3.5" /> Clear All
+              <X className="h-3.5 w-3.5" /> {s.services.clearAll}
             </button>
           )}
         </div>
 
         <fieldset className="mt-5">
-          <legend className="text-sm font-bold text-slate-900">Category</legend>
+          <legend className="text-sm font-bold text-slate-900">{s.services.category}</legend>
           <ul className="mt-3 space-y-2">
             {categories.map(([c, count]) => (
               <li key={c}>
@@ -113,7 +119,7 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
                     onChange={() => go(q, cat === c ? "All" : c)}
                     className="h-4 w-4 rounded border-slate-300 accent-blue-600"
                   />
-                  <span className="flex-1">{c}</span>
+                  <span className="flex-1">{catLabel(c)}</span>
                   <span className="text-xs text-slate-400">({count})</span>
                 </label>
               </li>
@@ -123,7 +129,7 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
 
         <div className="mt-6">
           <div className="flex items-center justify-between text-sm">
-            <span className="font-bold text-slate-900">Price range</span>
+            <span className="font-bold text-slate-900">{s.services.priceRange}</span>
             <span className="font-semibold text-flame-600">₹{maxPrice}</span>
           </div>
           <input
@@ -156,7 +162,7 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search a service by name…"
+            placeholder={s.services.searchPlaceholder}
             className="field pl-10"
           />
         </form>
@@ -166,23 +172,23 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
             <span className="font-extrabold text-slate-900">
               {results.length}
             </span>{" "}
-            {q ? `results for “${q}”` : "professional services"}
+            {q ? `${s.services.resultsFor} “${q}”` : s.services.resultsWord}
             <span className="flex items-center gap-1 text-slate-400">
               {" "}
-              in{" "}
+              {s.services.inLabel}{" "}
               <MapPin className="h-3.5 w-3.5 text-flame-600" /> {place}
             </span>
           </p>
           <label className="flex items-center gap-2 text-sm text-slate-500">
-            Sort by
+            {s.services.sortBy}
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as Sort)}
               className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-slate-700 outline-none focus:border-blue-400"
             >
-              {SORTS.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
+              {SORT_IDS.map((id, i) => (
+                <option key={id} value={id}>
+                  {s.services.sorts[i]}
                 </option>
               ))}
             </select>
@@ -192,12 +198,9 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
         {results.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center">
             <p className="font-semibold text-slate-700">
-              No service matched {q ? `“${q}”` : "these filters"}.
+              {fill(s.services.empty1, { q: q ? `“${q}”` : "" })}
             </p>
-            <p className="mt-1 text-sm text-slate-500">
-              Try “cleaning”, “laundry”, “kitchen” or “hourly” — or clear the
-              filters.
-            </p>
+            <p className="mt-1 text-sm text-slate-500">{s.services.empty2}</p>
           </div>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -206,6 +209,7 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

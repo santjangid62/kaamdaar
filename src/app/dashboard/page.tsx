@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   CalendarCheck,
@@ -13,16 +13,13 @@ import {
   UserRound,
 } from "lucide-react";
 import { useApp } from "../../components/AppProvider";
+import { useLang } from "../../lib/i18n";
 import MyBookings from "../../components/MyBookings";
 import { listBookings } from "../../lib/store";
 import type { Booking } from "../../lib/types";
 
-const QUICK = [
-  { href: "/profile", label: "My Profile", icon: UserRound },
-  { href: "/services", label: "Book a Service", icon: CalendarCheck },
-  { href: "/refer", label: "Refer & Earn", icon: Gift },
-  { href: "/help", label: "Help & Support", icon: LifeBuoy },
-];
+const QUICK_HREFS = ["/profile", "/services", "/refer", "/help"];
+const QUICK_ICONS = [UserRound, CalendarCheck, Gift, LifeBuoy];
 
 /**
  * Signed-in landing page: returning users come here after OTP verification
@@ -31,10 +28,20 @@ const QUICK = [
 export default function DashboardPage() {
   const router = useRouter();
   const { user, ready, location } = useApp();
+  const { s } = useLang();
   const [bookings, setBookings] = useState<Booking[]>([]);
 
+  // A visitor who deep-links here while signed out goes to login; a visitor
+  // who was signed in and then logged out goes home (never bounced back to
+  // the login screen they just left).
+  const hadUser = useRef(false);
+
   useEffect(() => {
-    if (ready && !user) router.replace("/login?next=/dashboard");
+    if (user) {
+      hadUser.current = true;
+      return;
+    }
+    if (ready) router.replace(hadUser.current ? "/" : "/login?next=/dashboard");
   }, [ready, user, router]);
 
   useEffect(() => {
@@ -52,9 +59,9 @@ export default function DashboardPage() {
   ).length;
 
   const stats = [
-    { value: active, label: "Active now", icon: Clock },
-    { value: upcoming, label: "Upcoming", icon: CalendarCheck },
-    { value: done, label: "Completed", icon: ArrowRight },
+    { value: active, label: s.dashboard.active, icon: Clock },
+    { value: upcoming, label: s.dashboard.upcoming, icon: CalendarCheck },
+    { value: done, label: s.dashboard.completed, icon: ArrowRight },
   ];
 
   return (
@@ -63,15 +70,15 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-            Welcome back, {user.firstName || "there"}
+            {s.dashboard.welcome} {user.firstName || user.phone.slice(-4)}
           </h1>
           <p className="mt-1.5 flex items-center gap-1.5 text-slate-500">
             <MapPin className="h-4 w-4 text-flame-600" />
-            {location?.label ?? "Set your location to see nearby Pros"}
+            {location?.label ?? s.dashboard.setLoc}
           </p>
         </div>
         <Link href="/services" className="btn-accent">
-          Book a service <ArrowRight className="h-4 w-4" />
+          {s.dashboard.bookCta} <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
 
@@ -97,16 +104,16 @@ export default function DashboardPage() {
 
       {/* quick links */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {QUICK.map((q) => {
-          const Icon = q.icon;
+        {s.dashboard.quick.map((label, i) => {
+          const Icon = QUICK_ICONS[i];
           return (
             <Link
-              key={q.href}
-              href={q.href}
+              key={label}
+              href={QUICK_HREFS[i]}
               className="card flex items-center gap-2.5 px-4 py-3.5 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:text-blue-700"
             >
               <Icon className="h-4 w-4 text-flame-600" />
-              {q.label}
+              {label}
             </Link>
           );
         })}

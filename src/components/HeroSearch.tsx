@@ -29,6 +29,9 @@ export default function HeroSearch() {
         onChange={(e) => setQ(e.target.value)}
         placeholder="What service do you need?"
         aria-label="Search a service"
+        // size=1 keeps the field's intrinsic width tiny, so on phones the hero
+        // grid track never grows past the viewport (flex-basis 0 still stretches it)
+        size={1}
         className="min-w-0 flex-1 bg-transparent py-2 pr-1 text-sm text-slate-900 outline-none placeholder:text-slate-400"
       />
       <button

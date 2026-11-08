@@ -1,4 +1,4 @@
-import type { Provider, Service } from "./types";
+import type { Provider, ProviderReview, Service } from "./types";
 import { CITY_CLUSTERS } from "./geo";
 
 /**
@@ -295,6 +295,14 @@ const LAST_NAMES = [
   "Das", "Gupta", "Khan", "Mehta", "Joshi", "Pillai", "Reddy", "Chauhan",
 ];
 
+const REVIEW_POOL: ProviderReview[] = [
+  { author: "Priya S.", rating: 5, text: "On time and did a thorough job. The kitchen looked brand new." },
+  { author: "Amit G.", rating: 5, text: "Polite and professional. Finished faster than expected." },
+  { author: "Neha K.", rating: 4, text: "Good work overall, needed a small touch-up later." },
+  { author: "Rohit M.", rating: 5, text: "Excellent service, very careful with things at home." },
+  { author: "Sunita R.", rating: 4, text: "Neat work and honest pricing, would book again." },
+];
+
 function buildProviders(): Provider[] {
   const list: Provider[] = [];
   CITY_CLUSTERS.forEach((city, ci) => {
@@ -317,6 +325,13 @@ function buildProviders(): Provider[] {
         jobs: 120 + ((i * 137 + ci * 41) % 1800),
         experience: 1 + ((i + ci) % 8),
         verified: true,
+        policeVerified: (i + ci) % 4 !== 3,
+        hourlyRate: 169 + ((i * 3 + ci) % 9) * 20,
+        reviewCount: 24 + ((i * 61 + ci * 17) % 180),
+        reviews: [
+          REVIEW_POOL[(i + ci) % REVIEW_POOL.length],
+          REVIEW_POOL[(i + ci + 2) % REVIEW_POOL.length],
+        ],
       });
     }
   });

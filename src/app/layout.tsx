@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { AppProvider } from "../components/AppProvider";
+import { LangProvider } from "../lib/i18n";
 import ConsentNotice from "../components/ConsentNotice";
+import LocationNotice from "../components/LocationNotice";
+import Assistant from "../components/Assistant";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import SiteOnly from "../components/SiteOnly";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -24,10 +29,22 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-offwhite text-slate-900">
         <AppProvider>
-          <Navbar />
-          <main className="flex-1">{children}</main>
-          <Footer />
-          <ConsentNotice />
+          <LangProvider>
+            <LocationNotice />
+            <Suspense fallback={<Navbar />}>
+              <SiteOnly>
+                <Navbar />
+              </SiteOnly>
+            </Suspense>
+            <main className="flex-1">{children}</main>
+            <Suspense fallback={<Footer />}>
+              <SiteOnly>
+                <Footer />
+                <ConsentNotice />
+                <Assistant />
+              </SiteOnly>
+            </Suspense>
+          </LangProvider>
         </AppProvider>
         {/* Firebase Phone Auth reCAPTCHA mount point */}
         <div id="kaamdaar-recaptcha" />

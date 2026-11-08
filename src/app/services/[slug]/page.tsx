@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { ChevronRight } from "lucide-react";
-import { SERVICES, getService } from "../../../lib/seed";
-import ServiceCard from "../../../components/ServiceCard";
 import ServiceTabs from "../../../components/ServiceTabs";
 import BookingBox from "../../../components/BookingBox";
+import ServiceDetailHeader from "../../../components/ServiceDetailHeader";
+import RelatedServices from "../../../components/RelatedServices";
+import { getServiceById, getServices } from "../../../server/catalog";
 
-export function generateStaticParams() {
-  return SERVICES.map((s) => ({ slug: s.id }));
-}
+// The catalogue comes from the database (Admin panel), so pages render per
+// request; the static shell must not freeze a snapshot of it.
+export const instant = false;
 
 export async function generateMetadata({
   params,
@@ -18,7 +17,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const service = getService(slug);
+  const service = await getServiceById(slug);
   if (!service) return { title: "Service not found" };
   return { title: service.name, description: service.tagline };
 }
@@ -62,38 +61,22 @@ async function ServiceDetailView({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const service = getService(slug);
-  if (!service) notFound();
+  const service = await getServiceById(slug);
+  if (!service || service.active === false) notFound();
 
-  const related = SERVICES.filter(
-    (s) => s.id !== service.id && (s.category === service.category || s.popular),
-  ).slice(0, 3);
+  const all = await getServices();
+  const related = all
+    .filter(
+      (s) => s.id !== service.id && (s.category === service.category || s.popular),
+    )
+    .slice(0, 3);
 
   return (
     <div className="section-shell py-10">
-      {/* breadcrumb */}
-      <nav className="mb-6 flex items-center gap-1.5 text-sm text-slate-400">
-        <Link href="/services" className="hover:text-blue-600">
-          Home
-        </Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <Link href="/services" className="hover:text-blue-600">
-          Services
-        </Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <span className="text-slate-600">{service.name}</span>
-      </nav>
-
       <div className="grid gap-8 lg:grid-cols-3">
         {/* left: header + tabs */}
         <div className="lg:col-span-2">
-          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
-            {service.category}
-          </span>
-          <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-            {service.name}
-          </h1>
-          <p className="mt-2 text-lg text-slate-500">{service.tagline}</p>
+          <ServiceDetailHeader service={service} />
 
           <div className="mt-6">
             <ServiceTabs service={service} />
@@ -106,14 +89,7 @@ async function ServiceDetailView({
         </aside>
       </div>
 
-      <section className="mt-14">
-        <h2 className="text-xl font-bold text-slate-900">You may also need</h2>
-        <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {related.map((s) => (
-            <ServiceCard key={s.id} service={s} />
-          ))}
-        </div>
-      </section>
+      <RelatedServices services={related} />
     </div>
   );
 }

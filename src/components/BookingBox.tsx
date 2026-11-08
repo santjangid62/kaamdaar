@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Check, MapPin, ShieldCheck } from "lucide-react";
 import type { Service } from "../lib/types";
 import { PriceMeta } from "./ServiceTabs";
+import { useLang, useServiceLabels } from "../lib/i18n";
 
 const TIMES = [
   "10:00 AM",
@@ -17,6 +18,11 @@ const TIMES = [
 
 /** Right rail of the service detail page — rate, date/time pick, Book Now. */
 export default function BookingBox({ service }: { service: Service }) {
+  const { lang, s } = useLang();
+  const locale = lang === "hi" ? "hi-IN" : "en-IN";
+  const labels = useServiceLabels();
+  const includes = labels(service).includes;
+
   const dates = useMemo(() => {
     const list: { value: string; label: string }[] = [];
     const now = new Date();
@@ -27,8 +33,8 @@ export default function BookingBox({ service }: { service: Service }) {
         value: d.toISOString().slice(0, 10),
         label:
           i === 0
-            ? "Today"
-            : d.toLocaleDateString("en-IN", {
+            ? s.detail.today
+            : d.toLocaleDateString(locale, {
                 weekday: "short",
                 day: "numeric",
                 month: "short",
@@ -36,7 +42,7 @@ export default function BookingBox({ service }: { service: Service }) {
       });
     }
     return list;
-  }, []);
+  }, [locale, s.detail.today]);
 
   const [date, setDate] = useState(dates[0].value);
   const [time, setTime] = useState(TIMES[1]);
@@ -51,10 +57,10 @@ export default function BookingBox({ service }: { service: Service }) {
 
       <div className="mt-5">
         <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-green-700">
-          <Check className="h-4 w-4" /> Service includes
+          <Check className="h-4 w-4" /> {s.detail.includes}
         </h2>
         <ul className="mt-2.5 space-y-1.5">
-          {service.includes.slice(0, 4).map((i) => (
+          {includes.slice(0, 4).map((i) => (
             <li key={i} className="flex gap-2 text-sm text-slate-600">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
               {i}
@@ -64,7 +70,7 @@ export default function BookingBox({ service }: { service: Service }) {
       </div>
 
       <div className="mt-5">
-        <h3 className="text-sm font-bold text-slate-900">Select Date</h3>
+        <h3 className="text-sm font-bold text-slate-900">{s.detail.selectDate}</h3>
         <div className="mt-2 grid grid-cols-5 gap-1.5">
           {dates.map((d) => (
             <button
@@ -84,7 +90,7 @@ export default function BookingBox({ service }: { service: Service }) {
       </div>
 
       <div className="mt-4">
-        <h3 className="text-sm font-bold text-slate-900">Select Time</h3>
+        <h3 className="text-sm font-bold text-slate-900">{s.detail.selectTime}</h3>
         <div className="mt-2 grid grid-cols-3 gap-1.5">
           {TIMES.map((t) => (
             <button
@@ -104,23 +110,20 @@ export default function BookingBox({ service }: { service: Service }) {
       </div>
 
       <Link href={href} className="btn-accent mt-5 w-full py-3 text-base">
-        Book Now
+        {s.detail.bookNow}
       </Link>
 
       <ul className="mt-4 space-y-2 text-xs text-slate-500">
         <li className="flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-green-600" /> Trained &
-          verified Pros
+          <ShieldCheck className="h-4 w-4 text-green-600" /> {s.detail.trained}
         </li>
         <li className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-blue-600" /> Providers within 2–3 km
-          of you
+          <MapPin className="h-4 w-4 text-blue-600" /> {s.detail.nearbyNote}
         </li>
       </ul>
 
       <p className="mt-4 rounded-xl bg-flame-50 p-3 text-xs leading-5 text-amber-800">
-        Final price is shown at checkout and can vary with location and service
-        complexity.
+        {s.detail.priceNote}
       </p>
     </div>
   );

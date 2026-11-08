@@ -1,185 +1,230 @@
 /**
- * Data layer.
+ * Data layer — the browser's API client.
  *
- * Every function below works against Firestore when Firebase credentials are
- * present in `.env.local`, and against localStorage otherwise (dev mode), so
- * the whole flow runs before a backend exists. Collections used:
- *   users/{phone}   addresses (subcollection)   bookings
+ * Every function here calls the backend (/api/…) that writes to the real
+ * database (see DB_DESIGN.md). Session stays in localStorage because it is
+ * pure client state; everything else — users, addresses, bookings, wallets —
+ * is server data. The exported names match the previous localStorage layer so
+ * pages did not need to change.
  */
 
-import { getFirebaseDb, isFirebaseConfigured } from "./firebase";
-import {
-  addDoc,
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  setDoc,
-  updateDoc,
-  where,
-} from "firebase/firestore";
 import type { Address, Booking, User } from "./types";
 
-const K = {
-  users: "kaamdaar.users",
-  addresses: "kaamdaar.addresses",
-  bookings: "kaamdaar.bookings",
-  session: "kaamdaar.session",
-} as const;
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+  });
+  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
+  return data;
+}
 
-function read<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
+/* ------------------------------- session ------------------------------- */
+/** Session is client-only state; the user row itself lives on the server. */
+
+const SESSION_KEY = "kaamdaar.session";
+
+export function loadSession(): User | null {
+  if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
+    const raw = window.localStorage.getItem(SESSION_KEY);
+    return raw ? (JSON.parse(raw) as User) : null;
   } catch {
-    return fallback;
+    return null;
   }
 }
 
-function write(key: string, value: unknown) {
+export function saveSession(user: User) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    window.localStorage.setItem(SESSION_KEY, JSON.stringify(user));
   } catch {
     /* quota / private mode */
   }
 }
 
-function uid(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-}
-
-export function makeReferralCode(phone: string): string {
-  const tail = phone.replace(/\D/g, "").slice(-4);
-  return `KDM${tail}`;
-}
-
-/* ------------------------------- session ------------------------------- */
-
-export function loadSession(): User | null {
-  return read<User | null>(K.session, null);
-}
-
-export function saveSession(user: User) {
-  write(K.session, user);
-}
-
 export function clearSession() {
-  if (typeof window !== "undefined") window.localStorage.removeItem(K.session);
+  if (typeof window !== "undefined") window.localStorage.removeItem(SESSION_KEY);
 }
 
 /* -------------------------------- users -------------------------------- */
 
-export async function findUserByPhone(phone: string): Promise<User | null> {
-  if (isFirebaseConfigured) {
-    const snap = await getDoc(doc(getFirebaseDb(), "users", phone));
-    return snap.exists() ? ({ id: snap.id, ...snap.data() } as User) : null;
-  }
-  return read<User[]>(K.users, []).find((u) => u.phone === phone) ?? null;
+/**
+ * After OTP verification: returns the existing account, or creates it
+ * (backend registration). The `isNew` flag decides profile-setup redirect.
+ */
+export async function resolveUser(phone: string): Promise<{ user: User; isNew: boolean }> {
+  return api<{ user: User; isNew: boolean }>("/api/users/resolve", {
+    method: "POST",
+    body: JSON.stringify({ phone }),
+  });
 }
 
-export async function createUser(phone: string): Promise<User> {
-  const user: User = {
-    id: phone,
-    phone,
-    firstName: "",
-    lastName: "",
-    email: "",
-    referralCode: makeReferralCode(phone),
-    createdAt: Date.now(),
-  };
-  if (isFirebaseConfigured) {
-    await setDoc(doc(getFirebaseDb(), "users", phone), { ...user });
-    return user;
+/** Fetch the freshest copy of a user by phone (null when deleted/blocked). */
+export async function fetchUser(phone: string): Promise<User | null> {
+  try {
+    const res = await fetch(`/api/users/resolve?phone=${encodeURIComponent(phone)}`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { user: User | null };
+    return data.user;
+  } catch {
+    return null;
   }
-  const users = read<User[]>(K.users, []);
-  write(K.users, [...users.filter((u) => u.phone !== phone), user]);
+}
+
+/** Kept for compatibility — registration now happens in resolveUser. */
+export async function createUser(phone: string): Promise<User> {
+  const { user } = await resolveUser(phone);
   return user;
 }
 
+/** Look a user up without creating one. */
+export async function findUserByPhone(phone: string): Promise<User | null> {
+  return fetchUser(phone);
+}
+
 export async function updateUser(id: string, patch: Partial<User>): Promise<User | null> {
-  if (isFirebaseConfigured) {
-    await updateDoc(doc(getFirebaseDb(), "users", id), patch as Record<string, unknown>);
-    const snap = await getDoc(doc(getFirebaseDb(), "users", id));
-    return snap.exists() ? ({ id: snap.id, ...snap.data() } as User) : null;
+  try {
+    const data = await api<{ user: User }>(`/api/users/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    return data.user;
+  } catch {
+    return null;
   }
-  const users = read<User[]>(K.users, []);
-  const next = users.map((u) => (u.id === id ? { ...u, ...patch } : u));
-  write(K.users, next);
-  const found = next.find((u) => u.id === id) ?? null;
-  if (found) saveSession(found);
-  return found;
 }
 
 /* ------------------------------ addresses ------------------------------ */
 
 export async function listAddresses(userId: string): Promise<Address[]> {
-  if (isFirebaseConfigured) {
-    const snap = await getDocs(collection(getFirebaseDb(), "users", userId, "addresses"));
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Address);
+  try {
+    const data = await api<{ addresses: Address[] }>(
+      `/api/users/${encodeURIComponent(userId)}/addresses`,
+    );
+    return data.addresses;
+  } catch {
+    return [];
   }
-  const all = read<Record<string, Address[]>>(K.addresses, {});
-  return all[userId] ?? [];
 }
 
 export async function saveAddress(userId: string, address: Address): Promise<Address[]> {
-  if (isFirebaseConfigured) {
-    const ref = address.id
-      ? doc(getFirebaseDb(), "users", userId, "addresses", address.id)
-      : doc(collection(getFirebaseDb(), "users", userId, "addresses"));
-    await setDoc(ref, { ...address, id: ref.id }, { merge: true });
-    return listAddresses(userId);
-  }
-  const all = read<Record<string, Address[]>>(K.addresses, {});
-  const list = all[userId] ?? [];
-  const id = address.id || uid("addr");
-  const saved = { ...address, id };
-  const next = list.some((a) => a.id === id)
-    ? list.map((a) => (a.id === id ? saved : a))
-    : [...list, saved];
-  all[userId] = next;
-  write(K.addresses, all);
-  return next;
+  const data = await api<{ addresses: Address[] }>(
+    `/api/users/${encodeURIComponent(userId)}/addresses`,
+    { method: "POST", body: JSON.stringify(address) },
+  );
+  return data.addresses;
 }
 
 export async function deleteAddress(userId: string, addressId: string): Promise<Address[]> {
-  if (isFirebaseConfigured) {
-    await getDoc(doc(getFirebaseDb(), "users", userId, "addresses", addressId)); // touch for parity
-    const { deleteDoc } = await import("firebase/firestore");
-    await deleteDoc(doc(getFirebaseDb(), "users", userId, "addresses", addressId));
-    return listAddresses(userId);
-  }
-  const all = read<Record<string, Address[]>>(K.addresses, {});
-  const next = (all[userId] ?? []).filter((a) => a.id !== addressId);
-  all[userId] = next;
-  write(K.addresses, all);
-  return next;
+  const data = await api<{ addresses: Address[] }>(
+    `/api/users/${encodeURIComponent(userId)}/addresses/${encodeURIComponent(addressId)}`,
+    { method: "DELETE" },
+  );
+  return data.addresses;
 }
 
 /* ------------------------------- bookings ------------------------------ */
 
 export async function createBooking(booking: Omit<Booking, "id">): Promise<Booking> {
-  if (isFirebaseConfigured) {
-    const ref = await addDoc(collection(getFirebaseDb(), "bookings"), booking);
-    return { ...booking, id: ref.id };
-  }
-  const all = read<Booking[]>(K.bookings, []);
-  const created: Booking = { ...booking, id: uid("bk") };
-  write(K.bookings, [created, ...all]);
-  return created;
+  const data = await api<{ booking: Booking }>("/api/bookings", {
+    method: "POST",
+    body: JSON.stringify(booking),
+  });
+  return data.booking;
 }
 
 export async function listBookings(userId: string): Promise<Booking[]> {
-  if (isFirebaseConfigured) {
-    const q = query(collection(getFirebaseDb(), "bookings"), where("userId", "==", userId));
-    const snap = await getDocs(q);
-    return snap.docs
-      .map((d) => ({ id: d.id, ...d.data() }) as Booking)
-      .sort((a, b) => b.createdAt - a.createdAt);
+  try {
+    const data = await api<{ bookings: Booking[] }>(
+      `/api/bookings?userId=${encodeURIComponent(userId)}`,
+    );
+    return data.bookings;
+  } catch {
+    return [];
   }
-  return read<Booking[]>(K.bookings, [])
-    .filter((b) => b.userId === userId)
-    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+/** Patch a booking through the dispatch lifecycle (server-validated). */
+export async function updateBooking(
+  userId: string,
+  id: string,
+  patch: Partial<Booking>,
+): Promise<Booking | null> {
+  try {
+    const data = await api<{ booking: Booking | null }>(
+      `/api/bookings/${encodeURIComponent(id)}`,
+      { method: "PATCH", body: JSON.stringify({ userId, patch }) },
+    );
+    return data.booking;
+  } catch {
+    return null;
+  }
+}
+
+/* ------------------------------- wallets ------------------------------- */
+
+export interface WalletTx {
+  id: string;
+  at: number;
+  kind: "commission" | "recharge";
+  amount: number; // negative = commission debit
+  note: string;
+  balanceAfter: number;
+}
+
+export interface Wallet {
+  providerId: string;
+  balance: number;
+  txns: WalletTx[];
+}
+
+/** Every Pro must keep at least this much in the wallet (company rule). */
+export const MIN_WALLET_BALANCE = 500;
+export const DEFAULT_WALLET_BALANCE = 1000;
+
+export async function getWallet(providerId: string): Promise<Wallet> {
+  try {
+    const data = await api<{
+      wallet: { providerId: string; balance: number };
+      txns: Array<WalletTx & { createdAt: number }>;
+    }>(`/api/wallets/${encodeURIComponent(providerId)}`);
+    return {
+      providerId,
+      balance: data.wallet.balance,
+      txns: data.txns.map((t) => ({
+        id: t.id,
+        at: t.createdAt ?? 0,
+        kind: t.kind,
+        amount: t.amount,
+        note: t.note,
+        balanceAfter: t.balanceAfter,
+      })),
+    };
+  } catch {
+    return { providerId, balance: DEFAULT_WALLET_BALANCE, txns: [] };
+  }
+}
+
+/** 10% company commission, debited the moment a paid service closes. */
+export async function debitCommission(
+  providerId: string,
+  commission: number,
+  note: string,
+): Promise<Wallet> {
+  await api<{ wallet: { balance: number } }>(`/api/wallets/${encodeURIComponent(providerId)}`, {
+    method: "POST",
+    body: JSON.stringify({ kind: "commission", amount: commission, note }),
+  });
+  return getWallet(providerId);
+}
+
+/** Top-up used when the balance drops below the ₹500 minimum. */
+export async function rechargeWallet(providerId: string, amount: number): Promise<Wallet> {
+  await api<{ wallet: { balance: number } }>(`/api/wallets/${encodeURIComponent(providerId)}`, {
+    method: "POST",
+    body: JSON.stringify({ kind: "recharge", amount }),
+  });
+  return getWallet(providerId);
 }

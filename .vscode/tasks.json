@@ -1,0 +1,152 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Client — Kaamdaar web app (next dev :3100)",
+      "type": "shell",
+      "command": "npm run dev -- -p 3100 2>&1 | tee .dev.log",
+      "options": {
+        "shell": {
+          "executable": "bash",
+          "args": []
+        }
+      },
+      "group": { "kind": "build", "isDefault": true },
+      "presentation": {
+        "panel": "dedicated",
+        "group": "client",
+        "reveal": "always",
+        "clear": true,
+        "showReuseMessage": false,
+        "close": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Server — backend/API logs (.dev.log)",
+      "type": "shell",
+      "command": "tail -F .dev.log",
+      "options": {
+        "shell": {
+          "executable": "bash",
+          "args": []
+        }
+      },
+      "group": "none",
+      "presentation": {
+        "panel": "dedicated",
+        "group": "server",
+        "reveal": "always",
+        "showReuseMessage": false,
+        "close": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Admin panel — open in browser (:3100/admin)",
+      "type": "shell",
+      "command": "code http://localhost:3100/admin",
+      "options": {
+        "shell": { "executable": "bash", "args": [] }
+      },
+      "group": "none",
+      "presentation": {
+        "panel": "dedicated",
+        "group": "admin",
+        "reveal": "always",
+        "showReuseMessage": false,
+        "close": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flutter — Customer app (Chrome :4101)",
+      "type": "shell",
+      "command": "cd apps/customer_app && ../../.flutter-sdk/flutter/bin/flutter run -d chrome --web-port=4101 --web-hostname=127.0.0.1 --dart-define=API_BASE=http://127.0.0.1:3100",
+      "options": {
+        "shell": { "executable": "bash", "args": [] }
+      },
+      "group": "none",
+      "presentation": {
+        "panel": "dedicated",
+        "group": "flutter-customer",
+        "reveal": "always",
+        "clear": true,
+        "showReuseMessage": false,
+        "close": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flutter — Provider app (Chrome :4102)",
+      "type": "shell",
+      "command": "cd apps/provider_app && ../../.flutter-sdk/flutter/bin/flutter run -d chrome --web-port=4102 --web-hostname=127.0.0.1 --dart-define=API_BASE=http://127.0.0.1:3100",
+      "options": {
+        "shell": { "executable": "bash", "args": [] }
+      },
+      "group": "none",
+      "presentation": {
+        "panel": "dedicated",
+        "group": "flutter-provider",
+        "reveal": "always",
+        "clear": true,
+        "showReuseMessage": false,
+        "close": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Emulators — boot both Android AVDs",
+      "type": "shell",
+      "command": "\"$ANDROID_SDK_ROOT/emulator/emulator\" -avd kaamdaar_customer -netdelay none -netspeed full -no-snapshot-load & \"$ANDROID_SDK_ROOT/emulator/emulator\" -avd kaamdaar_provider -netdelay none -netspeed full -no-snapshot-load & wait",
+      "options": {
+        "shell": { "executable": "bash", "args": [] }
+      },
+      "group": "none",
+      "presentation": {
+        "panel": "dedicated",
+        "group": "emulators",
+        "reveal": "always",
+        "showReuseMessage": false,
+        "close": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flutter — Customer app (Emulator 1)",
+      "type": "shell",
+      "command": "cd apps/customer_app && ../../.flutter-sdk/flutter/bin/flutter run -d emulator-5554 --dart-define=API_BASE=http://10.0.2.2:3100",
+      "options": {
+        "shell": { "executable": "bash", "args": [] }
+      },
+      "group": "none",
+      "presentation": {
+        "panel": "dedicated",
+        "group": "flutter-customer",
+        "reveal": "always",
+        "clear": true,
+        "showReuseMessage": false,
+        "close": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Flutter — Provider app (Emulator 2)",
+      "type": "shell",
+      "command": "cd apps/provider_app && ../../.flutter-sdk/flutter/bin/flutter run -d emulator-5556 --dart-define=API_BASE=http://10.0.2.2:3100",
+      "options": {
+        "shell": { "executable": "bash", "args": [] }
+      },
+      "group": "none",
+      "presentation": {
+        "panel": "dedicated",
+        "group": "flutter-provider",
+        "reveal": "always",
+        "clear": true,
+        "showReuseMessage": false,
+        "close": false
+      },
+      "problemMatcher": []
+    }
+  ]
+}

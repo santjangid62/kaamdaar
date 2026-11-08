@@ -89,22 +89,36 @@ body {
 }
 
 @utility card {
-  @apply rounded-2xl border border-slate-200 bg-white;
+  @apply rounded-lg border border-slate-200 bg-white;
 }
 
 @utility btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 /* Orange CTA — brand accent, navy text keeps it readable */
 @utility btn-accent {
-  @apply inline-flex items-center justify-center gap-2 rounded-full bg-flame px-5 py-2.5 text-sm font-semibold text-navy transition hover:bg-flame-400 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-flame px-5 py-2.5 text-sm font-semibold text-navy transition hover:bg-flame-400 disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 @utility btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50;
 }
 
 @utility field {
-  @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100;
+  @apply w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100;
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-blue-600);
+  outline-offset: 2px;
+}
+
+/*
+ * Grid/flex children must be allowed to shrink below their content width.
+ * Without this a wide table or chart forces its column to its intrinsic width
+ * and the whole admin layout scrolls sideways on phones.
+ */
+[class*="col-span"] {
+  min-width: 0;
 }

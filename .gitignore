@@ -24,6 +24,17 @@
 .DS_Store
 *.pem
 
+# local database
+/.data/
+
+# flutter SDK (installed locally for the mobile apps)
+.flutter-sdk/
+.flutter-install.log
+.flutter-version.log
+
+# local run logs
+/.logs/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
@@ -44,6 +55,21 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# flutter build output and caches (source only)
+/apps/*/build/
+/apps/*/.dart_tool/
+/apps/*/.flutter-plugins
+/apps/*/.flutter-plugins-dependencies
+/apps/*/android/.gradle/
+/apps/*/android/local.properties
+/apps/*/ios/Pods/
+/apps/*/ios/.symlinks/
+
+# local verification screenshots and one-off logs
+/*.png
+/screenshots/
+.flutter-create.log
 
 # typescript
 *.tsbuildinfo

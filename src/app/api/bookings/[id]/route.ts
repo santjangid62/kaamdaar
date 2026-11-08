@@ -1,0 +1,181 @@
+/** PATCH /api/bookings/:id — dispatch lifecycle updates (owner-checked). */
+import { NextResponse } from "next/server";
+import { all, get, patch, ready } from "../../../../server/db";
+import { etaMinutes, generateOtp, toProfile } from "../../../../lib/dispatch";
+import { haversineKm } from "../../../../lib/geo";
+import { appendEvents, eventsForChange, newEvent } from "../../../../server/events";
+import type {
+  Booking,
+  BookingActor,
+  BookingEvent,
+  BookingStatus,
+  Provider,
+} from "../../../../lib/types";
+
+/** Fields the client is allowed to change on its own booking. */
+const ALLOWED = new Set([
+  // NB: notifiedIds is deliberately absent — the notify list is server-owned,
+  // so no client can dispatch a request or mask an offer from another Pro.
+  "status", "providerId", "providerName", "providerProfile",
+  "dispatchedAt", "acceptedAt", "enrouteAt", "arrivedAt", "startedAt",
+  "completedAt", "paidAt", "paymentMethod", "etaMinutes", "startOtp",
+  "completeOtp", "providerPoint", "originPoint", "date", "slot", "duration",
+]);
+
+export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  await ready();
+  const { id } = await ctx.params;
+  let body: {
+    userId?: string;
+    /** `withdrawNotify` lets a Pro drop only their own offer. */
+    patch?: Partial<Booking> & {
+      withdrawNotify?: string;
+      /** live GPS the Provider app reports while travelling to the job */
+      providerPing?: { lat: number; lng: number; accuracy?: number };
+      /** Pro tapped "Start navigation" — timestamped server-side */
+      navigationStarted?: boolean;
+    };
+  };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  const booking = await get<Booking>("bookings", id);
+  if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  if (body.userId && booking.userId !== body.userId) {
+    return NextResponse.json({ error: "Not your booking" }, { status: 403 });
+  }
+
+  const changes: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body.patch ?? {})) {
+    if (ALLOWED.has(k)) changes[k] = v;
+  }
+  // commission stays server-owned; recalculate if the amount ever changes
+  if (typeof changes.amount === "number") delete changes.amount;
+
+  // A Pro may withdraw their own offer; nothing else on the list moves.
+  const withdraw = body.patch?.withdrawNotify;
+  if (typeof withdraw === "string" && withdraw) {
+    changes.notifiedIds = (booking.notifiedIds ?? []).filter((pid) => pid !== withdraw);
+  }
+
+  /* ---- live tracking: the Pro app reports its GPS while travelling ----
+   * Only the Pro holding this job may move its pin, and the server stamps the
+   * receipt time, so the customer map and the Admin panel can tell a fresh
+   * position from a stale one. */
+  const ping = body.patch?.providerPing;
+  let pinged = false;
+  if (ping && (!Number.isFinite(ping.lat) || !Number.isFinite(ping.lng))) {
+    return NextResponse.json({ error: "providerPing needs numeric lat/lng" }, { status: 422 });
+  }
+  if (ping && (Math.abs(ping.lat) > 90 || Math.abs(ping.lng) > 180)) {
+    return NextResponse.json({ error: "providerPing is outside valid coordinates" }, { status: 422 });
+  }
+  if (ping) {
+    if (!booking.providerId) {
+      return NextResponse.json(
+        { error: "No Pro is assigned to this job yet" },
+        { status: 409 },
+      );
+    }
+    changes.livePoint = { lat: ping.lat, lng: ping.lng };
+    changes.pingAt = Date.now();
+    changes.pingCount = (booking.pingCount ?? 0) + 1;
+    // the first ping is also where the journey started
+    if (!booking.providerPoint) {
+      changes.providerPoint = { lat: ping.lat, lng: ping.lng };
+    }
+    pinged = true;
+  }
+
+  if (body.patch?.navigationStarted === true && booking.providerId) {
+    if (!booking.navigationStartedAt) changes.navigationStartedAt = Date.now();
+  }
+
+  // First accept wins (Rapido-style dispatch): once a request is allotted to
+  // a Pro, no other Pro's accept can take it over — the race between two
+  // providers tapping Accept is decided here, not by client timing. The
+  // notify list is withdrawn server-side as well, so every other Pro's phone
+  // stops showing the offer in the same write.
+  if (changes.status === "accepted") {
+    const acceptingId =
+      typeof changes.providerId === "string" ? changes.providerId : "";
+    if (!acceptingId) {
+      return NextResponse.json(
+        { error: "providerId is required to accept" },
+        { status: 422 },
+      );
+    }
+    if (booking.providerId && booking.providerId !== acceptingId) {
+      return NextResponse.json(
+        { error: "Request already accepted by another Pro" },
+        { status: 409 },
+      );
+    }
+    const notified = booking.notifiedIds ?? [];
+    if (
+      booking.providerId !== acceptingId &&
+      notified.length > 0 &&
+      !notified.includes(acceptingId)
+    ) {
+      return NextResponse.json(
+        { error: "This request is no longer offered to you" },
+        { status: 403 },
+      );
+    }
+    // Freeze the Pro's public details, ETA and start OTP server-side so the
+    // customer's card never depends on a client-supplied profile.
+    const pro = (await all<Provider>("providers")).find((p) => p.id === acceptingId);
+    if (pro) {
+      const distanceKm = booking.originPoint
+        ? haversineKm(booking.originPoint, pro)
+        : 0;
+      changes.providerName = pro.name;
+      changes.providerProfile = toProfile(pro, distanceKm);
+      changes.providerPoint = { lat: pro.lat, lng: pro.lng };
+      changes.etaMinutes = etaMinutes(distanceKm);
+    }
+    if (!booking.startOtp && typeof changes.startOtp !== "string") {
+      changes.startOtp = generateOtp();
+    }
+    changes.notifiedIds = []; // withdrawn from every other Pro
+    changes.acceptedAt =
+      typeof changes.acceptedAt === "number" ? changes.acceptedAt : Date.now();
+  }
+
+  /* ---- audit trail: written here, never by a client ---- */
+  const actor: BookingActor = body.userId
+    ? "customer"
+    : changes.providerId || withdraw || pinged || changes.navigationStartedAt
+      ? "provider"
+      : "admin";
+  const added: BookingEvent[] = [];
+  if (typeof changes.status === "string" && changes.status !== booking.status) {
+    added.push(
+      ...eventsForChange({
+        status: changes.status as BookingStatus,
+        actor,
+        point: booking.originPoint,
+        detail:
+          changes.status === "accepted" && changes.providerName
+            ? `${String(changes.providerName)} accepted · ETA ${Number(changes.etaMinutes ?? 0)} min`
+            : undefined,
+      }),
+    );
+  }
+  if (typeof withdraw === "string" && withdraw) {
+    added.push(newEvent("provider", "declined", `Offer declined by Pro ${withdraw}`));
+  }
+  if (changes.navigationStartedAt) {
+    added.push(newEvent("provider", "navigation", "Pro started navigation to the customer"));
+  }
+  if (pinged && !booking.livePoint) {
+    added.push(newEvent("provider", "ping", "Live GPS tracking started"));
+  }
+  if (added.length) changes.events = appendEvents(booking.events, added);
+
+  const updated = await patch<Booking>("bookings", id, changes);
+  return NextResponse.json({ booking: updated });
+}

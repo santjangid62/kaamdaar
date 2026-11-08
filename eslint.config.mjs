@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // local data + the OpenNext build workspace (huge, own node_modules):
+    ".data/**",
+    ".wrangler/**",
+    ".open-next/**",
+    "freebuff-sites-build/**",
+    "freebuff.open-next.config.ts",
+    ".seed-demo.js",
+    "tsconfig.tsbuildinfo",
   ]),
 ]);
 

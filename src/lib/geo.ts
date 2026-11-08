@@ -18,19 +18,62 @@ export function formatDistance(km: number): string {
   return `${km.toFixed(1)} km`;
 }
 
-/** Ask the browser for a one-shot position. */
-export function browserLocation(timeoutMs = 8000): Promise<GeoPoint> {
-  return new Promise((resolve, reject) => {
+type Fix = { lat: number; lng: number; accuracy: number };
+
+/** One geolocation request that never rejects — null means no fix. */
+function requestFix(opts: PositionOptions): Promise<Fix | null> {
+  return new Promise((resolve) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      reject(new Error("Geolocation not supported"));
+      resolve(null);
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      (err) => reject(err),
-      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60_000 },
+      (pos) =>
+        resolve({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy ?? 9999,
+        }),
+      () => resolve(null),
+      opts,
     );
   });
+}
+
+/**
+ * Ask the browser for the *exact* current position.
+ *
+ * 1. Fresh high-accuracy fix only (maximumAge 0 — a stale cached point is
+ *    never accepted, GPS/ Wi-Fi hybrid is requested instead).
+ * 2. If the fix is coarse (>50 m accuracy) a second reading is taken and the
+ *    sharper of the two wins.
+ * 3. Only when both fail do we fall back to a cached position, which still
+ *    beats failing outright.
+ */
+export async function browserLocation(timeoutMs = 10000): Promise<GeoPoint> {
+  const hiAccuracy: PositionOptions = {
+    enableHighAccuracy: true,
+    timeout: timeoutMs,
+    maximumAge: 0,
+  };
+
+  let best = await requestFix(hiAccuracy);
+
+  if (best && best.accuracy > 50) {
+    const second = await requestFix(hiAccuracy);
+    if (second && second.accuracy < best.accuracy) best = second;
+  }
+
+  if (!best) {
+    best = await requestFix({
+      enableHighAccuracy: false,
+      timeout: timeoutMs,
+      maximumAge: 5 * 60_000,
+    });
+  }
+
+  if (!best) throw new Error("Location unavailable");
+  return { lat: best.lat, lng: best.lng, accuracy: best.accuracy };
 }
 
 /** Reverse geocode to a readable label. Falls back gracefully when offline/blocked. */

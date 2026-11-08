@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Loader2, MapPin, Navigation } from "lucide-react";
 import { useApp } from "./AppProvider";
-import { CITY_CLUSTERS } from "../lib/geo";
+import { CITY_CLUSTERS, formatDistance } from "../lib/geo";
+import { nearbyAreas } from "../lib/areas";
 
 interface Props {
   /** "pill" for the navbar, "inline" for in-page use. */
@@ -17,11 +18,24 @@ interface Props {
  * rates, nearby Pros, radius filtering — still works.
  */
 export default function LocationButton({ variant = "pill", className = "" }: Props) {
-  const { location, locating, locationError, detectLocation, setLocation } = useApp();
+  const {
+    location,
+    locating,
+    locationError,
+    radiusKm,
+    setRadiusKm,
+    providers,
+    detectLocation,
+    setLocation,
+  } = useApp();
   const [open, setOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- gate client-only loading UI until hydration
+    setHydrated(true);
+
     function onClick(e: MouseEvent) {
       if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
     }
@@ -36,13 +50,15 @@ export default function LocationButton({ variant = "pill", className = "" }: Pro
     };
   }, []);
 
+  const isLocating = hydrated && locating;
   const label = location
     ? location.label
-    : locating
+    : isLocating
       ? "Detecting location…"
       : locationError
-        ? "Set location"
-        : "Location";
+          ? "Try location again"
+          : "Allow location";
+  const areas = nearbyAreas(location, radiusKm, providers);
 
   const base =
     variant === "pill"
@@ -58,7 +74,7 @@ export default function LocationButton({ variant = "pill", className = "" }: Pro
         title="Current location"
         aria-expanded={open}
       >
-        {locating ? (
+        {isLocating ? (
           <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
         ) : (
           <MapPin className="h-4 w-4 shrink-0 text-blue-600" />
@@ -79,6 +95,58 @@ export default function LocationButton({ variant = "pill", className = "" }: Pro
           >
             <Navigation className="h-4 w-4" /> Use my current location
           </button>
+          {location && (
+            <div className="border-b border-slate-100 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                {location.accuracy === undefined ? "Selected coordinates" : "Detected coordinates"}
+              </p>
+              <p className="mt-1 text-xs font-medium tabular-nums text-slate-700">
+                {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+              </p>
+              {location.accuracy !== undefined && (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Reported accuracy ±{Math.round(location.accuracy)} m
+                </p>
+              )}
+            </div>
+          )}
+          <div className="border-b border-slate-100 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Nearby radius
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
+              {([3, 5] as const).map((radius) => (
+                <button
+                  key={radius}
+                  type="button"
+                  aria-pressed={radiusKm === radius}
+                  onClick={() => setRadiusKm(radius)}
+                  className={`rounded-md px-2 py-1.5 text-xs font-semibold ${radiusKm === radius ? "bg-white text-blue-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+                >
+                  {radius} km
+                </button>
+              ))}
+            </div>
+          </div>
+          {location && (
+            <div className="border-b border-slate-100 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                Nearby areas
+              </p>
+              {areas.length ? (
+                <ul className="mt-2 max-h-36 space-y-2 overflow-y-auto">
+                  {areas.map((area) => (
+                    <li key={`${area.city}-${area.name}`} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="truncate font-medium text-slate-700">{area.name}, {area.city}</span>
+                      <span className="shrink-0 text-slate-400">{formatDistance(area.km)} · {area.pros} Pros</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-xs text-slate-500">No providers in this radius yet.</p>
+              )}
+            </div>
+          )}
           <p className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             Or choose your city
           </p>
