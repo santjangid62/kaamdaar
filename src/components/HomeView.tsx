@@ -101,7 +101,7 @@ export default function HomeView() {
   return (
     <div>
       {/* ── hero ───────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-navy">
+      <section className="relative isolate overflow-hidden bg-navy">
         {/* deep navy → blue wash, so the hero reads as one lit surface */}
         <div className="absolute inset-0 bg-linear-to-br from-navy via-navy-800 to-blue-900" />
         <div className="absolute inset-x-0 bottom-0 h-40 bg-linear-to-t from-navy to-transparent" />
@@ -119,21 +119,21 @@ export default function HomeView() {
           }}
         />
 
-        <div className="section-shell relative grid items-center gap-10 py-16 sm:py-24 lg:grid-cols-2">
+        <div className="section-shell relative grid items-center gap-12 py-16 sm:py-20 lg:grid-cols-[1.08fr_0.92fr] lg:gap-16 lg:py-24">
           <div className="min-w-0">
-            <span className="inline-flex items-center gap-2 rounded-full border border-flame-400/40 bg-white/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-white">
+            <span className="inline-flex items-center gap-2 rounded-full border border-flame-400/50 bg-white/[0.09] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white shadow-lg shadow-black/10 backdrop-blur-md sm:text-xs">
               <BadgeCheck className="h-3.5 w-3.5 text-flame-400" />
               {s.hero.badge}
             </span>
 
-            <h1 className="mt-5 max-w-3xl text-4xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-6xl">
+            <h1 className="mt-6 max-w-3xl text-[2.7rem] font-black leading-[1.04] tracking-[-0.045em] text-white drop-shadow-sm sm:text-6xl lg:text-7xl xl:text-[5.15rem]">
               {heroLead}{" "}
               <span className="text-flame drop-shadow-[0_0_24px_rgba(255,122,0,0.45)]">
                 {heroAccent}
               </span>
             </h1>
 
-            <p className="mt-4 max-w-lg text-base leading-7 text-blue-100 sm:text-lg">
+            <p className="mt-6 max-w-xl text-base leading-8 text-blue-100/95 sm:text-xl sm:leading-9">
               {heroSubtitle}
             </p>
 
@@ -145,7 +145,7 @@ export default function HomeView() {
             <button
               type="button"
               onClick={() => openVoiceAssistant(true)}
-              className="mt-5 inline-flex items-center gap-2 rounded-full border border-flame-400/50 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-flame hover:text-navy"
+              className="mt-5 inline-flex items-center gap-2 rounded-full border border-flame-400/50 bg-white/[0.08] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-black/10 backdrop-blur transition duration-200 hover:-translate-y-0.5 hover:border-flame hover:bg-flame hover:text-navy"
             >
               <Mic className="h-4 w-4 text-flame-400" />
               {s.hero.voiceCta}
@@ -155,7 +155,7 @@ export default function HomeView() {
             </button>
 
             {/* social proof + live availability */}
-            <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <div className="mt-7 flex flex-wrap items-center gap-x-4 gap-y-3">
               <div className="flex -space-x-2">
                 {[
                   { n: "PS", tone: "bg-flame" },
@@ -187,7 +187,7 @@ export default function HomeView() {
               </span>
             </div>
 
-            <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+            <ul className="mt-9 grid grid-cols-2 gap-x-5 gap-y-4 border-t border-white/10 pt-6 sm:grid-cols-4">
               {s.hero.trust.map((label, i) => {
                 const Icon = [BadgeCheck, LayoutGrid, MapPin, ShieldCheck][i];
                 return (
@@ -204,12 +204,12 @@ export default function HomeView() {
           </div>
 
           {/* booking preview card */}
-          <div className="hero-float relative mx-auto hidden w-full max-w-sm min-w-0 lg:block">
-            <span className="absolute -left-10 -top-6 flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-xl">
+          <div className="hero-float relative mx-auto hidden w-full max-w-[27rem] min-w-0 lg:block">
+            <span className="absolute -left-8 -top-7 z-10 flex items-center gap-2 rounded-full border border-white/80 bg-white px-4 py-2.5 text-sm font-extrabold text-slate-800 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.45)]">
               <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />{" "}
               {s.hero.card.rating}
             </span>
-            <div className="card border-0 p-5 shadow-2xl ring-1 ring-black/5">
+            <div className="card border-0 p-6 shadow-[0_30px_80px_-28px_rgba(0,0,0,0.55)] ring-1 ring-black/5">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-sm font-bold text-slate-900">
                   <span className="grid h-8 w-8 place-items-center rounded-lg bg-navy text-sm font-extrabold text-white">
@@ -249,7 +249,7 @@ export default function HomeView() {
                 </li>
               </ul>
             </div>
-            <div className="card -mt-5 w-52 border-0 p-4 shadow-xl ring-1 ring-black/5">
+            <div className="card relative z-10 -mt-6 ml-auto w-60 border-0 p-5 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.5)] ring-1 ring-black/5">
               <p className="text-xs font-semibold text-slate-700">
                 {s.hero.card.nearbyTitle}
               </p>
