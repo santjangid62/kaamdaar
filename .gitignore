@@ -78,3 +78,7 @@ next-env.d.ts
 /.open-next/
 /.wrangler/
 .vercel
+.env*
+
+# MongoDB Atlas connection string (local-only secret, never committed)
+/atlas-uri.txt
