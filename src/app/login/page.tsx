@@ -162,9 +162,9 @@ function LoginFlow() {
   ];
 
   return (
-    <div className="min-h-screen bg-offwhite lg:grid lg:grid-cols-[1.05fr_1fr]">
+    <div className="min-h-screen overflow-hidden bg-[#f4f7fb] lg:grid lg:grid-cols-[0.92fr_1.08fr]">
       {/* ── Brand panel ─────────────────────────────────────────── */}
-      <aside className="relative overflow-hidden bg-navy px-6 py-8 text-white sm:px-10 lg:flex lg:flex-col lg:justify-between lg:px-14 lg:py-14">
+      <aside className="relative isolate overflow-hidden bg-[#0b1f3a] px-6 py-8 text-white sm:px-10 lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:px-14 lg:py-14 xl:px-20">
         <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-navy via-navy-800 to-blue-900" />
         <div
           aria-hidden
@@ -191,24 +191,24 @@ function LoginFlow() {
           </span>
         </div>
 
-        <div className="relative mt-10 max-w-lg lg:mt-0">
+        <div className="relative mx-auto mt-10 w-full max-w-xl lg:my-auto lg:mt-0">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-flame px-3 py-1 text-xs font-bold uppercase tracking-wide text-navy">
             <Smartphone className="h-3.5 w-3.5" /> {s.login.onlyPhone}
           </span>
-          <h1 className="mt-5 text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl">
+          <h1 className="mt-6 text-4xl font-black leading-[1.04] tracking-[-0.045em] sm:text-5xl xl:text-6xl">
             <span className="bg-linear-to-r from-white via-white to-flame-200 bg-clip-text text-transparent">
               {brand.title}
             </span>
           </h1>
-          <p className="mt-4 max-w-md text-sm leading-6 text-white/70 sm:text-base">
+          <p className="mt-5 max-w-lg text-base leading-7 text-blue-100/85 sm:text-lg sm:leading-8">
             {brand.sub}
           </p>
 
-          <ul className="mt-8 space-y-3.5">
+          <ul className="mt-9 grid gap-3 sm:grid-cols-1">
             {features.map((f) => (
               <li
                 key={f.text}
-                className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-3 text-sm text-white/90 backdrop-blur transition hover:border-flame-400/40 hover:bg-white/10 sm:text-[15px]"
+                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3.5 text-sm font-medium text-white/90 shadow-[0_12px_30px_-24px_rgba(0,0,0,0.65)] backdrop-blur-md transition duration-200 hover:border-flame-400/40 hover:bg-white/10 sm:text-[15px]"
               >
                 <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-flame text-navy">
                   <f.icon className="h-4 w-4" />
@@ -225,10 +225,10 @@ function LoginFlow() {
       </aside>
 
       {/* ── Form panel ──────────────────────────────────────────── */}
-      <main className="flex items-center justify-center bg-linear-to-b from-offwhite via-white to-blue-50/60 px-4 py-10 sm:px-8">
-        <div className="w-full max-w-md">
+      <main className="relative flex items-center justify-center bg-[radial-gradient(ellipse_at_top_right,rgba(18,97,160,0.07),transparent_42%),linear-gradient(180deg,#f8faff_0%,#ffffff_48%,#f1f6fc_100%)] px-4 py-10 sm:px-8 lg:px-12 lg:py-14 xl:px-16">
+        <div className="w-full max-w-[34rem]">
           {/* step indicator */}
-          <div className="mb-6 flex items-center gap-3">
+          <div className="mb-7 flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-white/75 p-3 shadow-[0_10px_30px_-26px_rgba(11,31,58,0.35)] backdrop-blur sm:p-4">
             {[
               { key: "phone", label: brand.step1, n: 1 },
               { key: "otp", label: brand.step2, n: 2 },
@@ -242,9 +242,9 @@ function LoginFlow() {
                       className={`hidden h-px flex-1 sm:block ${done || active ? "bg-flame" : "bg-slate-200"}`}
                     />
                   )}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3.5">
                     <span
-                      className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold transition ${
+                      className={`grid h-9 w-9 place-items-center rounded-full text-sm font-extrabold shadow-sm transition-all duration-300 ${
                         active
                           ? "bg-flame text-navy"
                           : done
@@ -255,7 +255,7 @@ function LoginFlow() {
                       {done ? <Check className="h-3.5 w-3.5" /> : st.n}
                     </span>
                     <span
-                      className={`text-xs font-semibold sm:text-sm ${active ? "text-navy" : "text-slate-400"}`}
+                      className={`text-xs font-bold sm:text-sm ${active ? "text-navy" : "text-slate-400"}`}
                     >
                       {st.label}
                     </span>
@@ -265,7 +265,7 @@ function LoginFlow() {
             })}
           </div>
 
-          <div className="relative rounded-2xl border border-slate-100 bg-white/95 p-6 shadow-[0_30px_70px_-30px_rgba(11,31,58,0.45)] ring-1 ring-white/70 backdrop-blur sm:p-7">
+          <div className="relative overflow-hidden rounded-[1.75rem] border border-white bg-white p-6 shadow-[0_35px_90px_-42px_rgba(11,31,58,0.38)] ring-1 ring-slate-200/80 sm:p-8 lg:p-9">
             <span className="pointer-events-none absolute inset-x-8 -top-px h-px bg-linear-to-r from-transparent via-flame/60 to-transparent" />
             <div className="flex items-center gap-2">
               <Image
@@ -273,14 +273,14 @@ function LoginFlow() {
                 alt="Kaamdaar"
                 width={40}
                 height={40}
-                className="h-10 w-10 rounded-xl"
+                className="h-12 w-12 rounded-2xl shadow-sm ring-1 ring-slate-100 sm:h-14 sm:w-14"
                 priority
               />
               <div>
-                <h2 className="text-xl font-extrabold text-navy">
+                <h2 className="text-2xl font-black tracking-tight text-navy sm:text-[1.75rem]">
                   {step === "phone" ? s.login.title : s.login.verify}
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="mt-0.5 text-sm font-medium text-slate-500 sm:text-base">
                   {step === "phone" ? s.login.onlyPhone : fill(s.login.sentTo, { phone })}
                 </p>
               </div>
@@ -294,19 +294,19 @@ function LoginFlow() {
             )}
 
             {step === "phone" ? (
-              <form onSubmit={handleSend} className="mt-6 space-y-4">
+              <form onSubmit={handleSend} className="mt-8 space-y-5">
                 <label className="block">
-                  <span className="mb-1.5 block text-sm font-semibold text-slate-700">
+                  <span className="mb-2 block text-sm font-bold tracking-tight text-navy sm:text-base">
                     {s.login.mobile}
                   </span>
                   <div
-                    className={`flex h-14 items-stretch overflow-hidden rounded-xl border bg-white transition focus-within:ring-2 ${
+                    className={`flex h-[4.5rem] items-stretch overflow-hidden rounded-2xl border-2 bg-white shadow-[0_8px_24px_-20px_rgba(11,31,58,0.35)] transition-all duration-200 focus-within:-translate-y-px focus-within:ring-4 ${
                       error
                         ? "border-red-300 focus-within:border-red-400 focus-within:ring-red-100"
-                        : "border-slate-200 focus-within:border-flame focus-within:ring-flame-100"
+                        : "border-slate-200 hover:border-slate-300 focus-within:border-flame focus-within:ring-flame-100"
                     }`}
                   >
-                    <span className="grid shrink-0 place-items-center border-r border-slate-200 bg-slate-50 px-4 text-sm font-bold text-navy">
+                    <span className="grid shrink-0 place-items-center border-r border-slate-200 bg-slate-50/90 px-5 text-base font-extrabold text-navy">
                       +91
                     </span>
                     <input
@@ -317,13 +317,13 @@ function LoginFlow() {
                       onChange={(e) => onPhoneChange(e.target.value)}
                       placeholder="98765 43210"
                       aria-invalid={Boolean(error)}
-                      className="min-w-0 flex-1 border-0 bg-transparent px-4 text-base font-semibold tracking-wide outline-none placeholder:font-normal placeholder:text-slate-300"
+                      className="min-w-0 flex-1 border-0 bg-transparent px-4 text-lg font-bold tracking-wide text-navy outline-none placeholder:font-medium placeholder:text-slate-300 sm:text-xl"
                     />
-                    <span className="grid shrink-0 place-items-center pr-3.5 text-[11px] font-semibold tabular-nums text-slate-400">
+                    <span className="grid shrink-0 place-items-center border-l border-slate-100 px-3.5 text-xs font-bold tabular-nums text-slate-400">
                       {digits.length}/10
                     </span>
                   </div>
-                  <span className="mt-2 block text-xs text-slate-400">{s.login.mobileHint}</span>
+                  <span className="mt-2.5 block text-xs font-medium text-slate-400 sm:text-sm">{s.login.mobileHint}</span>
                 </label>
 
                 {error && (
@@ -333,7 +333,7 @@ function LoginFlow() {
                 )}
 
                 <div
-                  className={`flex items-center gap-2 rounded-xl px-3.5 py-3 text-xs font-semibold transition ${
+                  className={`flex items-center gap-3 rounded-2xl border border-slate-100 px-4 py-4 text-sm font-semibold leading-6 transition ${
                     busy ? "bg-flame-50 text-flame-600" : "bg-offwhite text-slate-500"
                   }`}
                 >
@@ -350,7 +350,7 @@ function LoginFlow() {
                   )}
                 </div>
 
-                <p className="text-xs leading-5 text-slate-500">
+                <p className="border-t border-slate-100 pt-4 text-xs leading-6 text-slate-500 sm:text-sm">
                   <ShieldCheck className="mr-1.5 inline h-4 w-4 -translate-y-px text-green-600" />
                   {s.login.termsLine.before}
                   <Link href="/terms" className="text-blue-600 underline">
@@ -443,9 +443,9 @@ function LoginFlow() {
             )}
           </div>
 
-          <p className="mt-5 text-center text-xs leading-5 text-slate-500">{brand.newUser}</p>
+          <p className="mt-6 text-center text-sm font-medium leading-6 text-slate-500">{brand.newUser}</p>
 
-          <p className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-400">
+          <p className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-slate-400">
             <Smartphone className="h-4 w-4" />
             {isFirebaseConfigured ? s.login.secureNote : s.login.devNote}
           </p>
