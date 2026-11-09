@@ -36,9 +36,9 @@ export const instant = false;
 
 function PageHeader() {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="relative mb-1 flex flex-wrap items-end justify-between gap-4 overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-r from-white via-white to-blue-50/80 p-5 shadow-[0_12px_34px_-28px_rgba(18,97,160,0.35)] sm:p-6">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-navy">Dashboard</h1>
+        <h1 className="text-2xl font-black tracking-tight text-navy sm:text-[1.7rem]">Dashboard</h1>
         <p className="mt-1 text-sm text-slate-500">
           Welcome back! Here&apos;s what&apos;s happening with Kaamdaar today.
         </p>
@@ -46,7 +46,7 @@ function PageHeader() {
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-sm hover:bg-slate-50"
+          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:text-blue-700"
         >
           <Download className="h-3.5 w-3.5" /> Export Report
         </button>
