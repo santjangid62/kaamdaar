@@ -24,7 +24,7 @@ import { icon } from "./registry";
 
 function SidebarBody({ activeSlug, onNavigate }: { activeSlug: string; onNavigate?: () => void }) {
   return (
-    <nav className="flex-1 overflow-y-auto px-3 py-4">
+    <nav className="flex-1 overflow-y-auto px-3 py-5">
       {NAV.map((group, gi) => (
         <div key={group.section ?? `g${gi}`} className="mb-1.5">
           {group.section && (
@@ -41,10 +41,10 @@ function SidebarBody({ activeSlug, onNavigate }: { activeSlug: string; onNavigat
                 key={item.slug || "dashboard"}
                 href={href}
                 onClick={onNavigate}
-                className={`mb-0.5 flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition ${
+                className={`mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200 ${
                   active
-                    ? "bg-flame text-white shadow-[0_6px_16px_-6px_rgba(255,122,0,0.7)]"
-                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                    ? "bg-gradient-to-r from-flame to-orange-500 text-white shadow-[0_10px_24px_-10px_rgba(255,122,0,0.75)] ring-1 ring-white/15"
+                    : "text-slate-300/85 hover:translate-x-0.5 hover:bg-white/[0.07] hover:text-white"
                 }`}
               >
                 <Icon className="h-4 w-4 shrink-0" />
@@ -60,7 +60,7 @@ function SidebarBody({ activeSlug, onNavigate }: { activeSlug: string; onNavigat
 
 function Sidebar({ activeSlug }: { activeSlug: string }) {
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-navy lg:flex">
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-white/10 bg-[#0b1f3a] shadow-[12px_0_40px_-28px_rgba(2,12,27,0.65)] lg:flex">
       <SidebarBody activeSlug={activeSlug} />
     </aside>
   );
@@ -92,7 +92,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <div className="min-h-screen bg-offwhite text-navy">
+    <div className="min-h-screen bg-[#f4f7fb] text-navy">
       <Sidebar activeSlug={activeSlug} />
 
       {/* mobile slide-over */}
@@ -113,7 +113,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
       <div className="lg:pl-64">
         {/* ── Top bar ─────────────────────────────────────────── */}
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
+        <header className="sticky top-0 z-20 flex h-[4.5rem] items-center gap-3 border-b border-slate-200/80 bg-white/90 px-4 shadow-[0_6px_24px_-20px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:px-6">
           <button
             type="button"
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
@@ -132,7 +132,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </span>
           </Link>
 
-          <label className="mx-auto hidden max-w-xl flex-1 items-center gap-2 rounded-xl bg-slate-100 px-3.5 py-2.5 md:flex">
+          <label className="mx-auto hidden max-w-xl flex-1 items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-3 transition focus-within:border-blue-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-50 md:flex">
             <Search className="h-4 w-4 shrink-0 text-slate-400" />
             <input
               type="search"
@@ -154,7 +154,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </button>
             <button
               type="button"
-              className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+              className="relative rounded-xl border border-slate-200/80 p-2.5 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-navy"
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
@@ -203,7 +203,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </div>
         </header>
 
-        <main className="px-4 py-6 sm:px-6 lg:px-8" data-page={title}>
+        <main className="px-4 py-7 sm:px-6 lg:px-8 lg:py-8" data-page={title}>
           {children}
         </main>
       </div>
