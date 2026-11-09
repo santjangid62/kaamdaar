@@ -56,6 +56,7 @@
 
 :root {
   color-scheme: light;
+  scroll-behavior: smooth;
 }
 
 /* gentle idle float for the hero's preview cards */
@@ -82,6 +83,7 @@
 body {
   font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 @utility section-shell {
@@ -89,7 +91,7 @@ body {
 }
 
 @utility card {
-  @apply rounded-lg border border-slate-200 bg-white;
+  @apply rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_30px_-24px_rgba(11,31,58,0.55)] transition-[border-color,box-shadow,transform] duration-200;
 }
 
 @utility btn-primary {
@@ -121,4 +123,17 @@ body {
  */
 [class*="col-span"] {
   min-width: 0;
+}
+
+
+/* Global motion accessibility for users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
