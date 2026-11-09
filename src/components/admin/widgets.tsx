@@ -44,9 +44,9 @@ export function WidgetCard({
   className?: string;
 }) {
   return (
-    <section className={`min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ${className}`}>
+    <section className={`min-w-0 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_8px_30px_-22px_rgba(15,23,42,0.32)] transition-shadow duration-200 hover:shadow-[0_14px_38px_-24px_rgba(15,23,42,0.38)] sm:p-6 ${className}`}>
       <header className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-bold text-navy">{title}</h3>
+        <h3 className="text-sm font-extrabold tracking-tight text-navy">{title}</h3>
         {right}
       </header>
       {children}
@@ -108,7 +108,7 @@ export function MetricCards({
         return (
           <article
             key={m.key}
-            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+            className="group rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_8px_26px_-22px_rgba(15,23,42,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_16px_34px_-22px_rgba(15,23,42,0.35)]"
           >
             <div className="flex items-start justify-between gap-2">
               <span className={`grid h-10 w-10 place-items-center rounded-xl ${METRIC_STYLES[i] ?? METRIC_STYLES[0]}`}>
@@ -130,7 +130,7 @@ export function MetricCards({
         );
       })}
 
-      <article className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <article className="rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50/60 p-4 shadow-[0_10px_28px_-20px_rgba(180,83,9,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-22px_rgba(180,83,9,0.35)]">
         <div className="flex items-start justify-between gap-2">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-100 text-amber-600">
             <Wallet className="h-5 w-5" />
@@ -538,7 +538,7 @@ export function StatStrip({ items }: { items: StatItem[] }) {
   return (
     <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
       {items.map((it) => (
-        <div key={it.label} className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+        <div key={it.label} className="rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-4 py-3 shadow-[0_4px_14px_-12px_rgba(15,23,42,0.3)] transition-colors hover:border-blue-200 hover:bg-blue-50/30">
           <p className={`text-xl font-extrabold tracking-tight ${STAT_TONE[it.tone ?? "grey"]}`}>
             {it.value}
           </p>
