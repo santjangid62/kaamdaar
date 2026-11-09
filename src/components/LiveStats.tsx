@@ -45,6 +45,11 @@ export default function LiveStats() {
     };
   }, []);
 
+  // A brand-new deployment has no rows yet (production without a database) —
+  // showing a row of zeros would look broken, so the strip simply stays away
+  // until there is something real to show.
+  if (stats && stats.providers === 0 && stats.customers === 0) return null;
+
   const t = (en: string, hi: string) => (lang === "hi" ? hi : en);
   const labels = s.stats;
   const value = (n: number | undefined, suffix = "") =>
