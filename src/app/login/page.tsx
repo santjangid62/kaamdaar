@@ -165,8 +165,17 @@ function LoginFlow() {
     <div className="min-h-screen bg-offwhite lg:grid lg:grid-cols-[1.05fr_1fr]">
       {/* ── Brand panel ─────────────────────────────────────────── */}
       <aside className="relative overflow-hidden bg-navy px-6 py-8 text-white sm:px-10 lg:flex lg:flex-col lg:justify-between lg:px-14 lg:py-14">
+        <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-navy via-navy-800 to-blue-900" />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-20 mask-[linear-gradient(to_bottom,black,transparent_80%)]"
+          style={{
+            backgroundImage: "radial-gradient(circle, #8ab6e0 1px, transparent 1px)",
+            backgroundSize: "26px 26px",
+          }}
+        />
         <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-flame/25 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 -right-24 h-96 w-96 rounded-full bg-blue-600/30 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -right-24 h-96 w-96 rounded-full bg-blue-500/30 blur-3xl" />
 
         <div className="relative flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-3">
@@ -186,8 +195,10 @@ function LoginFlow() {
           <span className="inline-flex items-center gap-1.5 rounded-full bg-flame px-3 py-1 text-xs font-bold uppercase tracking-wide text-navy">
             <Smartphone className="h-3.5 w-3.5" /> {s.login.onlyPhone}
           </span>
-          <h1 className="mt-5 text-4xl font-extrabold leading-tight sm:text-5xl">
-            {brand.title}
+          <h1 className="mt-5 text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl">
+            <span className="bg-linear-to-r from-white via-white to-flame-200 bg-clip-text text-transparent">
+              {brand.title}
+            </span>
           </h1>
           <p className="mt-4 max-w-md text-sm leading-6 text-white/70 sm:text-base">
             {brand.sub}
@@ -195,8 +206,11 @@ function LoginFlow() {
 
           <ul className="mt-8 space-y-3.5">
             {features.map((f) => (
-              <li key={f.text} className="flex items-start gap-3 text-sm text-white/85 sm:text-[15px]">
-                <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-flame/20 text-flame-400">
+              <li
+                key={f.text}
+                className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-3 text-sm text-white/90 backdrop-blur transition hover:border-flame-400/40 hover:bg-white/10 sm:text-[15px]"
+              >
+                <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-flame text-navy">
                   <f.icon className="h-4 w-4" />
                 </span>
                 {f.text}
@@ -211,7 +225,7 @@ function LoginFlow() {
       </aside>
 
       {/* ── Form panel ──────────────────────────────────────────── */}
-      <main className="flex items-center justify-center px-4 py-10 sm:px-8">
+      <main className="flex items-center justify-center bg-linear-to-b from-offwhite via-white to-blue-50/60 px-4 py-10 sm:px-8">
         <div className="w-full max-w-md">
           {/* step indicator */}
           <div className="mb-6 flex items-center gap-3">
@@ -251,7 +265,8 @@ function LoginFlow() {
             })}
           </div>
 
-          <div className="card border-0 p-7 shadow-[0_25px_60px_-22px_rgba(11,31,58,0.4)] ring-1 ring-slate-100">
+          <div className="relative rounded-2xl border border-slate-100 bg-white/95 p-6 shadow-[0_30px_70px_-30px_rgba(11,31,58,0.45)] ring-1 ring-white/70 backdrop-blur sm:p-7">
+            <span className="pointer-events-none absolute inset-x-8 -top-px h-px bg-linear-to-r from-transparent via-flame/60 to-transparent" />
             <div className="flex items-center gap-2">
               <Image
                 src="/kaamdaar-icon.png"
@@ -362,7 +377,7 @@ function LoginFlow() {
                     value={code}
                     onChange={(e) => onOtpChange(e.target.value)}
                     placeholder="••••••"
-                    className="h-16 w-full rounded-xl border-2 border-slate-200 bg-slate-50 px-3 text-center font-mono text-2xl font-bold tracking-[0.55em] text-navy outline-none transition placeholder:tracking-[0.55em] placeholder:text-slate-300 focus:border-flame focus:bg-white focus:ring-4 focus:ring-flame-100"
+                    className="h-16 w-full rounded-xl border-2 border-slate-200 bg-slate-50 px-3 text-center font-mono text-[26px] font-bold tracking-[0.55em] text-navy shadow-inner outline-none transition placeholder:tracking-[0.55em] placeholder:text-slate-300 focus:border-flame focus:bg-white focus:shadow-none focus:ring-4 focus:ring-flame-100"
                   />
                 </label>
 

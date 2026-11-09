@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import HeroSearch from "./HeroSearch";
 import AreasWeServe from "./AreasWeServe";
+import LiveStats from "./LiveStats";
 import { fill, useLang } from "../lib/i18n";
 import { SERVICE_HI } from "../lib/strings";
 import { openVoiceAssistant } from "../lib/assistant";
@@ -75,7 +76,11 @@ const VOICE_CARD_ICONS = [Mic, CalendarCheck, MapPin];
 
 export default function HomeView() {
   const { lang, s } = useLang();
-  const { services, settings } = useApp();
+  const { services, providers, settings } = useApp();
+  const onlinePros = providers.filter(
+    (p) => (p as { status?: string }).status === "Online",
+  ).length;
+  const serviceAreas = new Set(providers.map((p) => (p.city ?? "").trim()).filter(Boolean)).size;
   const heroTitle = settings[`home_hero_title_${lang}`]?.trim() ||
     [s.hero.title1, s.hero.title2, s.hero.title3].join(" ");
   const heroWords = heroTitle.split(/\s+/);
@@ -97,6 +102,9 @@ export default function HomeView() {
     <div>
       {/* ── hero ───────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-navy">
+        {/* deep navy → blue wash, so the hero reads as one lit surface */}
+        <div className="absolute inset-0 bg-linear-to-br from-navy via-navy-800 to-blue-900" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-linear-to-t from-navy to-transparent" />
         <div className="absolute -right-40 -top-40 h-96 w-96 rounded-full bg-blue-700/40 blur-3xl" />
         <div className="absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-flame/20 blur-3xl" />
         <div className="absolute -left-24 top-1/3 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl" />
@@ -111,7 +119,7 @@ export default function HomeView() {
           }}
         />
 
-        <div className="section-shell relative grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-2">
+        <div className="section-shell relative grid items-center gap-10 py-16 sm:py-24 lg:grid-cols-2">
           <div className="min-w-0">
             <span className="inline-flex items-center gap-2 rounded-full border border-flame-400/40 bg-white/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-white">
               <BadgeCheck className="h-3.5 w-3.5 text-flame-400" />
@@ -146,8 +154,8 @@ export default function HomeView() {
               </span>
             </button>
 
-            {/* social proof */}
-            <div className="mt-6 flex items-center gap-3">
+            {/* social proof + live availability */}
+            <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2">
               <div className="flex -space-x-2">
                 {[
                   { n: "PS", tone: "bg-flame" },
@@ -166,6 +174,17 @@ export default function HomeView() {
                 <span className="font-bold text-white">{s.hero.socialNum}</span>{" "}
                 {s.hero.socialTail}
               </p>
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[11px] font-bold text-emerald-200">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-80" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                </span>
+                {onlinePros > 0
+                  ? `${onlinePros} ${lang === "hi" ? "प्रो अभी ऑनलाइन" : "Pros online now"}`
+                  : lang === "hi"
+                    ? "प्रो ऑनलाइन हो रहे हैं"
+                    : "Pros coming online"}
+              </span>
             </div>
 
             <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
@@ -353,9 +372,18 @@ export default function HomeView() {
       </section>
 
       {/* ── voice + AI assistant highlight ─────────────────── */}
-      <section className="relative overflow-hidden bg-navy py-16 text-white">
+      <section className="relative overflow-hidden bg-navy py-16 text-white sm:py-20">
+        <div className="absolute inset-0 bg-linear-to-br from-navy via-navy-800 to-blue-900" />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-20 mask-[linear-gradient(to_bottom,black,transparent_75%)]"
+          style={{
+            backgroundImage: "radial-gradient(circle, #8ab6e0 1px, transparent 1px)",
+            backgroundSize: "26px 26px",
+          }}
+        />
         <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-flame/25 blur-3xl" />
-        <div className="absolute -bottom-32 right-0 h-80 w-80 rounded-full bg-blue-700/40 blur-3xl" />
+        <div className="absolute -bottom-32 right-0 h-80 w-80 rounded-full bg-blue-500/30 blur-3xl" />
 
         <div className="section-shell relative grid items-center gap-10 lg:grid-cols-2">
           <div className="min-w-0">
@@ -382,6 +410,22 @@ export default function HomeView() {
                 {s.voice.worksIn}
               </span>
             </div>
+
+            <dl className="mt-8 grid max-w-md grid-cols-3 gap-3">
+              {[
+                { value: onlinePros, label: lang === "hi" ? "ऑनलाइन प्रो" : "Pros online" },
+                { value: services.length, label: lang === "hi" ? "सेवाएं" : "Services" },
+                { value: serviceAreas, label: lang === "hi" ? "क्षेत्र" : "Areas" },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2.5 text-center backdrop-blur"
+                >
+                  <dt className="text-xl font-extrabold tabular-nums text-white">{item.value}</dt>
+                  <dd className="mt-0.5 text-[11px] font-semibold text-blue-200">{item.label}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
 
           <div className="grid gap-4">
@@ -390,7 +434,7 @@ export default function HomeView() {
               return (
                 <div
                   key={c.title}
-                  className="flex items-start gap-4 rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur"
+                  className="flex items-start gap-4 rounded-2xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur transition hover:border-flame-400/40 hover:bg-white/10"
                 >
                   <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-flame text-navy">
                     <Icon className="h-5 w-5" />
@@ -468,21 +512,8 @@ export default function HomeView() {
         </div>
       </section>
 
-      {/* ── stats ──────────────────────────────────────────── */}
-      <section className="border-y border-slate-100 bg-flame-50 py-10">
-        <dl className="section-shell grid grid-cols-2 gap-6 text-center lg:grid-cols-4">
-          {s.stats.map((stat) => (
-            <div key={stat.label}>
-              <dt className="text-3xl font-extrabold text-flame-600 sm:text-4xl">
-                {stat.value}
-              </dt>
-              <dd className="mt-1 text-sm font-medium text-slate-600">
-                {stat.label}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
+      {/* ── live numbers — real rows, refreshed while the page is open ── */}
+      <LiveStats />
 
       {/* ── testimonials ───────────────────────────────────── */}
       <section className="section-shell py-14">
