@@ -1,6 +1,6 @@
 # Kaamdaar — Database Design
 
-Every record the product writes lives in one database with 17 collections.
+Every record the product writes lives in one database with 18 collections.
 The frontend never touches storage directly: the browser calls `/api/*`,
 API routes run the repository functions in [`src/server/db.ts`](src/server/db.ts),
 and the Admin dashboard reads and writes through the same routes.
@@ -32,6 +32,7 @@ no API route, store client or admin page changes.
 | field | type | notes |
 |---|---|---|
 | id | string | the phone number, e.g. `+919876543210` (login key) |
+| registrationPlatform | `web \| mobile_app` | first successful registration source |
 | phone | string | same as id, kept explicit |
 | firstName, lastName | string | filled on the profile page (validated: letters only) |
 | email | string? | optional, format-checked when present |
@@ -90,8 +91,10 @@ issue, status (Open/Escalated/Resolved), createdAt, updatedAt`
 
 ### `pages` — CMS metadata for real routes: `id, title, slug, status, updatedAt`
 
-### `campaigns` (Notifications) — `id, title, audience, channel (Push/SMS/Email/In-app),
-status (Sent/Draft), sentAt, createdAt`
+### `campaigns` — `id, title, audience, channel (Push/SMS/Email/In-app), status (Sent/Draft), sentAt, createdAt`
+
+### `notifications` — operational in-app alerts for admins, including customer registration events:
+`id, type, title, message, userId, userName, phone, platform (web/mobile_app), readAt?, createdAt`
 
 ### `payouts` — `id, providerId, provider, jobs, amount, mode, status (Processing/Paid), date`
 
