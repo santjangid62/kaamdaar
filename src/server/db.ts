@@ -31,6 +31,7 @@ export type Collection =
   | "faqs"
   | "pages"
   | "campaigns"
+  | "notifications"
   | "payouts"
   | "wallets"
   | "walletTxns"
@@ -39,7 +40,7 @@ export type Collection =
 
 export const COLLECTIONS: Collection[] = [
   "users", "addresses", "bookings", "providers", "services", "categories",
-  "reviews", "complaints", "banners", "faqs", "pages", "campaigns",
+  "reviews", "complaints", "banners", "faqs", "pages", "campaigns", "notifications",
   "payouts", "wallets", "walletTxns", "adminUsers", "settings",
 ];
 
