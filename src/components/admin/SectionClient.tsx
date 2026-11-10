@@ -5,7 +5,7 @@
  * table with pagination, and real Add / Edit / Delete mutations against
  * /api/admin/data/:collection when the section is editable.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import type { Field, SectionDef } from "../../lib/admin/types";
@@ -120,6 +120,10 @@ function FieldInput({ field, value, onChange }: { field: Field; value: string; o
 export default function SectionClient({ def }: { def: SectionDef }) {
   const router = useRouter();
   const { refreshCatalog } = useApp();
+  const [liveRows, setLiveRows] = useState(def.rows);
+  const [liveKpis, setLiveKpis] = useState(def.kpis ?? []);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [modal, setModal] = useState<{ mode: "add" | "edit"; row?: Record<string, string | number> } | null>(null);
@@ -127,6 +131,32 @@ export default function SectionClient({ def }: { def: SectionDef }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  const isCustomers = def.collection === "users" && def.title === "Customers";
+
+  const refreshCustomers = async () => {
+    if (!isCustomers) return;
+    setRefreshing(true);
+    try {
+      const res = await fetch("/api/admin/customers", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json() as { rows?: SectionDef["rows"]; kpis?: SectionDef["kpis"] };
+      if (Array.isArray(data.rows)) setLiveRows(data.rows);
+      if (Array.isArray(data.kpis)) setLiveKpis(data.kpis);
+      setLastSynced(new Date());
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isCustomers) return;
+    void refreshCustomers();
+    const timer = window.setInterval(() => void refreshCustomers(), 15000);
+    const onFocus = () => void refreshCustomers();
+    window.addEventListener("focus", onFocus);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
+  }, [isCustomers]);
 
   const editable = Boolean(def.collection && !def.readOnly && def.fields?.length);
   const canAdd = editable && !def.noAdd;
@@ -136,7 +166,7 @@ export default function SectionClient({ def }: { def: SectionDef }) {
     const needle = q.trim().toLowerCase();
     if (!needle) return def.rows;
     return def.rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(needle)));
-  }, [def.rows, q]);
+  }, [liveRows, q]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const current = Math.min(page, pages);
@@ -264,7 +294,7 @@ export default function SectionClient({ def }: { def: SectionDef }) {
         </div>
       </div>
 
-      {(notice || error) && (
+      {isCustomers && lastSynced && <p className="text-right text-[11px] text-slate-400">Customer list synced at {lastSynced.toLocaleTimeString("en-IN")}</p>}\n\n      {(notice || error) && (
         <p
           className={`rounded-lg px-3 py-2 text-sm font-medium ${
             error ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-700"
@@ -277,9 +307,9 @@ export default function SectionClient({ def }: { def: SectionDef }) {
         </p>
       )}
 
-      {def.kpis && def.kpis.length > 0 && (
+      {liveKpis && liveKpis.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-3">
-          {def.kpis.map((k) => (
+          {liveKpis.map((k) => (
             <div key={k.label} className="rounded-2xl border border-slate-200 bg-white p-4">
               <p className="text-xs font-semibold text-slate-500">{k.label}</p>
               <p className="mt-1 text-xl font-extrabold text-navy">{k.value}</p>
