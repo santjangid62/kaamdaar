@@ -80,7 +80,7 @@ class Api {
   }
 
   static Future<String> sendOtp(String phone) async {
-    final data = await post('/api/auth', {'action': 'send', 'phone': e164(phone)});
+    final data = await post('/api/auth', {'action': 'send', 'phone': e164(phone), 'platform': 'mobile_app'});
     return (data['devCode'] ?? '').toString();
   }
 
@@ -90,7 +90,7 @@ class Api {
   static Future<({SessionUser user, bool isNew})> verifyOtp(
       String phone, String code) async {
     final data = await post(
-        '/api/auth', {'action': 'verify', 'phone': e164(phone), 'code': code});
+        '/api/auth', {'action': 'verify', 'phone': e164(phone), 'code': code, 'platform': 'mobile_app'});
     final user = SessionUser.fromJson(
         (data['user'] as Map<String, dynamic>?) ?? const {});
     await saveSession(user);
