@@ -96,6 +96,8 @@ export interface User {
   status?: "active" | "blocked" | "deleted";
   role?: "customer" | "provider" | "admin";
   updatedAt?: number;
+  /** Signup channel recorded by the server: web or mobile_app. */
+  registrationPlatform?: "web" | "mobile_app";
 }
 
 export type BookingMode = "instant" | "scheduled" | "recurring";
