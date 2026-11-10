@@ -111,6 +111,7 @@ export async function POST(req: Request) {
       firstName: "",
       lastName: "",
       email: "",
+      createdAt: Date.now(),
       referralCode: referralCode(phone),
       role: "customer",
       status: "active",
