@@ -49,8 +49,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   const existing = await listFor(userId);
-  const addressId = body.id && body.id !== "live" ? body.id : uid("addr");
+  const updating = Boolean(body.id && body.id !== "live" && existing.some((a) => a.id === body.id));
+  if (!updating && existing.length >= 5) {
+    return NextResponse.json({ error: "You can save a maximum of 5 addresses." }, { status: 409 });
+  }
+  const addressId = updating ? String(body.id) : uid("addr");
   const isFirst = existing.length === 0;
+  const makeDefault = body.isDefault === true || isFirst;
 
   const record: Address & { userId: string } = {
     id: addressId,
@@ -62,16 +67,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     pincode: pin,
     lat: typeof body.lat === "number" ? body.lat : undefined,
     lng: typeof body.lng === "number" ? body.lng : undefined,
-    isDefault: body.isDefault ?? isFirst,
+    isDefault: makeDefault,
   };
 
-  if (existing.some((a) => a.id === addressId)) {
+  if (makeDefault) {
+    for (const a of existing.filter((x) => x.id !== addressId && x.isDefault)) {
+      await patch("addresses", a.id, { isDefault: false });
+    }
+  }
+  if (updating) {
     await patch("addresses", addressId, record as unknown as Record<string, unknown>);
   } else {
     const { insert } = await import("../../../../../server/db");
-    if (record.isDefault) {
-      for (const a of existing.filter((x) => x.isDefault)) await patch("addresses", a.id, { isDefault: false });
-    }
     await insert("addresses", record as unknown as Record<string, unknown>);
   }
   return NextResponse.json({ addresses: await listFor(userId) });
