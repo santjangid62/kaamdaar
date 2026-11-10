@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { AtSign, Camera, MessageCircle, Send } from "lucide-react";
+import { AtSign, Camera, MessageCircle, Send, Heart, ArrowUp } from "lucide-react";
 import Year from "./Year";
 import { useApp } from "./AppProvider";
 import { useLang } from "../lib/i18n";
@@ -96,19 +96,38 @@ export default function Footer() {
         ))}
       </div>
 
-      <div className="border-t border-white/10">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-5 text-xs text-blue-300 sm:flex-row sm:px-6">
-          <p>
-            © <Year /> {siteName}. {s.footer.rights}
+      <div className="border-t border-white/15">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-4 px-4 py-6 text-center text-xs text-blue-200 sm:px-6 md:grid-cols-[1fr_auto_1fr] md:text-left">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 md:justify-start">
+            <p className="text-blue-200/75">
+              © <Year /> Unique IT Solutions. {s.footer.rights}
+            </p>
+            <span className="flex gap-3 text-blue-200/60">
+              <Link href="/privacy" className="transition hover:text-flame">
+                {s.footer.links.privacy}
+              </Link>
+              <Link href="/terms" className="transition hover:text-flame">
+                {s.footer.links.terms}
+              </Link>
+            </span>
+          </div>
+
+          <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-medium text-blue-100/90">
+            <span>Made with Love &amp; Care by</span>
+            <span className="font-extrabold text-white">
+              Unique IT Solutions - A Unit of Unique Computers, The Best One
+            </span>
+            <Heart className="h-3.5 w-3.5 fill-flame text-flame" aria-label="love" />
           </p>
-          <p className="flex gap-4">
-            <Link href="/privacy" className="transition hover:text-flame">
-              {s.footer.links.privacy}
-            </Link>
-            <Link href="/terms" className="transition hover:text-flame">
-              {s.footer.links.terms}
-            </Link>
-          </p>
+
+          <a
+            href="#"
+            className="inline-flex items-center justify-center gap-2 text-blue-200/80 transition hover:text-flame md:justify-self-end"
+            aria-label="Back to top"
+          >
+            Back to top
+            <ArrowUp className="h-4 w-4" />
+          </a>
         </div>
       </div>
     </footer>
