@@ -119,75 +119,29 @@ export default function HomeView() {
           }}
         />
 
-        <div className="section-shell relative grid items-center gap-12 py-16 sm:py-20 lg:grid-cols-[1.08fr_0.92fr] lg:gap-16 lg:py-24">
-          <div className="min-w-0">
+        <div className="section-shell relative py-16 sm:py-20 lg:py-24">
+          <div className="mx-auto w-full max-w-5xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-flame-400/50 bg-white/[0.09] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white shadow-lg shadow-black/10 backdrop-blur-md sm:text-xs">
               <BadgeCheck className="h-3.5 w-3.5 text-flame-400" />
               {s.hero.badge}
             </span>
 
-            <h1 className="mt-6 max-w-3xl text-[2.7rem] font-black leading-[1.04] tracking-[-0.045em] text-white drop-shadow-sm sm:text-6xl lg:text-7xl xl:text-[5.15rem]">
+            <h1 className="mt-6 max-w-4xl text-[2.7rem] font-black leading-[1.04] tracking-[-0.045em] text-white drop-shadow-sm sm:text-6xl lg:text-7xl xl:text-[5.15rem]">
               {heroLead}{" "}
               <span className="text-flame drop-shadow-[0_0_24px_rgba(255,122,0,0.45)]">
                 {heroAccent}
               </span>
             </h1>
 
-            <p className="mt-6 max-w-xl text-base leading-8 text-blue-100/95 sm:text-xl sm:leading-9">
+            <p className="mt-6 max-w-3xl text-base leading-8 text-blue-100/95 sm:text-xl sm:leading-9">
               {heroSubtitle}
             </p>
 
-            <div className="mt-7">
+            <div className="mt-8 max-w-3xl">
               <HeroSearch />
             </div>
 
-            {/* voice highlight */}
-            <button
-              type="button"
-              onClick={() => openVoiceAssistant(true)}
-              className="mt-5 inline-flex items-center gap-2 rounded-full border border-flame-400/50 bg-white/[0.08] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-black/10 backdrop-blur transition duration-200 hover:-translate-y-0.5 hover:border-flame hover:bg-flame hover:text-navy"
-            >
-              <Mic className="h-4 w-4 text-flame-400" />
-              {s.hero.voiceCta}
-              <span className="hidden text-xs font-normal text-blue-200 sm:inline">
-                — {s.hero.voiceHint}
-              </span>
-            </button>
-
-            {/* social proof + live availability */}
-            <div className="mt-7 flex flex-wrap items-center gap-x-4 gap-y-3">
-              <div className="flex -space-x-2">
-                {[
-                  { n: "PS", tone: "bg-flame" },
-                  { n: "AV", tone: "bg-blue-500" },
-                  { n: "NC", tone: "bg-blue-700" },
-                ].map((a) => (
-                  <span
-                    key={a.n}
-                    className={`grid h-8 w-8 place-items-center rounded-full border-2 border-navy text-[10px] font-bold text-white ${a.tone}`}
-                  >
-                    {a.n}
-                  </span>
-                ))}
-              </div>
-              <p className="text-xs leading-5 text-blue-200">
-                <span className="font-bold text-white">{s.hero.socialNum}</span>{" "}
-                {s.hero.socialTail}
-              </p>
-              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[11px] font-bold text-emerald-200">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-80" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                </span>
-                {onlinePros > 0
-                  ? `${onlinePros} ${lang === "hi" ? "प्रो अभी ऑनलाइन" : "Pros online now"}`
-                  : lang === "hi"
-                    ? "प्रो ऑनलाइन हो रहे हैं"
-                    : "Pros coming online"}
-              </span>
-            </div>
-
-            <ul className="mt-9 grid grid-cols-2 gap-x-5 gap-y-4 border-t border-white/10 pt-6 sm:grid-cols-4">
+            <ul className="mt-10 grid max-w-4xl grid-cols-2 gap-x-6 gap-y-4 border-t border-white/10 pt-6 sm:grid-cols-4">
               {s.hero.trust.map((label, i) => {
                 const Icon = [BadgeCheck, LayoutGrid, MapPin, ShieldCheck][i];
                 return (
@@ -203,67 +157,7 @@ export default function HomeView() {
             </ul>
           </div>
 
-          {/* booking preview card */}
-          <div className="hero-float relative mx-auto hidden w-full max-w-[27rem] min-w-0 lg:block">
-            <span className="absolute -left-8 -top-7 z-10 flex items-center gap-2 rounded-full border border-white/80 bg-white px-4 py-2.5 text-sm font-extrabold text-slate-800 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.45)]">
-              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />{" "}
-              {s.hero.card.rating}
-            </span>
-            <div className="card border-0 p-6 shadow-[0_30px_80px_-28px_rgba(0,0,0,0.55)] ring-1 ring-black/5">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-navy text-sm font-extrabold text-white">
-                    K
-                  </span>
-                  {s.hero.card.pro}
-                </span>
-                <span className="rounded-full bg-flame-50 px-2.5 py-1 text-xs font-semibold text-flame-600">
-                  {s.hero.card.status}
-                </span>
-              </div>
-              <div className="mt-4 rounded-xl bg-slate-50 p-4">
-                <p className="text-sm font-bold text-slate-900">
-                  {s.hero.card.service}
-                </p>
-                <p className="mt-0.5 text-xs text-slate-500">{s.hero.card.when}</p>
-                <div className="mt-3 flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1 text-amber-600">
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />{" "}
-                    4.8 · {lang === "hi" ? "सुनीता शर्मा" : "Sunita Sharma"}
-                  </span>
-                  <span className="font-bold text-slate-900">₹349</span>
-                </div>
-              </div>
-              <ul className="mt-4 space-y-2 text-xs text-slate-500">
-                <li className="flex items-center gap-2">
-                  <Clock className="h-3.5 w-3.5 text-blue-600" />{" "}
-                  {s.hero.card.arriving}
-                </li>
-                <li className="flex items-center gap-2">
-                  <MapPin className="h-3.5 w-3.5 text-blue-600" />{" "}
-                  {s.hero.card.away}
-                </li>
-                <li className="flex items-center gap-2">
-                  <BadgeCheck className="h-3.5 w-3.5 text-blue-600" />{" "}
-                  {s.hero.card.paid}
-                </li>
-              </ul>
-            </div>
-            <div className="card relative z-10 -mt-6 ml-auto w-60 border-0 p-5 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.5)] ring-1 ring-black/5">
-              <p className="text-xs font-semibold text-slate-700">
-                {s.hero.card.nearbyTitle}
-              </p>
-              <p className="mt-1 text-[11px] text-slate-500">
-                {s.hero.card.nearbySub}
-              </p>
-              <Link
-                href="/services"
-                className="mt-2 inline-block text-xs font-bold text-flame-600 hover:underline"
-              >
-                {s.hero.card.nearbyCta}
-              </Link>
-            </div>
-          </div>
+
         </div>
       </section>
 
