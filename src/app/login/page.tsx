@@ -317,7 +317,7 @@ function LoginFlow() {
                       onChange={(e) => onPhoneChange(e.target.value)}
                       placeholder="98765 43210"
                       aria-invalid={Boolean(error)}
-                      className="min-w-0 flex-1 border-0 bg-transparent px-4 text-lg font-bold tracking-wide text-navy outline-none placeholder:font-medium placeholder:text-slate-300 sm:text-xl"
+                      className="phone-number-input min-w-0 flex-1 border-0 bg-transparent px-4 text-lg font-bold tracking-wide text-navy outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 placeholder:font-medium placeholder:text-slate-300 sm:text-xl"
                     />
                     <span className="grid shrink-0 place-items-center border-l border-slate-100 px-3.5 text-xs font-bold tabular-nums text-slate-400">
                       {digits.length}/10
