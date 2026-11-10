@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { all, patch, ready } from "../../../../../server/db";
-import { isAuthed } from "../../../../../lib/admin/auth";
+import { all, patch, ready } from "../../../../server/db";
+import { isAuthed } from "../../../../lib/admin/auth";
 
 type AdminNotification = {
   id: string; type: string; title: string; message: string; userId: string;
