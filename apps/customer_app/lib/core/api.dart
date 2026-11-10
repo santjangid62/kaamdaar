@@ -84,9 +84,23 @@ class Api {
     return (data['devCode'] ?? '').toString();
   }
 
-  static Future<SessionUser> verifyOtp(String phone, String code) async {
+  /// Returns the account plus whether the backend had to create it, so the app
+  /// can mirror the web flow: first-timers complete their profile, everyone
+  /// else goes straight to booking.
+  static Future<({SessionUser user, bool isNew})> verifyOtp(
+      String phone, String code) async {
     final data = await post(
         '/api/auth', {'action': 'verify', 'phone': e164(phone), 'code': code});
+    final user = SessionUser.fromJson(
+        (data['user'] as Map<String, dynamic>?) ?? const {});
+    await saveSession(user);
+    return (user: user, isNew: data['isNew'] == true);
+  }
+
+  /// Same validation as the web profile form (`/api/users/:id`).
+  static Future<SessionUser> updateProfile(
+      String id, Map<String, dynamic> body) async {
+    final data = await patch('/api/users/${Uri.encodeComponent(id)}', body);
     final user = SessionUser.fromJson(
         (data['user'] as Map<String, dynamic>?) ?? const {});
     await saveSession(user);

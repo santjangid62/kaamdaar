@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/job_alerts.dart';
 import 'core/theme.dart';
 import 'screens/auth.dart';
 
@@ -16,6 +17,9 @@ class KaamdaarProviderApp extends StatelessWidget {
     return MaterialApp(
       title: 'Kaamdaar Provider',
       debugShowCheckedModeBanner: false,
+      // A job offer is pushed through this navigator so it can appear over any
+      // screen the Pro is on.
+      navigatorKey: jobAlertNavigatorKey,
       theme: providerTheme(),
       home: const SplashScreen(),
     );

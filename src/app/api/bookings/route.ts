@@ -110,7 +110,9 @@ export async function POST(req: Request) {
       newEvent(
         "customer",
         "created",
-        `${match.matches.length} Pros notified within ${match.radiusKm} km`,
+        match.ring === "all"
+          ? `${match.matches.length} Pros notified — nobody inside 5 km, so every Pro serving this service was pinged`
+          : `${match.matches.length} Pros notified within ${match.radiusKm} km`,
         { status: "dispatched" },
       ),
     ],

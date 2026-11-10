@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 import 'home.dart';
+import 'setup.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -26,11 +27,15 @@ class _SplashScreenState extends State<SplashScreen> {
     final seen = await Api.onboarded;
     final user = await Api.restoreSession();
     if (!mounted) return;
-    final next = !seen
+    // Returning customers go straight to booking; an account created but never
+    // completed (empty name) is sent back to the profile step, like the web.
+    final Widget next = !seen
         ? const OnboardingScreen()
         : (user == null
             ? const LoginScreen()
-            : const HomeScreen(homeTab: 0));
+            : (user.firstName.trim().isEmpty
+                ? ProfileSetupScreen(user: user)
+                : const HomeScreen(homeTab: 0)));
     Navigator.of(context)
         .pushReplacement(MaterialPageRoute(builder: (_) => next));
   }
@@ -395,11 +400,16 @@ class _OtpScreenState extends State<OtpScreen> {
       _error = null;
     });
     try {
-      await Api.verifyOtp(widget.phone, code);
+      final result = await Api.verifyOtp(widget.phone, code);
       if (!mounted) return;
+      // Web parity: brand-new number → complete the profile first, an existing
+      // customer → booking/catalogue immediately.
+      final Widget next =
+          (result.isNew || result.user.firstName.trim().isEmpty)
+              ? ProfileSetupScreen(user: result.user)
+              : const HomeScreen(homeTab: 0);
       Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen(homeTab: 0)),
-          (_) => false);
+          MaterialPageRoute(builder: (_) => next), (_) => false);
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {

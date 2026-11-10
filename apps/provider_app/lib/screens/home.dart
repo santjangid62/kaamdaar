@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/api.dart';
+import '../core/job_alerts.dart';
 import '../core/models.dart';
 import '../core/theme.dart';
 import 'auth.dart';
@@ -20,6 +21,26 @@ class ProviderShell extends StatefulWidget {
 
 class _ProviderShellState extends State<ProviderShell> {
   int _tab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _watchOffers();
+  }
+
+  /// Starts the app-wide offer watcher: a new dispatch rings over whichever
+  /// tab is open, not only the dashboard.
+  Future<void> _watchOffers() async {
+    final user = await Api.restoreSession();
+    if (user == null) return;
+    try {
+      final me = await Api.me(user.phone);
+      if (me == null) return;
+      await JobAlertCenter.instance.start(user: user, me: me);
+    } catch (_) {
+      // The dashboard's own retry will surface connectivity problems.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -312,6 +333,83 @@ class _DashboardTabState extends State<DashboardTab> {
             ),
             const SizedBox(height: 18),
 
+            /* jobs this Pro let go today */
+            ValueListenableBuilder<List<MissedJob>>(
+              valueListenable: JobAlertCenter.instance.missed,
+              builder: (context, history, _) {
+                final today = history.where((m) => m.isToday).toList();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: CardBox(
+                    borderColor: today.isEmpty
+                        ? PColors.ink.withValues(alpha: .06)
+                        : PColors.red.withValues(alpha: .35),
+                    child: Row(
+                      children: [
+                        Container(
+                          height: 38,
+                          width: 38,
+                          decoration: BoxDecoration(
+                            color: (today.isEmpty ? Colors.black : PColors.red)
+                                .withValues(alpha: .08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(Icons.notifications_off_outlined,
+                              size: 19,
+                              color: today.isEmpty ? Colors.black38 : PColors.red),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text('Aaj accept nahi kiye',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13.5)),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: (today.isEmpty
+                                              ? Colors.black12
+                                              : PColors.red)
+                                          .withValues(alpha: .12),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text('${today.length}',
+                                        style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w900,
+                                            color: today.isEmpty
+                                                ? Colors.black54
+                                                : PColors.red)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                today.isEmpty
+                                    ? 'Sab offers par reply kiya — aise hi chalte rahein.'
+                                    : _missedLine(today),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 11.5, color: Colors.black45),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+
             if (!me.verified)
               Container(
                 margin: const EdgeInsets.only(bottom: 14),
@@ -427,6 +525,17 @@ class _DashboardTabState extends State<DashboardTab> {
         ),
       ),
     );
+  }
+
+  /// "2 reject · 1 no-reply — last: AC Repair"
+  String _missedLine(List<MissedJob> today) {
+    final rejected = today.where((m) => !m.expired).length;
+    final expired = today.length - rejected;
+    final parts = [
+      if (rejected > 0) '$rejected reject',
+      if (expired > 0) '$expired no-reply',
+    ];
+    return '${parts.join(' · ')} — last: ${today.last.service}';
   }
 
   Widget _divider() => Container(
@@ -1002,6 +1111,8 @@ class _ProfileTabState extends State<ProfileTab> {
   }
 
   Future<void> _logout() async {
+    // Stop ringing offers and polling once the Pro is signed out.
+    JobAlertCenter.instance.stop();
     await Api.clearSession();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
