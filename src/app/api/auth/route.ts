@@ -19,6 +19,7 @@
 import { NextResponse } from "next/server";
 import { find, insert, ready } from "../../../server/db";
 import type { Provider, User } from "../../../lib/types";
+import { createUserRegisteredNotification } from "../../../server/notifications";
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 const TTL_MS = 5 * 60 * 1000;
@@ -30,7 +31,7 @@ function referralCode(phone: string): string {
 
 export async function POST(req: Request) {
   await ready();
-  let body: { action?: string; phone?: string; code?: string; role?: string };
+  let body: { action?: string; phone?: string; code?: string; role?: string; platform?: "web" | "mobile_app" };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -113,7 +114,9 @@ export async function POST(req: Request) {
       referralCode: referralCode(phone),
       role: "customer",
       status: "active",
+      registrationPlatform: body.platform === "web" ? "web" : "mobile_app",
     });
+    await createUserRegisteredNotification(user);
     return NextResponse.json({ user, isNew: true });
   }
 
