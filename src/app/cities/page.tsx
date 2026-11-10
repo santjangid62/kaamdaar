@@ -4,7 +4,8 @@ import { MapPin } from "lucide-react";
 import { CITIES } from "../../lib/seed";
 import { getServices } from "../../server/catalog";
 
-// reads the live catalogue from the database at request time
+// This page reads the live database catalogue; render it at request time.
+export const dynamic = "force-dynamic";
 export const instant = false;
 
 export const metadata: Metadata = {
