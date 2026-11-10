@@ -131,7 +131,7 @@ export default function HomeView() {
           }}
         />
 
-        <div className="section-shell relative flex min-h-[650px] items-center py-16 sm:min-h-[700px] sm:py-20 lg:py-24">
+        <div className="section-shell relative grid min-h-[650px] items-center gap-12 py-16 sm:min-h-[700px] sm:py-20 lg:grid-cols-[minmax(0,1.08fr)_minmax(340px,0.82fr)] lg:gap-10 lg:py-24">
           <div className="w-full max-w-3xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-flame-400/50 bg-white/[0.09] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white shadow-lg shadow-black/10 backdrop-blur-md sm:text-xs">
               <BadgeCheck className="h-3.5 w-3.5 text-flame-400" />
@@ -169,7 +169,67 @@ export default function HomeView() {
             </ul>
           </div>
 
+          {/* Real catalogue preview balances the hero and gives visitors a clear next step. */}
+          <div className="relative mx-auto w-full max-w-xl lg:ml-auto">
+            <div className="absolute -inset-5 rounded-[2.5rem] bg-blue-400/15 blur-2xl" />
+            <div className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-slate-950/35 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl sm:p-7">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-flame-300">
+                    {lang === "hi" ? "आपकी जरूरत के लिए" : "MADE FOR YOUR EVERYDAY"}
+                  </span>
+                  <h2 className="mt-2 text-xl font-extrabold text-white sm:text-2xl">
+                    {lang === "hi" ? "घर की हर सेवा, एक जगह" : "The right help, right at home"}
+                  </h2>
+                  <p className="mt-1.5 max-w-xs text-sm leading-6 text-blue-100/75">
+                    {lang === "hi" ? "अपनी जरूरत की सेवा चुनें और बुकिंग शुरू करें।" : "Explore services and find the help you need."}
+                  </p>
+                </div>
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-white/15 bg-white/10 text-flame-300">
+                  <Sparkles className="h-5 w-5" />
+                </span>
+              </div>
 
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                {tiles.slice(0, 4).map((service, index) => {
+                  const ServiceIcon =
+                    TILE_ICONS[service.id] ??
+                    (service.icon ? ICONS[service.icon] : undefined) ??
+                    SERVICE_ICONS[service.id] ??
+                    FALLBACK_ICON;
+                  return (
+                    <Link
+                      key={service.id}
+                      href={`/services/${service.id}`}
+                      className="group flex min-h-28 flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.08] p-4 transition duration-200 hover:-translate-y-1 hover:border-flame-300/60 hover:bg-white/[0.13]"
+                    >
+                      <span className="flex items-center justify-between">
+                        <span className={`grid h-10 w-10 place-items-center rounded-xl ${index % 2 === 0 ? "bg-flame text-navy" : "bg-blue-500/25 text-blue-100"}`}>
+                          <ServiceIcon className="h-5 w-5" />
+                        </span>
+                        <ArrowRight className="h-4 w-4 text-white/45 transition group-hover:translate-x-1 group-hover:text-flame-300" />
+                      </span>
+                      <span className="mt-4 line-clamp-2 text-sm font-bold leading-5 text-white">
+                        {tileLabel(service.id, service.name)}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+
+              <Link
+                href="/services"
+                className="mt-4 flex items-center justify-between rounded-xl bg-flame px-4 py-3.5 text-sm font-extrabold text-navy transition hover:bg-orange-300"
+              >
+                {lang === "hi" ? "सभी सेवाएं देखें" : "Explore all services"}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="absolute -bottom-5 -left-4 hidden items-center gap-2 rounded-full border border-white/20 bg-navy/90 px-4 py-2.5 text-xs font-semibold text-blue-100 shadow-xl backdrop-blur sm:flex">
+              <ShieldCheck className="h-4 w-4 text-emerald-300" />
+              {lang === "hi" ? "आपकी सुविधा, आपकी पसंद" : "Convenience on your terms"}
+            </div>
+          </div>
         </div>
       </section>
 
