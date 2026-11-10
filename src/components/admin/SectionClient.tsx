@@ -133,20 +133,6 @@ export default function SectionClient({ def }: { def: SectionDef }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const isCustomers = def.collection === "users" && def.title === "Customers";
-  const refreshSection = async () => {
-    if (!def.collection) return;
-    setRefreshing(true);
-    try {
-      const res = await fetch(`/api/admin/${encodeURIComponent(def.title.toLowerCase().replace(/\\s+/g, "-"))}`, { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json() as { rows?: SectionDef["rows"]; kpis?: SectionDef["kpis"] };
-      if (Array.isArray(data.rows)) setLiveRows(data.rows);
-      if (Array.isArray(data.kpis)) setLiveKpis(data.kpis);
-      setLastSynced(new Date());
-    } finally { setRefreshing(false); }
-  };
-
   const refreshCustomers = async () => {
     if (!def.collection) return;
     setRefreshing(true);
@@ -163,7 +149,7 @@ export default function SectionClient({ def }: { def: SectionDef }) {
   };
 
   useEffect(() => {
-    if (!isCustomers) return;
+    if (!def.collection) return;
     void refreshCustomers();
     const timer = window.setInterval(() => void refreshCustomers(), 15000);
     const onFocus = () => void refreshCustomers();
