@@ -24,6 +24,7 @@ export default function AddressBook() {
   const [detected, setDetected] = useState(false);
   const [form, setForm] = useState(empty);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) void listAddresses(user.id).then(setList);
@@ -60,6 +61,7 @@ export default function AddressBook() {
 
   async function add() {
     if (!user || !validate()) return;
+    if (list.length >= 5) { setMessage("You can save a maximum of 5 addresses."); return; }
     setBusy(true);
     try {
       const next = await saveAddress(user.id, {
@@ -110,11 +112,11 @@ export default function AddressBook() {
           onClick={() => setOpen((v) => !v)}
           className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
         >
-          <Plus className="h-4 w-4" /> {s.address.add}
+          <Plus className="h-4 w-4" /> {list.length >= 5 ? "5/5 addresses saved" : s.address.add}
         </button>
       </div>
 
-      <div className="mt-4 space-y-3">
+      {message && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{message}</p>}\n      <div className="mt-4 space-y-3">
         {list.length === 0 && !open && (
           <p className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500">
             {s.address.empty}
