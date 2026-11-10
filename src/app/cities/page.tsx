@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import Link from "next/link";
 import { MapPin } from "lucide-react";
 import { CITIES } from "../../lib/seed";
 import { getServices } from "../../server/catalog";
 
-// This page reads the live database catalogue; render it at request time.
-export const dynamic = "force-dynamic";
 export const instant = false;
 
 export const metadata: Metadata = {
@@ -14,6 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function CitiesPage() {
+  await connection();
   const serviceCount = (await getServices()).length;
   return (
     <div className="section-shell py-12">
