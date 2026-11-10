@@ -137,7 +137,7 @@ export default function SectionClient({ def }: { def: SectionDef }) {
     if (!def.collection) return;
     setRefreshing(true);
     try {
-      const res = await fetch(`/api/admin/${def.title.toLowerCase().replace(/\\s+/g, "-")}`, { cache: "no-store" });
+      const res = await fetch(`/api/admin/${def.title.toLowerCase().replace(/\s+/g, "-")}`, { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json() as { rows?: SectionDef["rows"]; kpis?: SectionDef["kpis"] };
       if (Array.isArray(data.rows)) setLiveRows(data.rows);
@@ -163,8 +163,8 @@ export default function SectionClient({ def }: { def: SectionDef }) {
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return def.rows;
-    return def.rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(needle)));
+    if (!needle) return liveRows;
+    return liveRows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(needle)));
   }, [liveRows, q]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
