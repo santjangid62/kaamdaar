@@ -101,47 +101,59 @@ export default function HomeView() {
   return (
     <div>
       {/* ── hero ───────────────────────────────────────────── */}
-      <section className="relative isolate overflow-hidden bg-navy">
-        {/* deep navy → blue wash, so the hero reads as one lit surface */}
-        <div className="absolute inset-0 bg-linear-to-br from-navy via-navy-800 to-blue-900" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-linear-to-t from-navy to-transparent" />
-        <div className="absolute -right-40 -top-40 h-96 w-96 rounded-full bg-blue-700/40 blur-3xl" />
-        <div className="absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-flame/20 blur-3xl" />
-        <div className="absolute -left-24 top-1/3 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl" />
-        {/* dotted grid, fading out towards the bottom */}
+      <section className="relative isolate min-h-[650px] overflow-hidden bg-navy sm:min-h-[700px]">
+        {/* Muted, looping home-services footage; dark overlays keep all copy readable. */}
+        <video
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center opacity-35 sm:opacity-45"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          poster="https://images.pexels.com/videos/7641376/pexels-photo-7641376.jpeg?auto=compress&dpr=1&h=750&w=1260"
+          aria-hidden="true"
+        >
+          <source
+            src="https://videos.pexels.com/video-files/7641376/7641376-hd_1920_1080_30fps.mp4"
+            type="video/mp4"
+          />
+        </video>
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,24,46,0.98)_0%,rgba(7,24,46,0.90)_42%,rgba(7,24,46,0.58)_72%,rgba(7,24,46,0.52)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(7,24,46,0.9)_0%,transparent_35%,rgba(7,24,46,0.22)_100%)]" />
+        <div className="absolute -right-40 -top-40 h-96 w-96 rounded-full bg-blue-500/20 blur-3xl" />
+        <div className="absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-flame/15 blur-3xl" />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-25 mask-[linear-gradient(to_bottom,black,transparent_70%)]"
+          className="pointer-events-none absolute inset-0 opacity-[0.12] mask-[linear-gradient(to_bottom,black,transparent_75%)]"
           style={{
-            backgroundImage:
-              "radial-gradient(circle, #8ab6e0 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
+            backgroundImage: "radial-gradient(circle, #b9d7f2 1px, transparent 1px)",
+            backgroundSize: "28px 28px",
           }}
         />
 
-        <div className="section-shell relative py-16 sm:py-20 lg:py-24">
-          <div className="mx-auto w-full max-w-5xl">
+        <div className="section-shell relative flex min-h-[650px] items-center py-16 sm:min-h-[700px] sm:py-20 lg:py-24">
+          <div className="w-full max-w-3xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-flame-400/50 bg-white/[0.09] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white shadow-lg shadow-black/10 backdrop-blur-md sm:text-xs">
               <BadgeCheck className="h-3.5 w-3.5 text-flame-400" />
               {s.hero.badge}
             </span>
 
-            <h1 className="mt-6 max-w-4xl text-[2.7rem] font-black leading-[1.04] tracking-[-0.045em] text-white drop-shadow-sm sm:text-6xl lg:text-7xl xl:text-[5.15rem]">
+            <h1 className="mt-6 max-w-3xl text-[2.7rem] font-black leading-[1.04] tracking-[-0.045em] text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.3)] sm:text-6xl lg:text-7xl xl:text-[5.15rem]">
               {heroLead}{" "}
               <span className="text-flame drop-shadow-[0_0_24px_rgba(255,122,0,0.45)]">
                 {heroAccent}
               </span>
             </h1>
 
-            <p className="mt-6 max-w-3xl text-base leading-8 text-blue-100/95 sm:text-xl sm:leading-9">
+            <p className="mt-6 max-w-2xl text-base leading-8 text-blue-100/95 drop-shadow sm:text-xl sm:leading-9">
               {heroSubtitle}
             </p>
 
-            <div className="mt-8 max-w-3xl">
+            <div className="mt-8 max-w-2xl">
               <HeroSearch />
             </div>
 
-            <ul className="mt-10 grid max-w-4xl grid-cols-2 gap-x-6 gap-y-4 border-t border-white/10 pt-6 sm:grid-cols-4">
+            <ul className="mt-10 grid max-w-3xl grid-cols-2 gap-x-6 gap-y-4 border-t border-white/15 pt-6 sm:grid-cols-4">
               {s.hero.trust.map((label, i) => {
                 const Icon = [BadgeCheck, LayoutGrid, MapPin, ShieldCheck][i];
                 return (
