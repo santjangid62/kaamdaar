@@ -100,7 +100,7 @@ export async function reverseGeocode(point: GeoPoint): Promise<GeoResult> {
       "";
     const city = a.city || a.state || "";
     const label = [locality, city].filter(Boolean).join(", ") || data.display_name || "Current location";
-    return { ...point, label, city };
+    return { ...point, label, city, pincode };
   } catch {
     return { ...point, label: "Current location", city: "" };
   }
