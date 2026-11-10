@@ -105,7 +105,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ user: existing[0], isNew: false });
     }
 
-    const user = await insert<User>("users", {
+    const user = await insert<User & Record<string, unknown>>("users", {
       id: phone,
       phone,
       firstName: "",
