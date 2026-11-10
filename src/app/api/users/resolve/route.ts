@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { find, insert, ready } from "../../../../server/db";
 import type { User } from "../../../../lib/types";
+import { createUserRegisteredNotification } from "../../../../server/notifications";
 
 function referralCode(phone: string): string {
   return `KDM${phone.replace(/\D/g, "").slice(-4)}`;
@@ -25,7 +26,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   await ready();
-  let body: { phone?: string };
+  let body: { phone?: string; platform?: "web" | "mobile_app" };
   try {
     body = (await req.json()) as { phone?: string };
   } catch {
@@ -57,6 +58,8 @@ export async function POST(req: Request) {
     referralCode: referralCode(phone),
     role: "customer",
     status: "active",
+    registrationPlatform: body.platform === "mobile_app" ? "mobile_app" : "web",
   });
+  await createUserRegisteredNotification(user);
   return NextResponse.json({ user, isNew: true });
 }
