@@ -8,8 +8,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import AdminNotificationsBell from "./AdminNotificationsBell";
 import {
-  Bell,
   Calendar,
   ChevronDown,
   LogOut,
@@ -152,16 +152,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               <Calendar className="h-3.5 w-3.5 text-blue-600" /> 01 Oct 2026 – 31 Oct 2026
               <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
             </button>
-            <button
-              type="button"
-              className="relative rounded-xl border border-slate-200/80 p-2.5 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-navy"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
-                12
-              </span>
-            </button>
+            <AdminNotificationsBell />
 
             <div className="relative">
               <button
