@@ -7,7 +7,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Download, Pencil, Plus, Search, Trash2, X, Sparkles, RefreshCw } from "lucide-react";
 import type { Field, SectionDef } from "../../lib/admin/types";
 import { useApp } from "../AppProvider";
 import { BookingTable, Pager } from "./widgets";
@@ -124,6 +124,7 @@ export default function SectionClient({ def }: { def: SectionDef }) {
   const [liveKpis, setLiveKpis] = useState(def.kpis ?? []);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [generating, setGenerating] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [modal, setModal] = useState<{ mode: "add" | "edit"; row?: Record<string, string | number> } | null>(null);
@@ -133,12 +134,24 @@ export default function SectionClient({ def }: { def: SectionDef }) {
   const [notice, setNotice] = useState<string | null>(null);
 
   const isCustomers = def.collection === "users" && def.title === "Customers";
-
-  const refreshCustomers = async () => {
-    if (!isCustomers) return;
+  const refreshSection = async () => {
+    if (!def.collection) return;
     setRefreshing(true);
     try {
-      const res = await fetch("/api/admin/customers", { cache: "no-store" });
+      const res = await fetch(`/api/admin/${encodeURIComponent(def.title.toLowerCase().replace(/\\s+/g, "-"))}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json() as { rows?: SectionDef["rows"]; kpis?: SectionDef["kpis"] };
+      if (Array.isArray(data.rows)) setLiveRows(data.rows);
+      if (Array.isArray(data.kpis)) setLiveKpis(data.kpis);
+      setLastSynced(new Date());
+    } finally { setRefreshing(false); }
+  };
+
+  const refreshCustomers = async () => {
+    if (!def.collection) return;
+    setRefreshing(true);
+    try {
+      const res = await fetch(`/api/admin/${def.title.toLowerCase().replace(/\\s+/g, "-")}`, { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json() as { rows?: SectionDef["rows"]; kpis?: SectionDef["kpis"] };
       if (Array.isArray(data.rows)) setLiveRows(data.rows);
@@ -156,7 +169,7 @@ export default function SectionClient({ def }: { def: SectionDef }) {
     const onFocus = () => void refreshCustomers();
     window.addEventListener("focus", onFocus);
     return () => { window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
-  }, [isCustomers]);
+  }, [def.collection, def.title]);
 
   const editable = Boolean(def.collection && !def.readOnly && def.fields?.length);
   const canAdd = editable && !def.noAdd;
@@ -294,7 +307,7 @@ export default function SectionClient({ def }: { def: SectionDef }) {
         </div>
       </div>
 
-      {isCustomers && lastSynced && <p className="text-right text-[11px] text-slate-400">Customer list synced at {lastSynced.toLocaleTimeString("en-IN")}</p>}\n\n      {(notice || error) && (
+      {def.collection && <div className="flex justify-end"><button type="button" onClick={() => void refreshCustomers()} disabled={refreshing} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-blue-600"><RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`}/> {lastSynced ? `Synced ${lastSynced.toLocaleTimeString("en-IN")}` : "Refresh list"}</button></div>}\n\n      {(notice || error) && (
         <p
           className={`rounded-lg px-3 py-2 text-sm font-medium ${
             error ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-700"
@@ -385,7 +398,7 @@ export default function SectionClient({ def }: { def: SectionDef }) {
                     {f.label}
                     {f.required && <span className="ml-0.5 text-red-500">*</span>}
                   </span>
-                  <FieldInput field={f} value={form[f.key] ?? ""} onChange={(v) => setForm((s) => ({ ...s, [f.key]: v }))} />
+                  <div className="space-y-1"><FieldInput field={f} value={form[f.key] ?? ""} onChange={(v) => setForm((s) => ({ ...s, [f.key]: v }))} />{(["textarea","list"].includes(f.type ?? "") || /description|tagline|include|exclude|answer|title|question/i.test(f.key)) && <button type="button" disabled={!!generating} onClick={() => void (async () => { setGenerating(f.key); setError(null); try { const r = await fetch("/api/ai/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ section: def.title, field: f.label, fieldKey: f.key, serviceName: form.name || form.title || form.q || "", category: form.category || "", context: form.description || "", language: "simple English", format: f.type === "list" ? "list" : "text" }) }); const d = await r.json() as { content?: string; error?: string }; if (!r.ok || !d.content) throw new Error(d.error || "AI generation failed"); setForm(s => ({ ...s, [f.key]: d.content! })); } catch (e) { setError(e instanceof Error ? e.message : "AI generation failed"); } finally { setGenerating(null); } })()} className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-[11px] font-semibold text-violet-700 disabled:opacity-50"><Sparkles className="h-3 w-3"/>{generating === f.key ? "Generating…" : "AI Generate"}</button>}</div>
                   {f.help && (
                     <span className="mt-1 block text-[11px] leading-4 text-slate-400">{f.help}</span>
                   )}
