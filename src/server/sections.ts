@@ -746,7 +746,7 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
           { key: "status", label: "Read status" },
           { key: "created", label: "Received" },
         ],
-        rows: rows.sort((a, b) => b.createdAt - a.createdAt).map((n) => ({ ...n, status: n.readAt ? "Read" : "New", created: n.createdAt ? new Date(n.createdAt).toLocaleString("en-IN") : "—" })),
+        rows: rows.sort((a, b) => b.createdAt - a.createdAt).map((n) => ({ id: n.id, title: n.title, message: n.message, userName: n.userName, phone: n.phone, platform: n.platform, status: n.readAt ? "Read" : "New", created: n.createdAt ? new Date(n.createdAt).toLocaleString("en-IN") : "—" })),
         readOnly: true,
       };
     }
