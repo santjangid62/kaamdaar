@@ -54,10 +54,10 @@ export function clearSession() {
  * After OTP verification: returns the existing account, or creates it
  * (backend registration). The `isNew` flag decides profile-setup redirect.
  */
-export async function resolveUser(phone: string): Promise<{ user: User; isNew: boolean }> {
+export async function resolveUser(phone: string, platform: "web" | "mobile_app" = "web"): Promise<{ user: User; isNew: boolean }> {
   return api<{ user: User; isNew: boolean }>("/api/users/resolve", {
     method: "POST",
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify({ phone, platform }),
   });
 }
 
