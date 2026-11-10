@@ -34,7 +34,7 @@ function fullName(u: User & { firstName?: string; lastName?: string }): string {
 /* ── shared projections ─────────────────────────────────────────── */
 
 async function usersAsCustomers(details: boolean) {
-  const [users, bookings] = await Promise.all([all<User & { createdAt: number; status?: string }>("users"), all<Booking>("bookings")]);
+  const [users, bookings, addresses] = await Promise.all([all<User & { createdAt: number; status?: string }>("users"), all<Booking>("bookings"), all<{ userId: string; line1: string; city: string; pincode: string }>("addresses")]);
   return users
     .slice()
     .sort((a, b) => b.createdAt - a.createdAt)
@@ -44,13 +44,18 @@ async function usersAsCustomers(details: boolean) {
         id: u.id,
         name: fullName(u) || "(profile pending)",
         phone: u.phone,
-        area: "—",
+        area: addresses.find((a) => a.userId === u.id)?.city ?? "—",
         bookings: mine.length,
         spend: inr(mine.filter((b) => b.status === "completed").reduce((s, b) => s + b.amount, 0)),
         joined: dateFmt(u.createdAt),
         statusLabel: u.status === "blocked" ? "Blocked" : "Active",
         // raw values for the edit form (columns above drive what is displayed)
         status: u.status === "blocked" ? "blocked" : "active",
+        platform: u.registrationPlatform === "mobile_app" ? "Mobile App" : "Website",
+        city: addresses.find((a) => a.userId === u.id)?.city ?? "—",
+        address: addresses.find((a) => a.userId === u.id)?.line1 ?? "—",
+        pincode: addresses.find((a) => a.userId === u.id)?.pincode ?? "—",
+        registered: u.createdAt ? new Date(u.createdAt).toLocaleString("en-IN") : "—",
         firstName: u.firstName ?? "",
         lastName: u.lastName ?? "",
         email: u.email ?? "",
@@ -164,10 +169,12 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
     case "customers":
       return {
         title: "Customers",
-        description: "Everyone who completed phone-OTP signup — real registrations only.",
+        description: "All customer accounts registered through the website or mobile app, with booking and profile details.",
         columns: [
           { key: "name", label: "Name" },
           { key: "phone", label: "Phone" },
+          { key: "platform", label: "Registered via" },
+          { key: "area", label: "City" },
           { key: "bookings", label: "Bookings", align: "right" },
           { key: "spend", label: "Total spend", align: "right" },
           { key: "joined", label: "Joined" },
@@ -190,11 +197,16 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
     case "customer-details":
       return {
         title: "Customer Details",
-        description: "Full profiles — contact, referral code and engagement.",
+        description: "Detailed customer profiles, contact information, registration source, address and booking history.",
         columns: [
           { key: "name", label: "Name" },
           { key: "phone", label: "Phone" },
           { key: "email", label: "Email" },
+          { key: "city", label: "City" },
+          { key: "address", label: "Address" },
+          { key: "pincode", label: "PIN" },
+          { key: "platform", label: "Platform" },
+          { key: "registered", label: "Registered" },
           { key: "referral", label: "Referral" },
           { key: "bookings", label: "Bookings", align: "right" },
           { key: "spend", label: "Spend", align: "right" },
@@ -721,26 +733,21 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
 
     /* NOTIFICATIONS & PAGES --------------------------------------- */
     case "notifications": {
-      const rows = await all<{ id: string; title: string; audience: string; channel: string; status: string; sentAt: string; createdAt: number }>("campaigns");
+      const rows = await all<{ id: string; title: string; message: string; userName: string; phone: string; platform: string; readAt?: number | null; createdAt: number }>("notifications");
       return {
         title: "Notifications",
-        description: "Push, SMS and email campaigns sent to users.",
+        description: "Live system alerts, including every new customer registration from web and mobile app.",
         columns: [
           { key: "title", label: "Notification" },
-          { key: "audience", label: "Audience" },
-          { key: "channel", label: "Channel" },
-          { key: "status", label: "Status" },
-          { key: "sent", label: "Sent" },
+          { key: "userName", label: "Customer" },
+          { key: "phone", label: "Mobile" },
+          { key: "platform", label: "Platform" },
+          { key: "message", label: "Details" },
+          { key: "status", label: "Read status" },
+          { key: "created", label: "Received" },
         ],
-        rows: rows.map((n) => ({ ...n, sent: n.sentAt || "—" })),
-        collection: "campaigns",
-        fields: [
-          { key: "title", label: "Notification title", required: true, help: "Push/SMS ka headline — chhota rakhein, jaise “Monsoon offer: 20% off”." },
-          { key: "audience", label: "Audience", help: "Kisko bhejna hai — jaise “All users”, “Jaipur users”, “Providers”." },
-          { key: "channel", label: "Channel", type: "select", options: ["Push", "SMS", "Email", "In-app"], help: "Kis raste bhejna hai: Push = mobile notification, SMS = text message, Email = mail, In-app = app/website ke andar." },
-          { key: "status", label: "Status", type: "select", options: ["Sent", "Draft"], help: "Draft = abhi bhejna nahi hai (sirf taiyar kiya). Sent = bhej diya gaya." },
-          { key: "sentAt", label: "Sent at", help: "Bhejne ka time, jaise “30 Oct 2026, 10:24 AM”. Scheduled ho to khaali chhodein." },
-        ],
+        rows: rows.sort((a, b) => b.createdAt - a.createdAt).map((n) => ({ ...n, status: n.readAt ? "Read" : "New", created: n.createdAt ? new Date(n.createdAt).toLocaleString("en-IN") : "—" })),
+        readOnly: true,
       };
     }
     case "pages": {
