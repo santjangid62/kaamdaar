@@ -11,8 +11,8 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../screens/job.dart';
@@ -73,7 +73,9 @@ class JobAlertCenter {
   final ValueNotifier<List<MissedJob>> missed =
       ValueNotifier<List<MissedJob>>(const []);
 
-  final AudioPlayer _player = AudioPlayer();
+  /// Native alarm player (res/raw/job_alert.wav) — a plugin-free channel, so
+  /// the build stays clean on Windows paths with spaces.
+  static const MethodChannel _alarm = MethodChannel('kaamdaar/alerts');
   Timer? _poll;
   ProviderItem? _me;
   String? _ringing;
@@ -223,19 +225,14 @@ class JobAlertCenter {
 
   Future<void> _siren(bool on) async {
     try {
-      if (on) {
-        await _player.setReleaseMode(ReleaseMode.loop);
-        await _player.play(AssetSource("sounds/job_alert.wav"), volume: 1);
-      } else {
-        await _player.stop();
-      }
+      await _alarm.invokeMethod<void>(on ? 'startAlarm' : 'stopAlarm');
     } catch (_) {
       // A device with no audio route must still show the alert.
     }
   }
 
   void _silence() {
-    _player.stop();
+    _alarm.invokeMethod<void>('stopAlarm').catchError((_) {});
   }
 
   Future<void> _persistMissed() async {
