@@ -98,7 +98,7 @@ export async function reverseGeocode(point: GeoPoint): Promise<GeoResult> {
       a.city ||
       data.name ||
       "";
-    const city = a.city || a.state || "";
+    const city = a.city || a.town || a.village || a.state_district || a.state || "";\n    const pincode = a.postcode || "";
     const label = [locality, city].filter(Boolean).join(", ") || data.display_name || "Current location";
     return { ...point, label, city, pincode };
   } catch {
