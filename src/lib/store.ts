@@ -84,16 +84,13 @@ export async function findUserByPhone(phone: string): Promise<User | null> {
   return fetchUser(phone);
 }
 
-export async function updateUser(id: string, patch: Partial<User>): Promise<User | null> {
-  try {
-    const data = await api<{ user: User }>(`/api/users/${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      body: JSON.stringify(patch),
-    });
-    return data.user;
-  } catch {
-    return null;
-  }
+export async function updateUser(id: string, patch: Partial<User>): Promise<User> {
+  const data = await api<{ user: User }>(`/api/users/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+  if (!data.user) throw new Error("Profile update returned no saved user");
+  return data.user;
 }
 
 /* ------------------------------ addresses ------------------------------ */
