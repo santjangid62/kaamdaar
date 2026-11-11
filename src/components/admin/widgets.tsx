@@ -17,6 +17,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type {
   Metric,
@@ -105,11 +106,9 @@ export function MetricCards({
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
       {cards.map((m, i) => {
         const Icon = METRIC_ICONS[i] ?? Activity;
+        const href = m.key === "customers" ? "/admin/customers" : m.key === "providers" ? "/admin/service-providers" : m.key === "completed" ? "/admin/all-bookings?status=completed" : m.key === "cancelled" ? "/admin/cancelled-bookings" : "/admin/all-bookings";
         return (
-          <article
-            key={m.key}
-            className="group rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_8px_26px_-22px_rgba(15,23,42,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_16px_34px_-22px_rgba(15,23,42,0.35)]"
-          >
+          <Link key={m.key} href={href} aria-label="Open dashboard metric" className="group block rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_8px_26px_-22px_rgba(15,23,42,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-[0_16px_34px_-22px_rgba(15,23,42,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
             <div className="flex items-start justify-between gap-2">
               <span className={`grid h-10 w-10 place-items-center rounded-xl ${METRIC_STYLES[i] ?? METRIC_STYLES[0]}`}>
                 <Icon className="h-5 w-5" />
@@ -126,11 +125,11 @@ export function MetricCards({
             <p className="mt-3 text-xs font-semibold text-slate-500">{m.label}</p>
             <p className="mt-0.5 text-2xl font-extrabold tracking-tight text-navy">{m.value}</p>
             <p className="mt-1 text-[11px] text-slate-400">{m.note}</p>
-          </article>
+          </Link>
         );
       })}
 
-      <article className="rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50/60 p-4 shadow-[0_10px_28px_-20px_rgba(180,83,9,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-22px_rgba(180,83,9,0.35)]">
+      <Link href="/admin/commission" aria-label="Open revenue and commission" className="block rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50/60 p-4 shadow-[0_10px_28px_-20px_rgba(180,83,9,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-[0_18px_36px_-22px_rgba(180,83,9,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
         <div className="flex items-start justify-between gap-2">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-100 text-amber-600">
             <Wallet className="h-5 w-5" />
@@ -141,7 +140,7 @@ export function MetricCards({
         <p className="mt-1 text-[11px] text-slate-400">
           {revenueDelta ?? "—"} · Commission: {commission ?? "₹0"}
         </p>
-      </article>
+      </Link>
     </div>
   );
 }
@@ -524,6 +523,7 @@ export interface StatItem {
   label: string;
   value: string | number;
   tone?: "green" | "sky" | "orange" | "blue" | "grey";
+  href?: string;
 }
 
 const STAT_TONE: Record<string, string> = {
@@ -538,12 +538,12 @@ export function StatStrip({ items }: { items: StatItem[] }) {
   return (
     <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
       {items.map((it) => (
-        <div key={it.label} className="rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-4 py-3 shadow-[0_4px_14px_-12px_rgba(15,23,42,0.3)] transition-colors hover:border-blue-200 hover:bg-blue-50/30">
+        <Link key={it.label} href={it.href ?? "/admin/all-bookings"} aria-label="Open dashboard statistic" className="block rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-4 py-3 shadow-[0_4px_14px_-12px_rgba(15,23,42,0.3)] transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/30 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
           <p className={`text-xl font-extrabold tracking-tight ${STAT_TONE[it.tone ?? "grey"]}`}>
             {it.value}
           </p>
           <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{it.label}</p>
-        </div>
+        </Link>
       ))}
     </div>
   );
