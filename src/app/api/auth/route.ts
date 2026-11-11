@@ -17,7 +17,7 @@
  * the admin-managed roster (admins add Pro rows with their phone number).
  */
 import { NextResponse } from "next/server";
-import { find, insert, ready } from "../../../server/db";
+import { find, insert, get, upsert, remove, ready } from "../../../server/db";
 import type { Provider, User } from "../../../lib/types";
 import { createUserRegisteredNotification } from "../../../server/notifications";
 
@@ -29,7 +29,7 @@ function normalizePhone(value: string): string {
   return /^\d{10}$/.test(ten) ? `+91${ten}` : "";
 }
 const TTL_MS = 5 * 60 * 1000;
-const codes = new Map<string, { code: string; at: number }>();
+
 
 function referralCode(phone: string): string {
   return `KDM${phone.replace(/\D/g, "").slice(-4)}`;
@@ -54,21 +54,20 @@ export async function POST(req: Request) {
 
   if (body.action === "send") {
     const code = String(Math.floor(100000 + Math.random() * 900000));
-    for (const [k, v] of codes) if (Date.now() - v.at > TTL_MS) codes.delete(k);
-    codes.set(phone, { code, at: Date.now() });
+    await upsert("loginOtps", phone, { code, at: Date.now() });
     return NextResponse.json({ devCode: code, expiresIn: 300 });
   }
 
   if (body.action === "verify") {
-    const entry = codes.get(phone);
+    const entry = await get<{ id: string; code: string; at: number }>("loginOtps", phone);
     if (!entry || Date.now() - entry.at > TTL_MS) {
-      codes.delete(phone);
+      await remove("loginOtps", phone);
       return NextResponse.json({ error: "OTP expired — request a new one" }, { status: 410 });
     }
     if (entry.code !== (body.code ?? "").trim()) {
       return NextResponse.json({ error: "Incorrect OTP" }, { status: 401 });
     }
-    codes.delete(phone);
+    await remove("loginOtps", phone);
 
     if (body.role === "provider") {
       const found = await find<
