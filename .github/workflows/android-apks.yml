@@ -1,0 +1,64 @@
+name: Build Kaamdaar Android APKs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/customer_app/**"
+      - "apps/provider_app/**"
+      - ".github/workflows/android-apks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: customer
+            directory: apps/customer_app
+            apk: app-customer-debug.apk
+          - app: provider
+            directory: apps/provider_app
+            apk: app-provider-debug.apk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+          cache-dependency-path: ${{ matrix.directory }}/pubspec.lock
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.directory }}
+        run: flutter pub get
+
+      - name: Build debug APK
+        working-directory: ${{ matrix.directory }}
+        run: flutter build apk --debug
+
+      - name: Rename APK
+        run: cp "${{ matrix.directory }}/build/app/outputs/flutter-apk/app-debug.apk" "${{ matrix.apk }}"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaamdaar-${{ matrix.app }}-apk
+          path: ${{ matrix.apk }}
+          if-no-files-found: error
+          retention-days: 14
