@@ -22,6 +22,12 @@ import type { Provider, User } from "../../../lib/types";
 import { createUserRegisteredNotification } from "../../../server/notifications";
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
+
+function normalizePhone(value: string): string {
+  const digits = (value ?? "").replace(/\D/g, "");
+  const ten = digits.length > 10 ? digits.slice(-10) : digits;
+  return /^\d{10}$/.test(ten) ? `+91${ten}` : "";
+}
 const TTL_MS = 5 * 60 * 1000;
 const codes = new Map<string, { code: string; at: number }>();
 
@@ -38,7 +44,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const phone = (body.phone ?? "").trim();
+  const phone = normalizePhone(body.phone ?? "");
   if (!PHONE_RE.test(phone)) {
     return NextResponse.json(
       { error: "A valid Indian mobile number is required" },
@@ -67,7 +73,7 @@ export async function POST(req: Request) {
     if (body.role === "provider") {
       const found = await find<
         Provider & { id: string; phone?: string; status?: string }
-      >("providers", (p) => p.phone === phone);
+      >("providers", (p) => normalizePhone(p.phone ?? "") === phone);
       const provider = found[0];
       if (!provider) {
         return NextResponse.json(
@@ -90,7 +96,7 @@ export async function POST(req: Request) {
     // customer: return the existing account, or register the first-timer
     const existing = await find<User & { id: string; status?: string }>(
       "users",
-      (u) => u.phone === phone,
+      (u) => normalizePhone(u.phone ?? "") === phone,
     );
     if (existing[0]) {
       if (existing[0].status === "deleted") {
