@@ -1,0 +1,92 @@
+name: Bootstrap Shorebird and build first OTA APKs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/shorebird-bootstrap.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Shorebird
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Verify Shorebird credentials
+        run: |
+          test -n "$SHOREBIRD_TOKEN" || { echo "::error::SHOREBIRD_TOKEN is missing"; exit 1; }
+          shorebird --version
+        env:
+          SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+
+      - name: Initialize Customer and Provider apps
+        env:
+          SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+        run: |
+          set -euo pipefail
+          for spec in "apps/customer_app|Kaamdaar Customer" "apps/provider_app|Kaamdaar Provider"; do
+            dir="${spec%%|*}"
+            display="${spec#*|}"
+            echo "Initializing $display in $dir"
+            cd "$GITHUB_WORKSPACE/$dir"
+            if [ ! -f shorebird.yaml ]; then
+              shorebird init --display-name "$display"
+            else
+              echo "shorebird.yaml already exists; preserving its app_id"
+            fi
+            git -C "$GITHUB_WORKSPACE" add "$dir/shorebird.yaml" "$dir/pubspec.yaml" "$dir/pubspec.lock" "$dir/android"
+            if ! git -C "$GITHUB_WORKSPACE" diff --cached --quiet; then
+              git -C "$GITHUB_WORKSPACE" -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Initialize Shorebird for $display"
+              git -C "$GITHUB_WORKSPACE" push origin HEAD:main
+              git -C "$GITHUB_WORKSPACE" fetch origin main
+              git -C "$GITHUB_WORKSPACE" reset --hard origin/main
+            fi
+          done
+
+      - name: Publish Customer Shorebird release
+        working-directory: apps/customer_app
+        env:
+          SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+        run: |
+          shorebird release android --artifact apk --target-platform android-arm64
+
+      - name: Upload Customer Shorebird APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaamdaar-customer-shorebird-apk
+          path: apps/customer_app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Publish Provider Shorebird release
+        working-directory: apps/provider_app
+        env:
+          SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+        run: |
+          shorebird release android --artifact apk --target-platform android-arm64
+
+      - name: Upload Provider Shorebird APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaamdaar-provider-shorebird-apk
+          path: apps/provider_app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: warn
+          retention-days: 14
