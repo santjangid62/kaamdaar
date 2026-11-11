@@ -47,6 +47,8 @@ jobs:
             display="${spec#*|}"
             echo "Initializing $display in $dir"
             cd "$GITHUB_WORKSPACE/$dir"
+            # Generate the Gradle wrapper expected by shorebird init.
+            shorebird flutter build apk --debug
             if [ ! -f shorebird.yaml ]; then
               shorebird init --display-name "$display"
             else
