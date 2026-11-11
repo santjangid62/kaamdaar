@@ -18,6 +18,7 @@ export default function ProfileDetails() {
   const [photo, setPhoto] = useState<string | undefined>(user?.photo);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -39,6 +40,8 @@ export default function ProfileDetails() {
     setErrors(next);
     if (Object.keys(next).length > 0) return;
     setBusy(true);
+    setSaveError(null);
+    setSaved(false);
     try {
       const updated = await updateUser(user!.id, {
         firstName: form.firstName.trim(),
@@ -46,9 +49,11 @@ export default function ProfileDetails() {
         email: form.email.trim(),
         photo,
       });
-      if (updated) signIn(updated);
+      signIn(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Profile could not be saved. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -146,6 +151,7 @@ export default function ProfileDetails() {
         {!form.firstName.trim() && (
           <span className="text-xs text-slate-400">{s.profile.required}</span>
         )}
+        {saveError && <p role="alert" className="text-sm font-medium text-red-600">{saveError}</p>}
         {saved && (
           <span className="flex items-center gap-1 text-sm font-medium text-green-600">
             <Check className="h-4 w-4" /> {s.profile.saved}
