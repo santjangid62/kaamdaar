@@ -129,12 +129,12 @@ export default async function AdminDashboardPage() {
       <WidgetCard title="Today at a Glance" right={<AutoRefresh seconds={20} />}>
         <StatStrip
           items={[
-            { label: "Services today", value: data.today.total },
-            { label: "Running right now", value: data.running.length, tone: "sky" },
-            { label: "Waiting for a Pro", value: data.pending.length, tone: "orange" },
-            { label: "Upcoming", value: data.upcoming.length, tone: "blue" },
-            { label: "Completed today", value: data.today.completed, tone: "green" },
-            { label: "Collected today", value: data.today.revenue, tone: "green" },
+            { label: "Services today", value: data.today.total, href: "/admin/all-bookings" },
+            { label: "Running right now", value: data.running.length, tone: "sky", href: "/admin/live-bookings" },
+            { label: "Waiting for a Pro", value: data.pending.length, tone: "orange", href: "/admin/live-bookings" },
+            { label: "Upcoming", value: data.upcoming.length, tone: "blue", href: "/admin/all-bookings" },
+            { label: "Completed today", value: data.today.completed, tone: "green", href: "/admin/all-bookings?status=completed" },
+            { label: "Collected today", value: data.today.revenue, tone: "green", href: "/admin/commission" },
           ]}
         />
       </WidgetCard>
