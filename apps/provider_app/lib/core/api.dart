@@ -22,7 +22,7 @@ class ApiException implements Exception {
 class Api {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE',
-    defaultValue: 'http://10.0.2.2:3100',
+    defaultValue: 'https://kaamdaar-seven.vercel.app',
   );
 
   static const Map<String, String> _headers = {'Content-Type': 'application/json'};
