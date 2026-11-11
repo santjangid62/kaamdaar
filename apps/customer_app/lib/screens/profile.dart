@@ -1,5 +1,6 @@
 /// Profile — account, saved addresses (Indian PIN validated), help, logout.
 library;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../core/api.dart';
@@ -28,7 +29,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _load() async {
     try {
-      final user = await Api.restoreSession();
+      var user = await Api.restoreSession();
+      if (user != null) {
+        try { user = await Api.refreshProfile(user.phone); } catch (_) {}
+      }
       List<BookingItem> bookings = [];
       if (user != null) {
         try {
@@ -97,15 +101,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CircleAvatar(
                     radius: 30,
                     backgroundColor: Colors.white24,
-                    child: Text(
-                      (u?.name.isNotEmpty ?? false)
-                          ? u!.name[0].toUpperCase()
-                          : 'K',
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900),
-                    ),
+                    backgroundImage: _profileImage(u?.photo ?? ''),
+                    child: (u?.photo.isNotEmpty ?? false)
+                        ? null
+                        : Text(
+                            (u?.name.isNotEmpty ?? false)
+                                ? u!.name[0].toUpperCase()
+                                : 'K',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900),
+                          ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -528,4 +535,23 @@ class _AddressFormState extends State<AddressForm> {
       ),
     );
   }
+}
+
+
+/// Supports both uploaded data URLs (web FileReader) and hosted image URLs.
+ImageProvider<Object>? _profileImage(String value) {
+  if (value.isEmpty) return null;
+  try {
+    if (value.startsWith('data:image/')) {
+      final comma = value.indexOf(',');
+      if (comma < 0) return null;
+      return MemoryImage(base64Decode(value.substring(comma + 1)));
+    }
+    if (value.startsWith('https://') || value.startsWith('http://')) {
+      return NetworkImage(value);
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
 }
