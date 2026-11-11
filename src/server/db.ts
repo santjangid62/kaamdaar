@@ -35,13 +35,14 @@ export type Collection =
   | "payouts"
   | "wallets"
   | "walletTxns"
+  | "providerPayments"
   | "adminUsers"
   | "settings";
 
 export const COLLECTIONS: Collection[] = [
   "users", "addresses", "bookings", "providers", "services", "categories",
   "reviews", "complaints", "banners", "faqs", "pages", "campaigns", "notifications",
-  "payouts", "wallets", "walletTxns", "adminUsers", "settings",
+  "payouts", "wallets", "walletTxns", "providerPayments", "adminUsers", "settings",
 ];
 
 export type Store = Partial<Record<Collection, Record<string, Doc>>> & { seeded?: boolean };
