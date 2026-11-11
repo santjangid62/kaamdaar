@@ -11,6 +11,6 @@ export async function commissionRate(): Promise<number> {
 export async function minWallet(): Promise<number> {
   await ready();
   const row = await get<{ value: string }>("settings", "min_wallet");
-  const value = Number(row?.value ?? "500");
-  return Number.isFinite(value) && value > 0 ? value : 500;
+  const value = Number(row?.value ?? "200");
+  return Number.isFinite(value) && value >= 0 ? value : 200;
 }
