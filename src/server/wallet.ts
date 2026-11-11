@@ -19,6 +19,7 @@ export interface WalletTxn {
   provider?: string;
   service?: string;
   serviceCharge?: number;
+  bookingId?: string;
   commission?: number;
   amount: number; // negative = debit
   balanceAfter: number;
