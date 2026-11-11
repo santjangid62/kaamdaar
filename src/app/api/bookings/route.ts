@@ -6,7 +6,7 @@
  */
 import { NextResponse } from "next/server";
 import { all, get, insert, ready } from "../../../server/db";
-import { commissionRate } from "../../../server/settings";
+import { commissionRate, minWallet } from "../../../server/settings";
 import type { Booking, GeoPoint, Provider } from "../../../lib/types";
 import { matchProviders } from "../../../lib/match";
 import { newEvent } from "../../../server/events";
@@ -80,8 +80,15 @@ export async function POST(req: Request) {
     );
   }
 
-  const providers = await all<Provider>("providers");
-  const match = matchProviders(providers, body.serviceId, origin);
+  const [providers, wallets] = await Promise.all([
+    all<Provider>("providers"),
+    all<{ providerId: string; balance: number }>("wallets"),
+  ]);
+  const minimum = await minWallet();
+  const eligibleProviders = providers.filter((provider) =>
+    (wallets.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimum
+  );
+  const match = matchProviders(eligibleProviders, body.serviceId, origin);
   const rate = await commissionRate();
   const amount = Math.max(0, Math.round(body.amount));
   const now = Date.now();
