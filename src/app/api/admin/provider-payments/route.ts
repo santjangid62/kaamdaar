@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { all, get, insert, patch, ready, uid } from "../../../../server/db";
 import { isAuthed } from "../../../../lib/admin/auth";
-import { getWallet, rechargeWallet } from "../../../../server/wallet";
+import { getWallet, rechargeWallet, type WalletTxn } from "../../../../server/wallet";
 
 type ProviderPayment = {
   id: string;
@@ -90,9 +90,10 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Correct Admin-visible demo OTP is required" }, { status: 422 });
   }
 
-  const wallet = await getWallet(payment.providerId);
-  if (wallet.balance < payment.amount) {
-    await rechargeWallet(payment.providerId, payment.amount);
+  const existingCredit = (await all<WalletTxn>("walletTxns"))
+    .some((txn) => txn.paymentId === payment.id && txn.kind === "recharge");
+  if (!existingCredit) {
+    await rechargeWallet(payment.providerId, payment.amount, payment.id);
   }
   const updated = await patch<ProviderPayment>("providerPayments", paymentId, {
     status: "verified",
