@@ -1,6 +1,8 @@
 /** PATCH /api/bookings/:id — dispatch lifecycle updates (owner-checked). */
 import { NextResponse } from "next/server";
 import { all, get, patch, ready } from "../../../../server/db";
+import { minWallet } from "../../../../server/settings";
+import { debitCommission, type WalletTxn } from "../../../../server/wallet";
 import { etaMinutes, generateOtp, toProfile } from "../../../../lib/dispatch";
 import { haversineKm } from "../../../../lib/geo";
 import { appendEvents, eventsForChange, newEvent } from "../../../../server/events";
@@ -128,6 +130,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     // Freeze the Pro's public details, ETA and start OTP server-side so the
     // customer's card never depends on a client-supplied profile.
     const pro = (await all<Provider>("providers")).find((p) => p.id === acceptingId);
+    const [wallets, minimum] = await Promise.all([
+      all<{ providerId: string; balance: number }>("wallets"),
+      minWallet(),
+    ]);
+    const balance = wallets.find((wallet) => wallet.providerId === acceptingId)?.balance ?? 0;
+    if (balance < minimum) {
+      return NextResponse.json(
+        { error: `Wallet balance must be at least ₹${minimum} to accept jobs` },
+        { status: 409 },
+      );
+    }
     if (pro) {
       const distanceKm = booking.originPoint
         ? haversineKm(booking.originPoint, pro)
@@ -177,5 +190,18 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (added.length) changes.events = appendEvents(booking.events, added);
 
   const updated = await patch<Booking>("bookings", id, changes);
+  if (changes.status === "completed" && booking.status !== "completed" && booking.providerId) {
+    const txns = await all<WalletTxn>("walletTxns");
+    const alreadyDebited = txns.some((txn) => txn.bookingId === booking.id && txn.kind === "commission");
+    const commission = Math.max(0, Number(booking.commission ?? 0));
+    if (!alreadyDebited && commission > 0) {
+      await debitCommission(
+        booking.providerId,
+        commission,
+        `Commission for ${booking.serviceName} · ${booking.id}`,
+        { bookingId: booking.id, service: booking.serviceName, serviceCharge: booking.amount, commission },
+      );
+    }
+  }
   return NextResponse.json({ booking: updated });
 }
