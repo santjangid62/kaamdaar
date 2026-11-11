@@ -5,7 +5,8 @@
 import { get, insert, upsert, uid } from "./db";
 
 export const MIN_WALLET_BALANCE = 200;
-// New providers start at zero; money is credited only after verified payment.\nexport const DEFAULT_WALLET_BALANCE = 0;
+// New providers start at zero; money is credited only after verified payment.
+export const DEFAULT_WALLET_BALANCE = 0;
 
 export interface WalletRow {
   providerId: string;
