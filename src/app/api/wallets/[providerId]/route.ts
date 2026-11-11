@@ -6,7 +6,8 @@
  */
 import { NextResponse } from "next/server";
 import { all, ready } from "../../../../server/db";
-import { debitCommission, getWallet, rechargeWallet, type WalletTxn } from "../../../../server/wallet";\nimport { isAuthed } from "../../../../lib/admin/auth";
+import { debitCommission, getWallet, rechargeWallet, type WalletTxn } from "../../../../server/wallet";
+import { isAuthed } from "../../../../lib/admin/auth";
 
 // live balance — the Provider app refreshes it after every job
 export const instant = false;
