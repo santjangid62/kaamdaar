@@ -1,0 +1,89 @@
+name: Shorebird Android OTA
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Choose initial Shorebird release or OTA patch"
+        required: true
+        type: choice
+        options:
+          - release
+          - patch
+      app:
+        description: "Which app to update"
+        required: true
+        type: choice
+        options:
+          - customer
+          - provider
+          - both
+
+permissions:
+  contents: read
+
+jobs:
+  shorebird:
+    name: ${{ matrix.app }} - ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: customer
+            directory: apps/customer_app
+          - app: provider
+            directory: apps/provider_app
+    if: inputs.app == 'both' || inputs.app == matrix.app
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ matrix.directory }}
+    env:
+      SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Shorebird configuration
+        run: |
+          test -f shorebird.yaml || {
+            echo "::error::shorebird.yaml is missing. Initialize this app with Shorebird before running OTA."
+            exit 1
+          }
+
+      - name: Set up Shorebird
+        uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Check Shorebird authentication
+        run: |
+          if [ -z "$SHOREBIRD_TOKEN" ]; then
+            echo "::error::Add SHOREBIRD_TOKEN in GitHub repository Actions secrets."
+            exit 1
+          fi
+          shorebird --version
+
+      - name: Create initial Shorebird release
+        if: inputs.action == 'release'
+        uses: shorebirdtech/shorebird-release@v1
+        with:
+          platform: android
+          flutter-version: latest
+          working-directory: ${{ matrix.directory }}
+
+      - name: Publish OTA patch
+        if: inputs.action == 'patch'
+        uses: shorebirdtech/shorebird-patch@v1
+        with:
+          platform: android
+          release-version: latest
+          track: stable
+          working-directory: ${{ matrix.directory }}
