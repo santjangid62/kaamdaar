@@ -24,6 +24,12 @@ jobs:
         with:
           cache: true
 
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -48,7 +54,8 @@ jobs:
             echo "Initializing $display in $dir"
             cd "$GITHUB_WORKSPACE/$dir"
             # Generate the Gradle wrapper expected by shorebird init.
-            shorebird flutter build apk --debug
+            flutter pub get
+            flutter build apk --debug
             if [ ! -f shorebird.yaml ]; then
               shorebird init --display-name "$display"
             else
