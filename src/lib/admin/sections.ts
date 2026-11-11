@@ -44,6 +44,7 @@ export const NAV: NavGroup[] = [
       { slug: "provider-details", label: "Provider Details", icon: "IdCard" },
       { slug: "kyc-queue", label: "KYC Queue", icon: "ClipboardCheck" },
       { slug: "provider-payouts", label: "Provider Payouts", icon: "Banknote" },
+      { slug: "provider-payments", label: "Joining Payments", icon: "CreditCard" },
       { slug: "reviews", label: "Reviews", icon: "Star" },
     ],
   },
