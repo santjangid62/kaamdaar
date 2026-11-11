@@ -2,7 +2,7 @@
  * Wallet helper used by API routes: read a provider's balance, apply the
  * 10% commission debit / a recharge, and append to the ledger.
  */
-import { get, upsert, uid } from "./db";
+import { get, insert, upsert, uid } from "./db";
 
 export const MIN_WALLET_BALANCE = 200;
 // New providers start at zero; money is credited only after verified payment.\nexport const DEFAULT_WALLET_BALANCE = 0;
@@ -59,6 +59,16 @@ export async function debitCommission(
   const balance = Math.max(0, wallet.balance - amount);
   await upsert("wallets", providerId, { providerId, balance, updatedAt: Date.now() });
   await addTxn({ providerId, balanceAfter: balance, kind: "commission", amount: -amount, note, ...extra });
+  if (wallet.balance > MIN_WALLET_BALANCE && balance <= MIN_WALLET_BALANCE) {
+    await insert("notifications", {
+      id: uid("ntf"),
+      type: "wallet_low",
+      title: "Wallet balance low",
+      message: `Provider wallet balance is ₹${balance}. Recharge to continue receiving new jobs.`,
+      providerId,
+      readAt: null,
+    });
+  }
   return { ...wallet, balance };
 }
 
