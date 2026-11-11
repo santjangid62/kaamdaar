@@ -69,6 +69,7 @@ export interface GeoPoint {
 export interface GeoResult extends GeoPoint {
   label: string; // "Sector 56, Gurugram"
   city: string;
+  pincode?: string;
 }
 
 export interface Address {
