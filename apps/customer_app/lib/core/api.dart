@@ -97,6 +97,16 @@ class Api {
     return (user: user, isNew: data['isNew'] == true);
   }
 
+  /// Fetch the latest customer profile from the shared backend so web
+  /// profile/photo changes appear in the app without requiring a re-login.
+  static Future<SessionUser> refreshProfile(String phone) async {
+    final data = await get('/api/users/resolve?phone=${Uri.encodeQueryComponent(e164(phone))}');
+    final user = SessionUser.fromJson(
+        (data['user'] as Map<String, dynamic>?) ?? const {});
+    await saveSession(user);
+    return user;
+  }
+
   /// Same validation as the web profile form (`/api/users/:id`).
   static Future<SessionUser> updateProfile(
       String id, Map<String, dynamic> body) async {
