@@ -145,7 +145,11 @@ const mongoEngine = {
   },
 
   async get<T = Doc>(col: Collection, id: string): Promise<T | null> {
-    const doc = await (await mongoDb()).collection(col).findOne({ _id: id } as Document);
+    const collection = (await mongoDb()).collection(col);
+    // Support legacy/imported rows whose Mongo _id is an ObjectId but whose
+    // application-level id field is the stable string identifier.
+    const doc = await collection.findOne({ _id: id } as Document)
+      ?? await collection.findOne({ id } as Document);
     return stripId<T>(doc);
   },
 
@@ -165,11 +169,11 @@ const mongoEngine = {
   async patch<T = Doc>(col: Collection, id: string, changes: Record<string, unknown>): Promise<T | null> {
     const { id: _ignored, createdAt: _created, _id: _mongoId, ...safe } = changes as Record<string, unknown>;
     void _ignored; void _created; void _mongoId;
-    const res = await (await mongoDb()).collection(col).findOneAndUpdate(
-      { _id: id } as Document,
-      { $set: { ...safe, updatedAt: Date.now() } },
-      { returnDocument: "after", includeResultMetadata: false },
-    );
+    const collection = (await mongoDb()).collection(col);
+    const update = { $set: { ...safe, updatedAt: Date.now() } };
+    const options = { returnDocument: "after" as const, includeResultMetadata: false };
+    const res = await collection.findOneAndUpdate({ _id: id } as Document, update, options)
+      ?? await collection.findOneAndUpdate({ id } as Document, update, options);
     return stripId<T>(res as Document | null);
   },
 
