@@ -8,6 +8,7 @@ class SessionUser {
   final String lastName;
   final String email;
   final String referralCode;
+  final String photo;
 
   SessionUser({
     required this.id,
@@ -16,6 +17,7 @@ class SessionUser {
     this.lastName = "",
     this.email = "",
     this.referralCode = "",
+    this.photo = "",
   });
 
   String get name {
@@ -30,6 +32,7 @@ class SessionUser {
         lastName: (j["lastName"] ?? "").toString(),
         email: (j["email"] ?? "").toString(),
         referralCode: (j["referralCode"] ?? "").toString(),
+        photo: (j["photo"] ?? "").toString(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -39,6 +42,7 @@ class SessionUser {
         "lastName": lastName,
         "email": email,
         "referralCode": referralCode,
+        "photo": photo,
       };
 }
 
