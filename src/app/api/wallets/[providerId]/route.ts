@@ -2,11 +2,11 @@
  * GET  /api/wallets/:providerId — balance + recent ledger.
  * POST /api/wallets/:providerId — { kind: "commission" | "recharge", amount, note }
  *       commission: debited for a completed service (what admin/booking flow calls)
- *       recharge:   top-up when balance is below the ₹500 minimum
+ *       recharge:   top-up after admin verifies a payment
  */
 import { NextResponse } from "next/server";
 import { all, ready } from "../../../../server/db";
-import { debitCommission, getWallet, rechargeWallet, type WalletTxn } from "../../../../server/wallet";
+import { debitCommission, getWallet, rechargeWallet, type WalletTxn } from "../../../../server/wallet";\nimport { isAuthed } from "../../../../lib/admin/auth";
 
 // live balance — the Provider app refreshes it after every job
 export const instant = false;
