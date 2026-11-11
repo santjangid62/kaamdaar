@@ -20,6 +20,7 @@ export interface WalletTxn {
   service?: string;
   serviceCharge?: number;
   bookingId?: string;
+  paymentId?: string;
   commission?: number;
   amount: number; // negative = debit
   balanceAfter: number;
@@ -72,10 +73,10 @@ export async function debitCommission(
   return { ...wallet, balance };
 }
 
-export async function rechargeWallet(providerId: string, amount: number): Promise<WalletRow> {
+export async function rechargeWallet(providerId: string, amount: number, paymentId?: string): Promise<WalletRow> {
   const wallet = await getWallet(providerId);
   const balance = wallet.balance + amount;
   await upsert("wallets", providerId, { providerId, balance, updatedAt: Date.now() });
-  await addTxn({ providerId, balanceAfter: balance, kind: "recharge", amount, note: "Wallet recharge" });
+  await addTxn({ providerId, balanceAfter: balance, kind: "recharge", amount, paymentId, note: paymentId ? "Demo joining fee credit" : "Wallet recharge" });
   return { ...wallet, balance };
 }
