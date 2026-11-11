@@ -191,6 +191,25 @@ export default function SectionClient({ def }: { def: SectionDef }) {
     setModal({ mode: "edit", row });
   }
 
+  function captureProviderLocation() {
+    if (!navigator.geolocation) {
+      setError("This browser does not support location capture. Enter latitude and longitude manually.");
+      return;
+    }
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => setForm((s) => ({
+        ...s,
+        lat: String(position.coords.latitude),
+        lng: String(position.coords.longitude),
+      })),
+      (err) => setError(err.code === err.PERMISSION_DENIED
+        ? "Location permission denied. Allow location access or enter coordinates manually."
+        : "Could not get current location. Try again or enter coordinates manually."),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  }
+
   async function submit() {
     if (!def.collection || !modal) return;
     const missing = (def.fields ?? []).find(
@@ -384,7 +403,7 @@ export default function SectionClient({ def }: { def: SectionDef }) {
                     {f.label}
                     {f.required && <span className="ml-0.5 text-red-500">*</span>}
                   </span>
-                  <div className="space-y-1"><FieldInput field={f} value={form[f.key] ?? ""} onChange={(v) => setForm((s) => ({ ...s, [f.key]: v }))} />{(["textarea","list"].includes(f.type ?? "") || /description|tagline|include|exclude|answer|title|question/i.test(f.key)) && <button type="button" disabled={!!generating} onClick={() => void (async () => { setGenerating(f.key); setError(null); try { const r = await fetch("/api/ai/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ section: def.title, field: f.label, fieldKey: f.key, serviceName: form.name || form.title || form.q || "", category: form.category || "", context: form.description || "", language: "simple English", format: f.type === "list" ? "list" : "text" }) }); const d = await r.json() as { content?: string; error?: string }; if (!r.ok || !d.content) throw new Error(d.error || "AI generation failed"); setForm(s => ({ ...s, [f.key]: d.content! })); } catch (e) { setError(e instanceof Error ? e.message : "AI generation failed"); } finally { setGenerating(null); } })()} className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-[11px] font-semibold text-violet-700 disabled:opacity-50"><Sparkles className="h-3 w-3"/>{generating === f.key ? "Generating…" : "AI Generate"}</button>}</div>
+                  <div className="space-y-1"><FieldInput field={f} value={form[f.key] ?? ""} onChange={(v) => setForm((s) => ({ ...s, [f.key]: v }))} />{def.collection === "providers" && f.key === "lat" && <button type="button" onClick={captureProviderLocation} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-700">Use current GPS location (fills both coordinates)</button>}{(["textarea","list"].includes(f.type ?? "") || /description|tagline|include|exclude|answer|title|question/i.test(f.key)) && <button type="button" disabled={!!generating} onClick={() => void (async () => { setGenerating(f.key); setError(null); try { const r = await fetch("/api/ai/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ section: def.title, field: f.label, fieldKey: f.key, serviceName: form.name || form.title || form.q || "", category: form.category || "", context: form.description || "", language: "simple English", format: f.type === "list" ? "list" : "text" }) }); const d = await r.json() as { content?: string; error?: string }; if (!r.ok || !d.content) throw new Error(d.error || "AI generation failed"); setForm(s => ({ ...s, [f.key]: d.content! })); } catch (e) { setError(e instanceof Error ? e.message : "AI generation failed"); } finally { setGenerating(null); } })()} className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-[11px] font-semibold text-violet-700 disabled:opacity-50"><Sparkles className="h-3 w-3"/>{generating === f.key ? "Generating…" : "AI Generate"}</button>}</div>
                   {f.help && (
                     <span className="mt-1 block text-[11px] leading-4 text-slate-400">{f.help}</span>
                   )}
