@@ -79,13 +79,6 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
 
   return (
     <div>
-      <div className="mb-8 max-w-2xl">
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-          {s.services.heading}
-        </h1>
-        <p className="mt-2 text-slate-500">{s.services.sub}</p>
-      </div>
-
       <div className="grid gap-6 lg:grid-cols-[264px_minmax(0,1fr)]">
       {/* ── filters sidebar ─────────────────────────────── */}
       <aside className="card sticky top-20 h-[calc(100vh-5rem)] max-h-[calc(100vh-5rem)] overflow-y-auto self-start p-5">
