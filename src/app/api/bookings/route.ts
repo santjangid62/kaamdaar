@@ -11,6 +11,7 @@ import type { Booking, GeoPoint, Provider } from "../../../lib/types";
 import { matchProviders } from "../../../lib/match";
 import { newEvent } from "../../../server/events";
 import { sendProviderJobOffer } from "../../../server/fcm";
+import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
 
 /** Booking location: the live point the customer is at, else the address pin. */
 function resolveOrigin(body: Partial<Booking>): GeoPoint | null {
@@ -30,6 +31,8 @@ export const instant = false;
 
 export async function GET(req: Request) {
   await ready();
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
   const url = new URL(req.url);
   const userId = url.searchParams.get("userId");
   const providerId = url.searchParams.get("providerId");
@@ -39,9 +42,21 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "userId or providerId is required" }, { status: 400 });
   }
 
-  // Customers see their own bookings; a Pro sees bookings allotted to them
-  // plus live dispatches their number was notified for (the Provider app's
-  // request inbox polls this).
+  const [users, providers] = await Promise.all([
+    all<{ id: string; phone?: string }>("users"),
+    all<Provider & { phone?: string }>("providers"),
+  ]);
+  const customer = users.find((u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
+  const professional = providers.find((p) => normalizeIndianPhone(p.phone ?? "") === identity.phone);
+  if (providerId) {
+    if (!professional || professional.id !== providerId) {
+      return NextResponse.json({ error: "Not your provider account" }, { status: 403 });
+    }
+  } else if (!customer || customer.id !== userId) {
+    return NextResponse.json({ error: "Not your customer account" }, { status: 403 });
+  }
+
+  // Customers see only their bookings; Pros see only jobs allotted or offered to them.
   const rows = (await all<Booking>("bookings"))
     .filter((b) =>
       providerId
@@ -57,6 +72,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   await ready();
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
   let body: Partial<Booking>;
   try {
     body = (await req.json()) as Partial<Booking>;
@@ -64,9 +81,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const userId = body.userId ?? "";
-  const user = await get("users", userId);
-  if (!user) return NextResponse.json({ error: "Unknown user" }, { status: 401 });
+  const users = await all<{ id: string; phone?: string; status?: string }>("users");
+  const user = users.find((u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
+  if (!user || user.status === "blocked" || user.status === "deleted") {
+    return NextResponse.json({ error: "Customer account not available" }, { status: 403 });
+  }
+  const userId = user.id;
   if (!body.serviceId || !body.address || !body.amount || typeof body.amount !== "number") {
     return NextResponse.json({ error: "serviceId, address and amount are required" }, { status: 422 });
   }
