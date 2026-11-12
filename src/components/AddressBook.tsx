@@ -178,21 +178,19 @@ export default function AddressBook() {
             />
             <div>
               <input
-                className={`field ${errors.city ? "border-red-300 focus:border-red-400 focus:ring-red-100" : ""}`}
+                className="field bg-slate-100 text-slate-600"
                 placeholder={s.booking.cityLabel}
                 value={form.city}
                 readOnly
-                className="field bg-slate-100 text-slate-600"
               />
               {errors.city && <p className="mt-1 text-xs text-red-600">{errors.city}</p>}
             </div>
             <div className="sm:col-span-2">
               <input
-                className={`field ${errors.line1 ? "border-red-300 focus:border-red-400 focus:ring-red-100" : ""}`}
+                className="field bg-slate-100 text-slate-600"
                 placeholder="Area / locality (auto detected)"
                 value={form.line1}
                 readOnly
-                className="field bg-slate-100 text-slate-600"
               />
               {errors.line1 && <p className="mt-1 text-xs text-red-600">{errors.line1}</p>}
             </div>
@@ -204,16 +202,10 @@ export default function AddressBook() {
             />
             <div>
               <input
-                className={`field ${errors.pincode ? "border-red-300 focus:border-red-400 focus:ring-red-100" : ""}`}
+                className="field bg-slate-100 text-slate-600"
                 placeholder={s.booking.pincodeLabel}
-                inputMode="numeric"
                 value={form.pincode}
                 readOnly
-                className="field bg-slate-100 text-slate-600"
-                onChange={(e) => {
-                  setErrors((prev) => ({ ...prev, pincode: "" }));
-                  setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) });
-                }}
               />
               {errors.pincode ? (
                 <p className="mt-1 text-xs text-red-600">{errors.pincode}</p>
