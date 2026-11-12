@@ -300,39 +300,53 @@ export default function HomeView() {
         </div>
       </section>
 
-      {/* ── how it works ───────────────────────────────────── */}
+      {/* ── how it works: homepage preview mirrors the full guide ── */}
       <section
         id="how-it-works"
-        className="relative isolate overflow-hidden border-y border-slate-100 bg-gradient-to-br from-blue-50 via-white to-orange-50 py-20 sm:py-24"
+        className="relative isolate overflow-hidden border-y border-slate-100 bg-gradient-to-br from-blue-50 via-white to-orange-50 py-16 sm:py-20"
       >
         <div className="section-shell">
-          <h2 className="text-center text-2xl font-extrabold text-slate-900 sm:text-3xl">
-            {s.how.heading}
-          </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-center leading-7 text-slate-600">{s.how.sub}</p>
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[.16em] text-blue-700 shadow-sm">
+              <Sparkles className="h-3.5 w-3.5 text-flame" />
+              {lang === "hi" ? "बस चार आसान कदम" : "JUST 4 SIMPLE STEPS"}
+            </span>
+            <h2 className="mt-4 text-2xl font-extrabold text-slate-900 sm:text-3xl">
+              {s.how.heading}
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl leading-7 text-slate-600">{s.how.sub}</p>
+          </div>
 
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {s.how.steps.map((step, i) => {
-              const Icon = STEPS_ICONS[i];
+              const Icon = STEPS_ICONS[i] ?? ShieldCheck;
+              const tones = [
+                "from-blue-600 to-cyan-500",
+                "from-orange-500 to-amber-400",
+                "from-violet-600 to-blue-500",
+                "from-emerald-600 to-teal-500",
+              ];
               return (
-                <div key={step.title} className="group relative rounded-3xl border border-slate-200/80 bg-white p-7 text-center shadow-[0_18px_50px_-35px_rgba(15,35,65,.4)] transition duration-300 hover:-translate-y-2 hover:shadow-xl">
-                  {i < s.how.steps.length - 1 && (
-                    <ArrowRight className="absolute -right-4 top-8 z-10 hidden h-5 w-5 text-blue-400 lg:block" />
-                  )}
-                  <span
-                    className={`mx-auto grid h-16 w-16 place-items-center rounded-2xl text-white shadow-lg transition group-hover:scale-110 ${STEPS_TONES[i]}`}
-                  >
-                    <Icon className="h-7 w-7" />
-                  </span>
-                  <p className="mt-5 text-lg font-extrabold text-slate-900">
-                    {i + 1}. {step.title}
-                  </p>
-                  <p className="mx-auto mt-1 max-w-56 text-sm leading-6 text-slate-500">
-                    {step.body}
-                  </p>
-                </div>
+                <article key={step.title} className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_55px_-35px_rgba(15,35,65,.35)] transition duration-300 hover:-translate-y-1.5 hover:shadow-xl sm:p-7">
+                  <div className="absolute right-4 top-2 text-6xl font-black tracking-tighter text-slate-100 transition group-hover:text-orange-50">{String(i + 1).padStart(2, "0")}</div>
+                  <div className={`relative grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br ${tones[i] ?? tones[0]} text-white shadow-lg`}>
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <h3 className="relative mt-6 text-lg font-extrabold text-slate-900">{step.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">{step.body}</p>
+                </article>
               );
             })}
+          </div>
+
+          <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-2xl border border-blue-100 bg-white/80 p-5 shadow-sm sm:flex-row sm:px-7">
+            <p className="text-center text-sm font-semibold text-slate-700 sm:text-left">
+              {lang === "hi" ? "पूरी प्रक्रिया और जरूरी जानकारी जानना चाहते हैं?" : "Want to see the complete process and helpful details?"}
+            </p>
+            <Link href="/how-it-works" className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-navy px-5 py-3 text-sm font-extrabold text-white transition hover:bg-blue-800">
+              {lang === "hi" ? "पूरी प्रक्रिया देखें" : "Explore How It Works"}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </section>
