@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, Check, Loader2 } from "lucide-react";
 import { useApp } from "./AppProvider";
 import { useLang } from "../lib/i18n";
@@ -23,14 +23,38 @@ export default function ProfileDetails() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!user) return;
+    setForm({ firstName: user.firstName ?? "", lastName: user.lastName ?? "", email: user.email ?? "" });
+    setPhoto(user.photo);
+  }, [user]);
+
   if (!ready || !user) return null;
 
   function pickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith("image/")) { setSaveError("Please choose a valid image file."); return; }
+    if (file.size > 8 * 1024 * 1024) { setSaveError("Please choose an image smaller than 8 MB."); return; }
     const reader = new FileReader();
-    reader.onload = () => setPhoto(String(reader.result));
+    reader.onload = () => {
+      const image = new window.Image();
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        const scale = Math.min(1, 640 / Math.max(image.width, image.height));
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const context = canvas.getContext("2d");
+        if (!context) { setSaveError("Could not process this image."); return; }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        setPhoto(canvas.toDataURL("image/jpeg", 0.82));
+        setSaveError(null);
+      };
+      image.onerror = () => setSaveError("Could not read this image.");
+      image.src = String(reader.result);
+    };
     reader.readAsDataURL(file);
+    e.target.value = "";
   }
 
   async function save() {
