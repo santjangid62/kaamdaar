@@ -350,7 +350,20 @@ class _BookingScreenState extends State<BookingScreen> {
       // The backend works out who can serve this near the address (3 km,
       // widening to 5 km), notifies every one of them and the first accept
       // wins — the app never picks or ranks Pros itself.
-      final lat = addr.lat ?? 26.975, lng = addr.lng ?? 75.762;
+      // Never substitute a hard-coded Jaipur coordinate: it can dispatch a
+      // real job to professionals around the wrong address. The backend will
+      // validate the saved address pin before creating the booking.
+      final lat = addr.lat;
+      final lng = addr.lng;
+      if (lat == null || lng == null ||
+          !lat.isFinite || !lng.isFinite ||
+          lat.abs() > 90 || lng.abs() > 180) {
+        setState(() {
+          _busy = false;
+          _error = 'Is address ka map location save nahi hai. Map pin ke saath address update karke dobara booking karein.';
+        });
+        return;
+      }
       final booking = await Api.createBooking({
         'userId': user.id,
         'phone': user.phone,
@@ -412,8 +425,7 @@ class _BookingScreenState extends State<BookingScreen> {
         if (parts.length > 1) 'line2': parts.sublist(1).join(', '),
         'city': 'Jaipur',
         'pincode': '302017',
-        'lat': 26.975,
-        'lng': 75.762,
+
       });
       await _load();
     } catch (e) {
