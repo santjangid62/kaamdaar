@@ -107,7 +107,7 @@ export default function Navbar() {
   const links = [
     { href: "/", label: s.nav.home },
     { href: "/services", label: s.nav.services },
-    { href: "/#how-it-works", label: s.nav.howItWorks },
+    { href: "/how-it-works", label: s.nav.howItWorks },
     { href: "/about", label: s.nav.about },
     { href: "/help", label: s.nav.help },
   ];
