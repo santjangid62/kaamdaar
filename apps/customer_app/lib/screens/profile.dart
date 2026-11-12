@@ -1,6 +1,7 @@
 /// Profile — account, saved addresses (Indian PIN validated), help, logout.
 library;
 import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../core/api.dart';
@@ -46,6 +47,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _pickProfilePhoto() async {
+    final current = _user;
+    if (current == null) return;
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 640,
+        maxHeight: 640,
+        imageQuality: 78,
+      );
+      if (picked == null) return;
+      final bytes = await picked.readAsBytes();
+      final encoded = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      final updated = await Api.updateProfile(current.id, {'photo': encoded});
+      if (!mounted) return;
+      setState(() => _user = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile photo saved successfully')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save profile photo: $e')),
+      );
     }
   }
 
@@ -98,21 +126,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white24,
-                    backgroundImage: _profileImage(u?.photo ?? ''),
-                    child: (u?.photo.isNotEmpty ?? false)
-                        ? null
-                        : Text(
-                            (u?.name.isNotEmpty ?? false)
-                                ? u!.name[0].toUpperCase()
-                                : 'K',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w900),
+                  GestureDetector(
+                    onTap: _pickProfilePhoto,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor: Colors.white24,
+                          backgroundImage: _profileImage(u?.photo ?? ''),
+                          child: (u?.photo.isNotEmpty ?? false)
+                              ? null
+                              : Text(
+                                  (u?.name.isNotEmpty ?? false)
+                                      ? u!.name[0].toUpperCase()
+                                      : 'K',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w900),
+                                ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: KColors.flame,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.camera_alt,
+                                color: Colors.white, size: 13),
                           ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
