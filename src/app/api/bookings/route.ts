@@ -48,6 +48,7 @@ export async function GET(req: Request) {
         : b.userId === userId,
     )
     .filter((b) => !status || b.status === status)
+    .filter((b) => b.status !== "dispatched" || !b.offerExpiresAt || b.offerExpiresAt > Date.now())
     .sort((a, b) => b.createdAt - a.createdAt);
 
   return NextResponse.json({ bookings: rows });
@@ -105,8 +106,9 @@ export async function POST(req: Request) {
     phone: (user as { phone?: string }).phone ?? body.phone ?? "",
     amount,
     commission: Math.round((amount * rate) / 100),
-    status: body.status ?? "dispatched",
+    status: "dispatched",
     createdAt: now,
+    offerExpiresAt: now + 40_000,
     // server-owned dispatch state — always recomputed, never taken from the client
     notifiedIds: match.matches.map((m) => m.provider.id),
     dispatchRadiusKm: match.radiusKm,
