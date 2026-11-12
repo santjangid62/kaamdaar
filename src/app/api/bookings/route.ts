@@ -5,7 +5,7 @@
  * client can never set those itself.
  */
 import { NextResponse } from "next/server";
-import { all, get, insert, ready } from "../../../server/db";
+import { all, insert, ready } from "../../../server/db";
 import { commissionRate, minWallet } from "../../../server/settings";
 import type { Booking, GeoPoint, Provider } from "../../../lib/types";
 import { matchProviders } from "../../../lib/match";
