@@ -88,7 +88,7 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
 
       <div className="grid gap-6 lg:grid-cols-[264px_1fr]">
       {/* ── filters sidebar ─────────────────────────────── */}
-      <aside className="card h-fit p-5">
+      <aside className="card sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto self-start p-5">
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
             {s.services.filters}
@@ -156,19 +156,18 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
             e.preventDefault();
             go(q, cat);
           }}
-          className="relative mb-5 max-w-xl"
+          className="relative mb-5 flex w-full max-w-none items-center gap-3"
         >
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={s.services.searchPlaceholder}
-            className="field pl-10"
+            className="field min-w-0 flex-1 pl-10"
           />
         </form>
 
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-slate-600">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">          <p className="text-sm text-slate-600">
             <span className="font-extrabold text-slate-900">
               {results.length}
             </span>{" "}
@@ -178,8 +177,7 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
               {s.services.inLabel}{" "}
               <MapPin className="h-3.5 w-3.5 text-flame-600" /> {place}
             </span>
-          </p>
-          <label className="flex items-center gap-2 text-sm text-slate-500">
+          </p>          <label className="flex items-center gap-2 text-sm text-slate-500">
             {s.services.sortBy}
             <select
               value={sort}
@@ -193,7 +191,7 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
               ))}
             </select>
           </label>
-        </div>
+</div>
 
         {results.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center">
