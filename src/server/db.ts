@@ -494,8 +494,10 @@ export async function claimDispatchedBooking(
       },
     };
     const options = { returnDocument: "after" as const, includeResultMetadata: false };
-    const claimed = await collection.findOneAndUpdate({ ...filter, _id: id }, update, options)
-      ?? await collection.findOneAndUpdate({ ...filter, id }, update, options);
+    // Booking ids are stored as string _id values by this repository; the
+    // MongoDB driver's default Document type otherwise assumes ObjectId.
+    const claimed = await collection.findOneAndUpdate({ ...filter, _id: id } as never, update, options)
+      ?? await collection.findOneAndUpdate({ ...filter, id } as never, update, options);
     return Boolean(claimed);
   }
 
