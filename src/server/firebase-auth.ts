@@ -1,9 +1,19 @@
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
 export function normalizeIndianPhone(value: string): string {
-  const digits = (value ?? "").replace(/\D/g, "");
-  const ten = digits.length > 10 ? digits.slice(-10) : digits;
-  return /^\d{10}$/.test(ten) ? `+91${ten}` : "";
+  const raw = (value ?? "").trim();
+  const digits = raw.replace(/\D/g, "");
+  let ten = "";
+  if (digits.length === 10) {
+    ten = digits;
+  } else if (digits.length === 12 && digits.startsWith("91")) {
+    ten = digits.slice(2);
+  } else {
+    // Do not reinterpret a foreign country code's last ten digits as +91.
+    return "";
+  }
+  const normalized = `+91${ten}`;
+  return PHONE_RE.test(normalized) ? normalized : "";
 }
 
 /**
@@ -32,7 +42,7 @@ export async function verifyFirebasePhoneToken(idToken: string): Promise<{ phone
   };
   const user = payload.users?.[0];
   const phone = normalizeIndianPhone(user?.phoneNumber ?? user?.phone_number ?? "");
-  if (!phone || !PHONE_RE.test(phone) || !user?.localId) {
+  if (!phone || !user?.localId) {
     throw new Error("Firebase account has no verified Indian mobile number");
   }
   return { phone, uid: user.localId };
