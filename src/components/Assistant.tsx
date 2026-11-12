@@ -81,6 +81,8 @@ export default function Assistant() {
   const { lang, s } = useLang();
 
   const [open, setOpen] = useState(false);
+  const [launcher, setLauncher] = useState<{ left: number; top: number } | null>(null);
+  const dragOffset = useRef<{ x: number; y: number } | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -309,10 +311,15 @@ export default function Assistant() {
       {/* floating trigger */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        title={s.assistant.openLabel}
+        onClick={() => { if (!dragOffset.current) setOpen((v) => !v); dragOffset.current = null; }}
+        onPointerDown={(e) => { dragOffset.current = { x: e.clientX - e.currentTarget.getBoundingClientRect().left, y: e.clientY - e.currentTarget.getBoundingClientRect().top }; e.currentTarget.setPointerCapture(e.pointerId); }}
+        onPointerMove={(e) => { if (!dragOffset.current || e.buttons === 0) return; setLauncher({ left: Math.max(0, Math.min(window.innerWidth - 56, e.clientX - dragOffset.current.x)), top: Math.max(0, Math.min(window.innerHeight - 56, e.clientY - dragOffset.current.y)) }); }}
+        onPointerUp={() => { dragOffset.current = null; }}
+        onPointerCancel={() => { dragOffset.current = null; }}
+        style={launcher ? { left: launcher.left, top: launcher.top, right: "auto", bottom: "auto", touchAction: "none" } : { touchAction: "none" }}
+        title={s.assistant.openLabel + " · drag to move"}
         aria-label={s.assistant.openLabel}
-        className={`fixed bottom-5 right-5 z-[70] grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-flame to-flame-600 text-navy shadow-xl shadow-black/30 transition hover:scale-105 active:scale-95 ${
+        className={`fixed bottom-5 right-5 z-[70] grid h-14 w-14 cursor-grab place-items-center rounded-full bg-gradient-to-br from-flame to-flame-600 text-navy shadow-xl shadow-black/30 transition hover:scale-105 active:cursor-grabbing active:scale-95 ${
           open ? "hidden" : "block"
         }`}
       >
