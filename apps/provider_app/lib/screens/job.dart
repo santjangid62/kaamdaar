@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api.dart';
 import '../core/models.dart';
@@ -73,6 +74,32 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _openCustomerMap(BookingItem booking) async {
+    final lat = booking.customerLat;
+    final lng = booking.customerLng;
+    if (lat == null || lng == null ||
+        !lat.isFinite || !lng.isFinite ||
+        lat.abs() > 90 || lng.abs() > 180) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Customer ka map pin available nahi hai.')),
+        );
+      }
+      return;
+    }
+    final uri = Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'destination': '$lat,$lng',
+      'travelmode': 'driving',
+    });
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Google Maps open nahi ho paya.')),
+      );
     }
   }
 
@@ -351,6 +378,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           const SizedBox(height: 8),
           Text(b.address.oneLine,
               style: const TextStyle(fontSize: 12.5, color: Colors.black54)),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _openCustomerMap(b),
+              icon: const Icon(Icons.map_outlined, size: 18),
+              label: const Text('View customer location / Navigate'),
+            ),
+          ),
           const SizedBox(height: 6),
           Text('${b.date} • ${b.slot}',
               style: const TextStyle(fontSize: 12, color: Colors.black45)),
@@ -466,10 +501,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           label: 'Start Navigation',
           icon: Icons.navigation,
           busy: _busy,
-          onPressed: () => _patch({
-            'status': 'enroute',
-            'enrouteAt': DateTime.now().millisecondsSinceEpoch,
-          }),
+          onPressed: () async {
+            await _patch({
+              'status': 'enroute',
+              'enrouteAt': DateTime.now().millisecondsSinceEpoch,
+            });
+            await _openCustomerMap(b);
+          },
         );
       case 'enroute':
         return PrimaryBtn(
