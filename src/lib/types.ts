@@ -151,6 +151,8 @@ export interface Booking {
   /** Radius this request was offered in — 3 km first, 5 km after widening. */
   dispatchRadiusKm?: number;
   dispatchedAt?: number;
+  /** Hard expiry for the provider's 40-second dispatch offer. */
+  offerExpiresAt?: number;
   acceptedAt?: number;
   /** when the user confirmed the Pro — the ETA animation runs from here */
   enrouteAt?: number;
