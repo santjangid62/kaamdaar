@@ -102,6 +102,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   // notify list is withdrawn server-side as well, so every other Pro's phone
   // stops showing the offer in the same write.
   if (changes.status === "accepted") {
+    const expiresAt = booking.offerExpiresAt ?? ((booking.dispatchedAt ?? booking.createdAt) + 40_000);
+    if (booking.status !== "dispatched" || Date.now() > expiresAt) {
+      return NextResponse.json({ error: "This 40-second job offer has expired" }, { status: 409 });
+    }
     const acceptingId =
       typeof changes.providerId === "string" ? changes.providerId : "";
     if (!acceptingId) {
