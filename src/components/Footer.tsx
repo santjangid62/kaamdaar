@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { AtSign, Camera, MessageCircle, Send, Heart, ArrowUp } from "lucide-react";
+import { AtSign, Camera, MessageCircle, Send, Heart } from "lucide-react";
 import Year from "./Year";
 import { useApp } from "./AppProvider";
 import { useLang } from "../lib/i18n";
@@ -120,15 +120,7 @@ export default function Footer() {
             <Heart className="h-3.5 w-3.5 fill-flame text-flame" aria-label="love" />
           </p>
 
-          <a
-            href="#"
-            className="inline-flex items-center justify-center gap-2 text-blue-200/80 transition hover:text-flame md:justify-self-end"
-            aria-label="Back to top"
-          >
-            Back to top
-            <ArrowUp className="h-4 w-4" />
-          </a>
-        </div>
+     </div>
       </div>
     </footer>
   );
