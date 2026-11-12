@@ -62,7 +62,6 @@ function LoginFlow() {
       setStep("otp");
     } catch {
       setError(s.login.sendFail);
-      autoSentFor.current = ""; // let a retry (auto or manual) fire again
     } finally {
       setBusy(false);
     }
