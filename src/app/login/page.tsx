@@ -17,7 +17,6 @@ import { useApp } from "../../components/AppProvider";
 import { fill, useLang } from "../../lib/i18n";
 import { isFirebaseConfigured } from "../../lib/firebase";
 import { sendOtp, verifyOtp } from "../../lib/auth-service";
-import { resolveUser } from "../../lib/store";
 import { isValidIndianMobile, toE164Indian } from "../../lib/validation";
 
 type Step = "phone" | "otp";
@@ -76,17 +75,7 @@ function LoginFlow() {
     setError(null);
     setBusy(true);
     try {
-      const ok = await verifyOtp(phone, otp);
-      if (!ok) {
-        // let the same code be retried after an edit instead of locking the
-        // auto-verify guard to a failed attempt
-        otpAttempted.current = "";
-        setError(s.login.wrongOtp);
-        setBusy(false);
-        return;
-      }
-      // backend resolves the account: existing → dashboard, new → profile setup
-      const { user: record, isNew } = await resolveUser(phone);
+      const { user: record, isNew } = await verifyOtp(phone, otp);
       handledRedirect.current = true;
       signIn(record);
       // returning users land on their dashboard, first-timers complete their
