@@ -1,7 +1,7 @@
 /// Live job offers, the way a Rapido driver sees one.
 ///
 /// The Pro app polls its dispatch inbox; when a fresh offer that carries this
-/// Pro's id in `notifiedIds` shows up, a full-screen alert rings for 30 seconds
+/// Pro's id in `notifiedIds` shows up, a full-screen alert rings for 40 seconds
 /// on top of whatever screen is open (sound loops until it is answered) with
 /// Accept / Reject. Accept allots the job server-side and opens it; Reject
 /// withdraws only this Pro's offer. Every declined or ignored offer is kept
@@ -24,7 +24,7 @@ import 'models.dart';
 final GlobalKey<NavigatorState> jobAlertNavigatorKey =
     GlobalKey<NavigatorState>();
 
-/// One offer the Pro did not take (rejected, or the 30s window ran out).
+/// One offer the Pro did not take (rejected, or the 40s window ran out).
 class MissedJob {
   final String id;
   final String service;
@@ -46,7 +46,7 @@ class MissedJob {
 
   bool get expired => reason == "expired";
 
-  String get reasonLabel => expired ? "30s me reply nahi kiya" : "Reject kiya";
+  String get reasonLabel => expired ? "40s me reply nahi kiya" : "Reject kiya";
 
   Map<String, dynamic> toJson() =>
       {"id": id, "service": service, "reason": reason, "at": at};
@@ -67,7 +67,7 @@ class JobAlertCenter {
   static const _kHandled = "kaamdaar.provider.handled";
 
   /// How long the offer rings before it gives up on its own.
-  static const int alertSeconds = 30;
+  static const int alertSeconds = 40;
   static const Duration _tick = Duration(seconds: 3);
 
   final ValueNotifier<List<MissedJob>> missed =
@@ -205,7 +205,7 @@ class JobAlertCenter {
       try {
         await Api.decline(booking, me.id);
       } catch (_) {
-        // The 30s window already closed server-side; still count it locally.
+        // The 40s window already closed server-side; still count it locally.
       }
     }
     final now = DateTime.now().millisecondsSinceEpoch;
