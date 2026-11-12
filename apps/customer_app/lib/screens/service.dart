@@ -1,6 +1,7 @@
 /// Service detail (Overview / Pricing / FAQ tabs) → booking review → dispatch.
 library;
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../core/api.dart';
 import '../core/models.dart';
@@ -400,10 +401,17 @@ class _BookingScreenState extends State<BookingScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Add Address'),
-        content: TextField(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Save this address while you are physically at the service location so we can pin it accurately.'),
+            const SizedBox(height: 12),
+            TextField(
           controller: ctrl,
           maxLines: 3,
           decoration: const InputDecoration(hintText: 'House no, Street, Area, City'),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -418,6 +426,23 @@ class _BookingScreenState extends State<BookingScreen> {
     );
     if (ok != true || ctrl.text.trim().isEmpty) return;
     try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw Exception('Address map pin save karne ke liye location permission dein.');
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw Exception('GPS on karein aur address save dobara karein.');
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
       final parts = ctrl.text.split(',').map((e) => e.trim()).toList();
       await Api.addAddress(user.id, {
         'label': 'Home',
@@ -425,7 +450,8 @@ class _BookingScreenState extends State<BookingScreen> {
         if (parts.length > 1) 'line2': parts.sublist(1).join(', '),
         'city': 'Jaipur',
         'pincode': '302017',
-
+        'lat': position.latitude,
+        'lng': position.longitude,
       });
       await _load();
     } catch (e) {
