@@ -7,39 +7,12 @@ import { NextResponse } from "next/server";
 import { find, insert, ready } from "../../../server/db";
 import type { Provider, User } from "../../../lib/types";
 import { createUserRegisteredNotification } from "../../../server/notifications";
+import { normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/firebase-auth";
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
-function normalizePhone(value: string): string {
-  const digits = (value ?? "").replace(/\D/g, "");
-  const ten = digits.length > 10 ? digits.slice(-10) : digits;
-  return /^\d{10}$/.test(ten) ? `+91${ten}` : "";
-}
-
 function referralCode(phone: string): string {
   return `KDM${phone.replace(/\D/g, "").slice(-4)}`;
-}
-
-async function verifiedFirebasePhone(idToken: string): Promise<string> {
-  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-  if (!apiKey) throw new Error("Firebase server verification is not configured");
-  const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken }),
-      cache: "no-store",
-    },
-  );
-  if (!response.ok) throw new Error("Firebase phone verification failed");
-  const payload = (await response.json()) as {
-    users?: Array<{ phoneNumber?: string; phone_number?: string; localId?: string }>;
-  };
-  const user = payload.users?.[0];
-  const phone = normalizePhone(user?.phoneNumber ?? user?.phone_number ?? "");
-  if (!phone || !user?.localId) throw new Error("Firebase account has no verified mobile number");
-  return phone;
 }
 
 export async function POST(req: Request) {
@@ -58,7 +31,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  let phone = normalizePhone(body.phone ?? "");
+  let phone = normalizeIndianPhone(body.phone ?? "");
 
   // Development-only OTP path. Never expose or accept server-generated OTPs
   // in production; production identity is established by Firebase ID tokens.
@@ -81,7 +54,7 @@ export async function POST(req: Request) {
 
   if (body.idToken) {
     try {
-      const verifiedPhone = await verifiedFirebasePhone(body.idToken);
+      const { phone: verifiedPhone } = await verifyFirebasePhoneToken(body.idToken);
       if (phone && phone !== verifiedPhone) {
         return NextResponse.json({ error: "Verified mobile number does not match" }, { status: 401 });
       }
@@ -117,7 +90,7 @@ export async function POST(req: Request) {
   if (body.role === "provider") {
     const found = await find<Provider & { id: string; phone?: string; status?: string }>(
       "providers",
-      (p) => normalizePhone(p.phone ?? "") === phone,
+      (p) => normalizeIndianPhone(p.phone ?? "") === phone,
     );
     const provider = found[0];
     if (!provider) {
@@ -134,7 +107,7 @@ export async function POST(req: Request) {
 
   const existing = await find<User & { id: string; status?: string }>(
     "users",
-    (u) => normalizePhone(u.phone ?? "") === phone,
+    (u) => normalizeIndianPhone(u.phone ?? "") === phone,
   );
   if (existing[0]) {
     if (existing[0].status === "deleted") {
