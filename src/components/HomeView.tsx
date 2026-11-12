@@ -303,28 +303,28 @@ export default function HomeView() {
       {/* ── how it works ───────────────────────────────────── */}
       <section
         id="how-it-works"
-        className="border-y border-slate-100 bg-offwhite py-14"
+        className="relative isolate overflow-hidden border-y border-slate-100 bg-gradient-to-br from-blue-50 via-white to-orange-50 py-20 sm:py-24"
       >
         <div className="section-shell">
           <h2 className="text-center text-2xl font-extrabold text-slate-900 sm:text-3xl">
             {s.how.heading}
           </h2>
-          <p className="mt-2 text-center text-slate-500">{s.how.sub}</p>
+          <p className="mx-auto mt-3 max-w-2xl text-center leading-7 text-slate-600">{s.how.sub}</p>
 
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {s.how.steps.map((step, i) => {
               const Icon = STEPS_ICONS[i];
               return (
-                <div key={step.title} className="relative text-center">
+                <div key={step.title} className="group relative rounded-3xl border border-slate-200/80 bg-white p-7 text-center shadow-[0_18px_50px_-35px_rgba(15,35,65,.4)] transition duration-300 hover:-translate-y-2 hover:shadow-xl">
                   {i < s.how.steps.length - 1 && (
-                    <ArrowRight className="absolute -right-4 top-8 hidden h-5 w-5 text-blue-300 lg:block" />
+                    <ArrowRight className="absolute -right-4 top-8 z-10 hidden h-5 w-5 text-blue-400 lg:block" />
                   )}
                   <span
-                    className={`mx-auto grid h-16 w-16 place-items-center rounded-full text-white ${STEPS_TONES[i]}`}
+                    className={`mx-auto grid h-16 w-16 place-items-center rounded-2xl text-white shadow-lg transition group-hover:scale-110 ${STEPS_TONES[i]}`}
                   >
                     <Icon className="h-7 w-7" />
                   </span>
-                  <p className="mt-4 text-lg font-extrabold text-slate-900">
+                  <p className="mt-5 text-lg font-extrabold text-slate-900">
                     {i + 1}. {step.title}
                   </p>
                   <p className="mx-auto mt-1 max-w-56 text-sm leading-6 text-slate-500">
