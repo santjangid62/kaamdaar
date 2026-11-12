@@ -1,0 +1,36 @@
+name: Flutter Customer App CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/customer_app/**'
+      - '.github/workflows/flutter-customer-app.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/customer_app
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve dependencies and update lockfile
+        run: flutter pub get
+      - name: Analyze Dart code
+        run: flutter analyze
+      - name: Build debug APK
+        run: flutter build apk --debug --dart-define=API_BASE=https://kaamdaar-seven.vercel.app
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaamdaar-customer-debug-apk
+          path: apps/customer_app/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
