@@ -23,12 +23,18 @@ class _JobAlertScreenState extends State<JobAlertScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
   Timer? _ticker;
-  int _left = JobAlertCenter.alertSeconds;
+  late int _left;
   bool _decided = false;
 
   @override
   void initState() {
     super.initState();
+    // Count down from the server's original 40-second deadline, not from
+    // when a delayed/background notification happens to open this screen.
+    final expiresAt = widget.booking.offerExpiresAt ??
+        (widget.booking.createdAt + JobAlertCenter.alertSeconds * 1000);
+    final remainingMs = expiresAt - DateTime.now().millisecondsSinceEpoch;
+    _left = remainingMs <= 0 ? 0 : (remainingMs / 1000).ceil();
     // The offer deserves attention: keep the screen awake and buzz once.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     HapticFeedback.heavyImpact();
