@@ -1,4 +1,4 @@
-/// Full-screen incoming-job alert: rings for 30 seconds and answers with
+/// Full-screen incoming-job alert: rings for 40 seconds and answers with
 /// `accepted`, `rejected` or `expired` (the value pops back to JobAlertCenter).
 library;
 
