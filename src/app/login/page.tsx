@@ -51,7 +51,6 @@ function LoginFlow() {
     setError(null);
     if (!isValidIndianMobile(raw)) {
       setError(s.login.invalidPhone);
-      autoSentFor.current = "";
       return;
     }
     setBusy(true);
@@ -283,7 +282,7 @@ function LoginFlow() {
                       inputMode="numeric"
                       autoComplete="tel-national"
                       value={digits}
-                      onChange={(e) => onPhoneChange(e.target.value)}
+                      onChange={(e) => { setError(null); setDigits(e.target.value.replace(/\D/g, "").slice(0, 10)); }}
                       placeholder="98765 43210"
                       aria-invalid={Boolean(error)}
                       className="phone-number-input min-w-0 flex-1 border-0 bg-transparent px-4 text-lg font-bold tracking-wide text-navy outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 placeholder:font-medium placeholder:text-slate-300 sm:text-xl"
