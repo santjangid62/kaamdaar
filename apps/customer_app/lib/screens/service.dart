@@ -407,9 +407,11 @@ class _BookingScreenState extends State<BookingScreen> {
             const Text('Save this address while you are physically at the service location so we can pin it accurately.'),
             const SizedBox(height: 12),
             TextField(
-          controller: ctrl,
-          maxLines: 3,
-          decoration: const InputDecoration(hintText: 'House no, Street, Area, City'),
+              controller: ctrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'House no, Street, Area, City',
+              ),
             ),
           ],
         ),
