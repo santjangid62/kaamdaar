@@ -143,6 +143,14 @@ class Api {
     await p.setBool(_kOnboarded, true);
   }
 
+  static Future<void> registerDeviceToken(String providerId, String token) async {
+    await post('/api/providers/device-token', {
+      'providerId': providerId,
+      'token': token,
+      'platform': 'android',
+    });
+  }
+
   /* --------------------------- catalogue --------------------------- */
 
   static Future<List<ServiceItem>> catalog() async {
