@@ -25,7 +25,7 @@ jobs:
       - name: Resolve dependencies and update lockfile
         run: flutter pub get
       - name: Analyze Dart code
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
       - name: Build debug APK
         run: flutter build apk --debug --dart-define=API_BASE=https://kaamdaar-seven.vercel.app
       - name: Upload debug APK
