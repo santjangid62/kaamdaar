@@ -22,16 +22,17 @@ export default function HelpView() {
   return (
     <div>
       {/* hero */}
-      <section className="bg-navy py-14 text-white">
-        <div className="section-shell text-center">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-blue-100">
+      <section className="relative isolate overflow-hidden bg-navy py-16 text-white sm:py-20">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(59,130,246,.28),transparent_32%),radial-gradient(circle_at_85%_80%,rgba(255,122,0,.22),transparent_30%)]" />
+        <div className="section-shell relative text-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[.18em] text-orange-200">
             <LifeBuoy className="h-3.5 w-3.5 text-flame-400" /> {s.help.supportBadge}
           </span>
-          <h1 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">
+          <h1 className="mt-5 text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl">
             {s.help.heading}
           </h1>
-          <p className="mx-auto mt-2 max-w-xl text-blue-200">{s.help.sub}</p>
-          <div className="relative mx-auto mt-6 max-w-xl">
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-8 text-blue-100 sm:text-lg">{s.help.sub}</p>
+          <div className="relative mx-auto mt-8 max-w-xl">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               placeholder={s.help.searchPlaceholder}
@@ -43,14 +44,14 @@ export default function HelpView() {
       </section>
 
       {/* categories */}
-      <section className="section-shell -mt-6">
+      <section className="section-shell relative z-10 -mt-8">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {s.help.categories.map((c, i) => {
             const Icon = CATEGORY_ICONS[i];
             return (
               <div
                 key={c.title}
-                className="card flex items-start gap-4 p-5 transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg"
+                className="group flex items-start gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_55px_-35px_rgba(15,35,65,.35)] transition duration-300 hover:-translate-y-1 hover:shadow-xl"
               >
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-flame-50 text-flame-600">
                   <Icon className="h-5 w-5" />
@@ -66,12 +67,12 @@ export default function HelpView() {
       </section>
 
       {/* popular articles */}
-      <section className="section-shell grid gap-8 py-12 lg:grid-cols-3">
+      <section className="section-shell grid gap-8 py-14 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <h2 className="text-xl font-extrabold text-slate-900">{s.help.popular}</h2>
           <div className="mt-4 space-y-3">
             {s.help.articles.map((art) => (
-              <details key={art.q} className="card p-5">
+              <details key={art.q} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md">
                 <summary className="cursor-pointer font-bold text-slate-900">
                   {art.q}
                 </summary>
