@@ -10,7 +10,6 @@ import {
   LogOut,
   Menu,
   Mic,
-  Plus,
   Search,
   User as UserIcon,
   X,
@@ -132,7 +131,7 @@ export default function Navbar() {
         {/* location pill */}
         <LocationButton />
 
-        <nav className="hidden items-center gap-5 lg:flex">
+        <nav className="hidden flex-1 items-center justify-center gap-7 lg:flex">
           {links.map((l) => (
             <Link
               key={l.href}
@@ -150,7 +149,7 @@ export default function Navbar() {
           onClick={() => openVoiceAssistant(true)}
           title={s.nav.voice}
           aria-label={s.nav.voice}
-          className="hidden rounded-full border border-slate-200 p-2 text-slate-600 transition hover:border-flame-400 hover:bg-flame-50 hover:text-flame-600 sm:grid"
+          className="ml-auto hidden rounded-full border border-slate-200 p-2 text-slate-600 transition hover:border-flame-400 hover:bg-flame-50 hover:text-flame-600 sm:grid"
         >
           <Mic className="h-4 w-4" />
         </button>
@@ -200,15 +199,12 @@ export default function Navbar() {
             href="/login"
             aria-label={s.nav.login}
             title={s.nav.login}
-            className="group relative hidden h-10 w-10 shrink-0 place-items-center rounded-full bg-linear-to-br from-flame to-amber-500 text-navy shadow-[0_6px_16px_-6px_rgba(255,122,0,0.7)] ring-2 ring-white/70 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_9px_20px_-6px_rgba(255,122,0,0.85)] focus-visible:outline-none focus-visible:ring-flame-300 sm:grid"
+            className="relative hidden h-10 w-10 shrink-0 place-items-center rounded-full bg-linear-to-br from-flame to-amber-500 text-navy shadow-[0_6px_16px_-6px_rgba(255,122,0,0.7)] ring-2 ring-white/70 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_9px_20px_-6px_rgba(255,122,0,0.85)] focus-visible:outline-none focus-visible:ring-flame-300 sm:grid"
           >
             <LogIn
               className="h-5 w-5 transition-transform duration-200 group-hover:-translate-x-0.5"
               strokeWidth={2.5}
             />
-            <span className="absolute -right-0.5 -top-0.5 grid h-4 w-4 place-items-center rounded-full bg-navy text-white ring-2 ring-white transition-transform duration-200 group-hover:scale-110">
-              <Plus className="h-2.5 w-2.5" strokeWidth={3.5} />
-            </span>
           </Link>
         )}
 
