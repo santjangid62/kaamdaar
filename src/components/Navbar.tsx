@@ -132,39 +132,6 @@ export default function Navbar() {
         {/* location pill */}
         <LocationButton />
 
-        {/* search */}
-        <div ref={boxRef} className="relative flex-1">
-          <form onSubmit={submitSearch}>
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setOpenSuggest(true);
-              }}
-              onFocus={() => setOpenSuggest(true)}
-              placeholder={s.nav.searchPlaceholder}
-              className="w-full rounded-full border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-            />
-          </form>
-          {openSuggest && suggestions.length > 0 && (
-            <ul className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-              {suggestions.map((x) => (
-                <li key={x.id}>
-                  <Link
-                    href={`/services/${x.id}`}
-                    onClick={() => setOpenSuggest(false)}
-                    className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-slate-50"
-                  >
-                    <span className="font-medium text-slate-800">{x.name}</span>
-                    <span className="text-slate-500">from ₹{x.price}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
         <nav className="hidden items-center gap-5 lg:flex">
           {links.map((l) => (
             <Link
