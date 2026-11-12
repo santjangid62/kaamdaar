@@ -29,7 +29,7 @@ async function accessToken(account: ServiceAccount): Promise<string> {
   ].join(".");
   const signer = createSign("RSA-SHA256");
   signer.update(unsigned);
-  const assertion = `${unsigned}.${signer.sign(account.private_key, "base64url")}`;
+  const assertion = `${unsigned}.${signer.sign(account.private_key).toString("base64url")}`;
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
