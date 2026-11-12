@@ -64,7 +64,6 @@ const TILE_ICONS: Record<string, typeof Clock> = {
 };
 
 const STEPS_ICONS = [Search, CalendarCheck, MapPin, ShieldCheck];
-const STEPS_TONES = ["bg-blue-600", "bg-flame", "bg-blue-600", "bg-flame"];
 
 const testimonials = [
   { name: "Priya Sharma", place: "Malviya Nagar, Jaipur" },
