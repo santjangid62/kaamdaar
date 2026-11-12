@@ -477,7 +477,8 @@ export async function claimDispatchedBooking(
   now: number,
 ): Promise<boolean> {
   if (MONGODB_URI) {
-    const collection = (await mongoDb()).collection("bookings");
+    // Booking documents use string application IDs, not inferred ObjectIds.
+    const collection = (await mongoDb()).collection("bookings") as any;
     const filter = {
       status: "dispatched",
       providerId: "",
