@@ -47,8 +47,21 @@ export default function ProfileDetails() {
         const context = canvas.getContext("2d");
         if (!context) { setSaveError("Could not process this image."); return; }
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        setPhoto(canvas.toDataURL("image/jpeg", 0.82));
+        const imageData = canvas.toDataURL("image/jpeg", 0.78);
+        setBusy(true);
         setSaveError(null);
+        setSaved(false);
+        void updateUser(user.id, { photo: imageData })
+          .then((updated) => {
+            signIn(updated);
+            setPhoto(updated.photo);
+            setSaved(true);
+            window.setTimeout(() => setSaved(false), 2500);
+          })
+          .catch((error) => {
+            setSaveError(error instanceof Error ? error.message : "Profile photo could not be saved. Please try again.");
+          })
+          .finally(() => setBusy(false));
       };
       image.onerror = () => setSaveError("Could not read this image.");
       image.src = String(reader.result);
