@@ -144,6 +144,7 @@ class JobAlertCenter {
               b.status == "dispatched" &&
               b.notifiedIds.contains(me.id) &&
               !_handled.contains(b.id) &&
+              now - b.createdAt >= -5000 &&
               (b.offerExpiresAt ?? (b.createdAt + alertSeconds * 1000)) > now)
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
