@@ -38,23 +38,11 @@ function LoginFlow() {
   const [devCode, setDevCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Auto-flow guards: 10 digits → OTP step, 6 OTP digits → verify, both fire
-  // without pressing any button; refs keep each attempt single-shot.
-  const autoSendTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const autoSentFor = useRef("");
   const otpAttempted = useRef("");
 
   useEffect(() => {
     if (user && !handledRedirect.current) router.replace(next);
   }, [user, next, router]);
-
-  // don't leak a pending auto-send if the page unmounts mid-typing
-  useEffect(
-    () => () => {
-      if (autoSendTimer.current) clearTimeout(autoSendTimer.current);
-    },
-    [],
-  );
 
   const phone = toE164Indian(digits);
   const brand = s.login.brand;
@@ -83,7 +71,6 @@ function LoginFlow() {
 
   function handleSend(e: React.FormEvent) {
     e.preventDefault();
-    if (autoSendTimer.current) clearTimeout(autoSendTimer.current);
     void runSend(digits);
   }
 
@@ -124,24 +111,6 @@ function LoginFlow() {
     if (busy || otpAttempted.current === otp) return;
     otpAttempted.current = otp;
     void runVerify(otp);
-  }
-
-  // 10 valid digits → OTP is sent and the step advances automatically; the
-  // short pause lets a last-moment backspace cancel it
-  function onPhoneChange(value: string) {
-    setError(null);
-    const next = value.replace(/\D/g, "").slice(0, 10);
-    setDigits(next);
-    if (autoSendTimer.current) clearTimeout(autoSendTimer.current);
-    if (next.length === 10 && isValidIndianMobile(next) && autoSentFor.current !== next) {
-      autoSendTimer.current = setTimeout(() => {
-        autoSendTimer.current = null;
-        if (autoSentFor.current !== next) {
-          autoSentFor.current = next;
-          void runSend(next);
-        }
-      }, 250);
-    }
   }
 
   // 6 OTP digits → verify automatically, no button press
@@ -332,23 +301,7 @@ function LoginFlow() {
                   </p>
                 )}
 
-                <div
-                  className={`flex items-center gap-3 rounded-2xl border border-slate-100 px-4 py-4 text-sm font-semibold leading-6 transition ${
-                    busy ? "bg-flame-50 text-flame-600" : "bg-offwhite text-slate-500"
-                  }`}
-                >
-                  {busy ? (
-                    <>
-                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                      {s.login.sending}
-                    </>
-                  ) : (
-                    <>
-                      <Smartphone className="h-4 w-4 shrink-0 text-blue-500" />
-                      {s.login.autoHint}
-                    </>
-                  )}
-                </div>
+                <button type="submit" disabled={busy || digits.length !== 10} className="btn-primary w-full justify-center py-3.5">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}Send OTP</button>
 
                 <p className="border-t border-slate-100 pt-4 text-xs leading-6 text-slate-500 sm:text-sm">
                   <ShieldCheck className="mr-1.5 inline h-4 w-4 -translate-y-px text-green-600" />
@@ -413,9 +366,7 @@ function LoginFlow() {
                       setCode("");
                       setError(null);
                       setDevCode(null);
-                      autoSentFor.current = "";
                       otpAttempted.current = "";
-                      if (autoSendTimer.current) clearTimeout(autoSendTimer.current);
                     }}
                     className="text-slate-500 hover:text-blue-600"
                   >
