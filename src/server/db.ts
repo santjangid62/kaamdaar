@@ -466,6 +466,77 @@ export async function resetCollection(col: Collection): Promise<void> {
   return engine.reset(col);
 }
 
+/**
+ * Atomically reserve a live dispatch for exactly one notified professional.
+ * MongoDB provides the production compare-and-set; the file engine serializes
+ * competing claims through the same write queue used by local development.
+ */
+let claimQueue: Promise<void> = Promise.resolve();
+export async function claimDispatchedBooking(
+  id: string,
+  providerId: string,
+  now: number,
+): Promise<boolean> {
+  if (MONGODB_URI) {
+    const collection = (await mongoDb()).collection("bookings");
+    const filter = {
+      status: "dispatched",
+      providerId: "",
+      notifiedIds: providerId,
+      offerExpiresAt: { $gt: now },
+    } as Document;
+    const update = {
+      $set: {
+        status: "accepted",
+        providerId,
+        acceptedAt: now,
+        notifiedIds: [],
+        updatedAt: now,
+      },
+    };
+    const options = { returnDocument: "after" as const, includeResultMetadata: false };
+    const claimed = await collection.findOneAndUpdate({ ...filter, _id: id }, update, options)
+      ?? await collection.findOneAndUpdate({ ...filter, id }, update, options);
+    return Boolean(claimed);
+  }
+
+  let claimed = false;
+  const run = async () => {
+    const store = await readStore();
+    const current = store.bookings?.[id] as (Doc & {
+      status?: string;
+      providerId?: string;
+      notifiedIds?: string[];
+      offerExpiresAt?: number;
+    }) | undefined;
+    if (
+      !current ||
+      current.status !== "dispatched" ||
+      (current.providerId ?? "") !== "" ||
+      !(current.notifiedIds ?? []).includes(providerId) ||
+      typeof current.offerExpiresAt !== "number" ||
+      current.offerExpiresAt <= now
+    ) return;
+    store.bookings ??= {};
+    store.bookings[id] = {
+      ...current,
+      status: "accepted",
+      providerId,
+      acceptedAt: now,
+      notifiedIds: [],
+      updatedAt: now,
+    };
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    const tmp = `${DB_FILE}.${process.pid}.claim.tmp`;
+    await fs.writeFile(tmp, JSON.stringify(store, null, 2), "utf8");
+    await replaceFile(tmp, DB_FILE);
+    claimed = true;
+  };
+  claimQueue = claimQueue.then(run, run);
+  await claimQueue;
+  return claimed;
+}
+
 /* ── seeding ────────────────────────────────────────────────────── */
 
 type Seeder = (store: Store) => Promise<Store> | Store;
