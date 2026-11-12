@@ -1,0 +1,24 @@
+{
+  "project_info": {
+    "project_number": "333681367695",
+    "firebase_url": "https://active-valve-162810.firebaseio.com",
+    "project_id": "active-valve-162810",
+    "storage_bucket": "active-valve-162810.firebasestorage.app"
+  },
+  "client": [{
+    "client_info": {
+      "mobilesdk_app_id": "1:333681367695:android:4d40c87d4ec712fc41eefa",
+      "android_client_info": { "package_name": "com.kaamdaar.kaamdaar_customer" }
+    },
+    "oauth_client": [{
+      "client_id": "333681367695-i0cuuv9gu0et0ogfqsgdvk7ibv5lv3n2.apps.googleusercontent.com",
+      "client_type": 3
+    }],
+    "api_key": [{ "current_key": "AIzaSyC3-_Id8qdFQAckCsNu8vLxnvD3gHns-Ps" }],
+    "services": { "appinvite_service": { "other_platform_oauth_client": [{
+      "client_id": "333681367695-i0cuuv9gu0et0ogfqsgdvk7ibv5lv3n2.apps.googleusercontent.com",
+      "client_type": 3
+    }] } }
+  }],
+  "configuration_version": "1"
+}
