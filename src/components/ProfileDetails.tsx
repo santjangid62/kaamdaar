@@ -51,7 +51,7 @@ export default function ProfileDetails() {
         setBusy(true);
         setSaveError(null);
         setSaved(false);
-        void updateUser(user.id, { photo: imageData })
+        void updateUser(user!.id, { photo: imageData })
           .then((updated) => {
             signIn(updated);
             setPhoto(updated.photo);
