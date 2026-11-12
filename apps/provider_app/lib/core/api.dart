@@ -180,7 +180,8 @@ class Api {
   /// Register an FCM token only when Firebase proves the provider's phone.
   static Future<void> registerDeviceToken(String providerId, String token) async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
-    final firebasePhone = e164(firebaseUser?.phoneNumber ?? '');
+    final rawFirebasePhone = firebaseUser?.phoneNumber ?? '';
+    final firebasePhone = rawFirebasePhone.isEmpty ? '' : e164(rawFirebasePhone);
     final idToken = await firebaseUser?.getIdToken(true);
     if (idToken == null || firebasePhone.isEmpty) {
       throw ApiException('Please sign in again to enable job notifications.');
