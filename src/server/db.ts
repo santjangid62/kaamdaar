@@ -471,7 +471,6 @@ export async function resetCollection(col: Collection): Promise<void> {
  * MongoDB provides the production compare-and-set; the file engine serializes
  * competing claims through the same write queue used by local development.
  */
-let claimQueue: Promise<void> = Promise.resolve();
 export async function claimDispatchedBooking(
   id: string,
   providerId: string,
@@ -532,8 +531,8 @@ export async function claimDispatchedBooking(
     await replaceFile(tmp, DB_FILE);
     claimed = true;
   };
-  claimQueue = claimQueue.then(run, run);
-  await claimQueue;
+  queue = queue.then(run, run);
+  await queue;
   return claimed;
 }
 
