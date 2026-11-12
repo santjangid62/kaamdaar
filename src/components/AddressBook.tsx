@@ -169,13 +169,16 @@ export default function AddressBook() {
       {open && (
         <div className="mt-4 rounded-xl bg-slate-50 p-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              className="field"
-              placeholder={s.booking.labelPlaceholder}
+            <select
+              className="field bg-white"
+              aria-label="Address type"
               value={form.label}
-              maxLength={20}
               onChange={(e) => setForm({ ...form, label: e.target.value })}
-            />
+            >
+              <option value="Home">Home</option>
+              <option value="Office">Office</option>
+              <option value="Other">Other</option>
+            </select>
             <div>
               <input
                 className="field bg-slate-100 text-slate-600"
