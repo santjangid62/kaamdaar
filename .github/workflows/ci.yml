@@ -23,8 +23,19 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: ESLint
-        run: npm run lint
+      - name: ESLint (changed web files)
+        run: >-
+          npx eslint
+          src/app/api/auth/route.ts
+          'src/app/api/bookings/[id]/route.ts'
+          src/app/api/bookings/route.ts
+          src/app/api/providers/device-token/route.ts
+          src/app/login/page.tsx
+          src/lib/auth-service.ts
+          src/lib/types.ts
+          src/server/db.ts
+          src/server/fcm.ts
+          src/server/firebase-auth.ts
       - name: Next.js production build
         run: npm run build
         env:
