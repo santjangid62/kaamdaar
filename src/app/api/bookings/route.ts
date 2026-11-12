@@ -10,6 +10,7 @@ import { commissionRate, minWallet } from "../../../server/settings";
 import type { Booking, GeoPoint, Provider } from "../../../lib/types";
 import { matchProviders } from "../../../lib/match";
 import { newEvent } from "../../../server/events";
+import { sendProviderJobOffer } from "../../../server/fcm";
 
 /** Booking location: the live point the customer is at, else the address pin. */
 function resolveOrigin(body: Partial<Booking>): GeoPoint | null {
