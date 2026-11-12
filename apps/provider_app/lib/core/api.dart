@@ -28,7 +28,13 @@ class Api {
     defaultValue: 'https://kaamdaar-seven.vercel.app',
   );
 
-  static const Map<String, String> _headers = {'Content-Type': 'application/json'};
+  static Future<Map<String, String>> _headers() async {
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
 
   static Map<String, dynamic> _decode(http.Response r) {
     final raw = r.body.isEmpty ? '{}' : r.body;
@@ -42,7 +48,7 @@ class Api {
 
   static Future<Map<String, dynamic>> post(String path, Map body) async {
     final r = await http
-        .post(Uri.parse('$baseUrl$path'), headers: _headers, body: jsonEncode(body));
+        .post(Uri.parse('$baseUrl$path'), headers: await _headers(), body: jsonEncode(body));
     final data = _decode(r);
     if (r.statusCode >= 400) {
       throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
@@ -51,7 +57,7 @@ class Api {
   }
 
   static Future<Map<String, dynamic>> get(String path) async {
-    final r = await http.get(Uri.parse('$baseUrl$path'), headers: _headers);
+    final r = await http.get(Uri.parse('$baseUrl$path'), headers: await _headers());
     final data = _decode(r);
     if (r.statusCode >= 400) {
       throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
