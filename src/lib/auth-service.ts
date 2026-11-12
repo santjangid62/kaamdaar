@@ -1,61 +1,67 @@
-import {
-  getFirebaseAuth,
-  isFirebaseConfigured,
-} from "./firebase";
-import {
-  ConfirmationResult,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-} from "firebase/auth";
+import { getFirebaseAuth, isFirebaseConfigured } from "./firebase";
+import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
+import type { User } from "./types";
 
-/**
- * Phone + OTP verification.
- *
- * Production: Firebase Phone Auth (send OTP to the number, confirm the code).
- * Dev mode (no Firebase credentials): a 6-digit code is generated locally and
- * handed back to the UI so the full login flow can be exercised without a
- * Firebase project. Swap in credentials in `.env.local` and the Firebase path
- * takes over automatically.
- */
-
-const devCodes = new Map<string, string>();
 let confirmation: ConfirmationResult | null = null;
 let recaptcha: RecaptchaVerifier | null = null;
+let devCode: string | null = null;
 
-export interface SendOtpResult {
-  /** Dev-mode only: the code to display on screen. */
-  devCode?: string;
+export interface SendOtpResult { devCode?: string; }
+
+async function authRequest(body: Record<string, unknown>) {
+  const response = await fetch("/api/auth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error ?? "Phone verification failed");
+  return data;
 }
 
 export async function sendOtp(phone: string): Promise<SendOtpResult> {
   if (isFirebaseConfigured) {
     const auth = getFirebaseAuth();
-    if (!recaptcha) {
-      recaptcha = new RecaptchaVerifier(auth, "kaamdaar-recaptcha", { size: "invisible" });
-    }
+    if (!recaptcha) recaptcha = new RecaptchaVerifier(auth, "kaamdaar-recaptcha", { size: "invisible" });
     confirmation = await signInWithPhoneNumber(auth, phone, recaptcha);
     return {};
   }
-  const code = String(Math.floor(100000 + Math.random() * 900000));
-  devCodes.set(phone, code);
-  return { devCode: code };
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Firebase Phone Auth is not configured. Please contact support.");
+  }
+  const data = await authRequest({ action: "send", phone });
+  devCode = String(data.devCode ?? "");
+  return { devCode };
 }
 
-export async function verifyOtp(phone: string, code: string): Promise<boolean> {
+/** Completes Firebase OTP and asks the server to resolve the verified account. */
+export async function verifyOtp(
+  phone: string,
+  code: string,
+): Promise<{ user: User; isNew: boolean }> {
+  let idToken: string | undefined;
   if (isFirebaseConfigured) {
-    if (!confirmation) return false;
-    const cred = await confirmation.confirm(code);
+    if (!confirmation) throw new Error("OTP session expired. Request a new code.");
+    const credential = await confirmation.confirm(code);
     confirmation = null;
-    return Boolean(cred.user);
+    idToken = await credential.user.getIdToken(true);
+  } else {
+    if (process.env.NODE_ENV === "production" || !devCode || devCode !== code.trim()) {
+      throw new Error("Incorrect or expired OTP");
+    }
+    devCode = null;
   }
-  const expected = devCodes.get(phone);
-  if (!expected) return false;
-  const ok = expected === code.trim();
-  if (ok) devCodes.delete(phone);
-  return ok;
+  return authRequest({
+    action: "verify",
+    phone,
+    ...(idToken ? { idToken } : { code }),
+    platform: "web",
+  });
 }
 
 export function resetOtpFlow() {
   confirmation = null;
-  devCodes.clear();
+  devCode = null;
+  recaptcha?.clear();
+  recaptcha = null;
 }
