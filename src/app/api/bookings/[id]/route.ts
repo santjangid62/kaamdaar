@@ -1,6 +1,6 @@
 /** PATCH /api/bookings/:id — dispatch lifecycle updates (owner-checked). */
 import { NextResponse } from "next/server";
-import { all, get, patch, ready } from "../../../../server/db";
+import { all, claimDispatchedBooking, get, patch, ready } from "../../../../server/db";
 import { minWallet } from "../../../../server/settings";
 import { debitCommission, type WalletTxn } from "../../../../server/wallet";
 import { etaMinutes, generateOtp, toProfile } from "../../../../lib/dispatch";
@@ -34,6 +34,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       withdrawNotify?: string;
       /** live GPS the Provider app reports while travelling to the job */
       providerPing?: { lat: number; lng: number; accuracy?: number };
+      /** Fresh device GPS captured at the moment the Pro accepts the offer. */
+      providerAcceptPoint?: { lat: number; lng: number; accuracy?: number };
       /** Pro tapped "Start navigation" — timestamped server-side */
       navigationStarted?: boolean;
     };
@@ -140,6 +142,18 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
         Math.abs(pro.lat) > 90 || Math.abs(pro.lng) > 180) {
       return NextResponse.json({ error: "Professional location is not configured" }, { status: 409 });
     }
+    // Use a fresh device fix when the Pro accepts; never trust the old
+    // profile pin as the starting point for the customer's live map.
+    const acceptPoint = body.patch?.providerAcceptPoint;
+    if (acceptPoint && (
+      !Number.isFinite(acceptPoint.lat) || !Number.isFinite(acceptPoint.lng) ||
+      Math.abs(acceptPoint.lat) > 90 || Math.abs(acceptPoint.lng) > 180
+    )) {
+      return NextResponse.json({ error: "Invalid GPS location from professional device" }, { status: 422 });
+    }
+    if (!acceptPoint) {
+      return NextResponse.json({ error: "Current GPS location is required to accept this job" }, { status: 422 });
+    }
     // Freeze the Pro's public details, ETA and start OTP server-side so the
     // customer's card never depends on a client-supplied profile.
     const [wallets, minimum] = await Promise.all([
@@ -155,11 +169,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     }
     if (pro) {
       const distanceKm = booking.originPoint
-        ? haversineKm(booking.originPoint, pro)
+        ? haversineKm(booking.originPoint, acceptPoint)
         : 0;
       changes.providerName = pro.name;
       changes.providerProfile = toProfile(pro, distanceKm);
-      changes.providerPoint = { lat: pro.lat, lng: pro.lng };
+      changes.providerPoint = { lat: acceptPoint.lat, lng: acceptPoint.lng, accuracy: acceptPoint.accuracy };
+      changes.livePoint = { lat: acceptPoint.lat, lng: acceptPoint.lng, accuracy: acceptPoint.accuracy };
+      changes.pingAt = Date.now();
       changes.etaMinutes = etaMinutes(distanceKm);
     }
     if (!booking.startOtp && typeof changes.startOtp !== "string") {
@@ -168,6 +184,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     changes.notifiedIds = []; // withdrawn from every other Pro
     changes.acceptedAt =
       typeof changes.acceptedAt === "number" ? changes.acceptedAt : Date.now();
+
+    // Compare-and-set in the database prevents two Pros from accepting the
+    // same request concurrently, even when their requests hit different
+    // serverless instances.
+    const claimed = await claimDispatchedBooking(id, acceptingId, Date.now());
+    if (!claimed) {
+      return NextResponse.json(
+        { error: "Request already accepted or this 40-second offer has expired" },
+        { status: 409 },
+      );
+    }
   }
 
   /* ---- audit trail: written here, never by a client ---- */
