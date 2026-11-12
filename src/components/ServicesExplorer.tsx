@@ -86,11 +86,11 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
         <p className="mt-2 text-slate-500">{s.services.sub}</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[264px_1fr]">
+      <div className="grid gap-7 lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
       {/* ── filters sidebar ─────────────────────────────── */}
-      <aside className="card sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto self-start p-5">
+      <aside className="card sticky top-20 min-h-[520px] max-h-[calc(100vh-6rem)] overflow-y-auto self-start p-7 lg:p-8">
         <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
+          <h2 className="flex items-center gap-2 text-base font-extrabold uppercase tracking-wide text-slate-700">
             {s.services.filters}
           </h2>
           {activeFilters > 0 && (
@@ -107,17 +107,17 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
           )}
         </div>
 
-        <fieldset className="mt-5">
-          <legend className="text-sm font-bold text-slate-900">{s.services.category}</legend>
-          <ul className="mt-3 space-y-2">
+        <fieldset className="mt-7">
+          <legend className="text-base font-bold text-slate-900">{s.services.category}</legend>
+          <ul className="mt-4 space-y-3">
             {categories.map(([c, count]) => (
               <li key={c}>
-                <label className="flex cursor-pointer items-center gap-2.5 text-sm text-slate-600">
+                <label className="flex cursor-pointer items-center gap-3 text-base text-slate-600">
                   <input
                     type="checkbox"
                     checked={cat === c}
                     onChange={() => go(q, cat === c ? "All" : c)}
-                    className="h-4 w-4 rounded border-slate-300 accent-blue-600"
+                    className="h-5 w-5 rounded border-slate-300 accent-blue-600"
                   />
                   <span className="flex-1">{catLabel(c)}</span>
                   <span className="text-xs text-slate-400">({count})</span>
@@ -127,8 +127,8 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
           </ul>
         </fieldset>
 
-        <div className="mt-6">
-          <div className="flex items-center justify-between text-sm">
+        <div className="mt-8">
+          <div className="flex items-center justify-between text-base">
             <span className="font-bold text-slate-900">{s.services.priceRange}</span>
             <span className="font-semibold text-flame-600">₹{maxPrice}</span>
           </div>
@@ -139,10 +139,10 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
             step={10}
             value={maxPrice}
             onChange={(e) => setMaxPrice(Number(e.target.value))}
-            className="mt-3 w-full accent-blue-600"
+            className="mt-4 h-3 w-full accent-blue-600"
             aria-label="Maximum price"
           />
-          <div className="mt-1 flex justify-between text-xs text-slate-400">
+          <div className="mt-2 flex justify-between text-sm text-slate-400">
             <span>₹50</span>
             <span>₹{priceCeiling}</span>
           </div>
