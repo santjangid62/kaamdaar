@@ -8,6 +8,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
 
 import 'models.dart';
 
@@ -192,9 +193,32 @@ class Api {
   /// First accept wins: the server answers 409 to a second Pro, stamps the
   /// profile / start OTP / ETA and withdraws the offer from everyone else.
   static Future<BookingItem> accept(BookingItem b, ProviderItem me) async {
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      throw ApiException('Job accept karne ke liye location permission zaroori hai.');
+    }
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      throw ApiException('GPS on karein, phir job accept karein.');
+    }
+
+    final position = await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 10),
+      ),
+    );
     return updateJob(b.id, {
       'status': 'accepted',
       'providerId': me.id,
+      'providerAcceptPoint': {
+        'lat': position.latitude,
+        'lng': position.longitude,
+        'accuracy': position.accuracy,
+      },
       'enrouteAt': DateTime.now().millisecondsSinceEpoch,
     });
   }
