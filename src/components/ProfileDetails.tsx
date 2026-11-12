@@ -57,13 +57,13 @@ export default function ProfileDetails() {
     e.target.value = "";
   }
 
-  async function save() {
+  async function save(): Promise<boolean> {
     const next: Record<string, string> = {};
     if (!isValidName(form.firstName)) next.firstName = s.validation.invalidName;
     if (!isValidName(form.lastName)) next.lastName = s.validation.invalidName;
     if (form.email.trim() && !isValidEmail(form.email)) next.email = s.validation.invalidEmail;
     setErrors(next);
-    if (Object.keys(next).length > 0) return;
+    if (Object.keys(next).length > 0) return false;
     setBusy(true);
     setSaveError(null);
     setSaved(false);
@@ -77,8 +77,10 @@ export default function ProfileDetails() {
       signIn(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+      return true;
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Profile could not be saved. Please try again.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -169,7 +171,7 @@ export default function ProfileDetails() {
       <div className="mt-5 flex items-center gap-3">
         <button
           type="button"
-          onClick={() => { if (!editing) { setEditing(true); setSaved(false); return; } void save().then(() => setEditing(false)); }}
+          onClick={async () => { if (!editing) { setEditing(true); setSaved(false); return; } if (await save()) setEditing(false); }}
           disabled={busy || (editing && (!form.firstName.trim() || !form.lastName.trim()))}
           className="btn-primary"
         >
