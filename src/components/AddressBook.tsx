@@ -39,6 +39,7 @@ export default function AddressBook() {
       setForm((f) => ({
         ...f,
         line1: f.line1 || geo.label.split(",")[0],
+        pincode: geo.pincode || f.pincode,
         city: f.city || geo.city,
       }));
       setCoords({ lat: geo.lat, lng: geo.lng });
@@ -180,16 +181,18 @@ export default function AddressBook() {
                 className={`field ${errors.city ? "border-red-300 focus:border-red-400 focus:ring-red-100" : ""}`}
                 placeholder={s.booking.cityLabel}
                 value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
+                readOnly
+                className="field bg-slate-100 text-slate-600"
               />
               {errors.city && <p className="mt-1 text-xs text-red-600">{errors.city}</p>}
             </div>
             <div className="sm:col-span-2">
               <input
                 className={`field ${errors.line1 ? "border-red-300 focus:border-red-400 focus:ring-red-100" : ""}`}
-                placeholder={s.booking.flatLabel}
+                placeholder="Area / locality (auto detected)"
                 value={form.line1}
-                onChange={(e) => setForm({ ...form, line1: e.target.value })}
+                readOnly
+                className="field bg-slate-100 text-slate-600"
               />
               {errors.line1 && <p className="mt-1 text-xs text-red-600">{errors.line1}</p>}
             </div>
@@ -205,6 +208,8 @@ export default function AddressBook() {
                 placeholder={s.booking.pincodeLabel}
                 inputMode="numeric"
                 value={form.pincode}
+                readOnly
+                className="field bg-slate-100 text-slate-600"
                 onChange={(e) => {
                   setErrors((prev) => ({ ...prev, pincode: "" }));
                   setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) });
