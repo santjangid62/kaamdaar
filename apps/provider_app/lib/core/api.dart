@@ -4,9 +4,11 @@
 ///   flutter run --dart-define=API_BASE=http://192.168.1.5:3100
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -76,21 +78,52 @@ class Api {
     return '+91$ten';
   }
 
+  static String? _phoneVerificationId;
+
   static Future<String> sendOtp(String phone) async {
-    final data = await post('/api/auth', {'action': 'send', 'phone': e164(phone)});
-    return (data['devCode'] ?? '').toString();
+    final auth = FirebaseAuth.instance;
+    await auth.signOut();
+    _phoneVerificationId = null;
+    final completed = Completer<void>();
+    await auth.verifyPhoneNumber(
+      phoneNumber: e164(phone),
+      timeout: const Duration(seconds: 60),
+      verificationCompleted: (credential) async {
+        try { await auth.signInWithCredential(credential); } catch (_) {}
+        if (!completed.isCompleted) completed.complete();
+      },
+      verificationFailed: (error) {
+        if (!completed.isCompleted) completed.completeError(
+          ApiException(error.message ?? 'Firebase could not send OTP'));
+      },
+      codeSent: (verificationId, resendToken) {
+        _phoneVerificationId = verificationId;
+        if (!completed.isCompleted) completed.complete();
+      },
+      codeAutoRetrievalTimeout: (verificationId) {
+        _phoneVerificationId = verificationId;
+        if (!completed.isCompleted) completed.complete();
+      },
+    );
+    await completed.future;
+    return '';
   }
 
   static Future<SessionUser> verifyOtp(String phone, String code) async {
-    final data = await post(
-      '/api/auth',
-      {
-        'action': 'verify',
-        'phone': e164(phone),
-        'code': code,
-        'role': 'provider',
-      },
-    );
+    final auth = FirebaseAuth.instance;
+    final current = auth.currentUser;
+    if (current == null || e164(current.phoneNumber ?? '') != e164(phone)) {
+      final verificationId = _phoneVerificationId;
+      if (verificationId == null) throw ApiException('OTP session expired. Please resend.');
+      await auth.signInWithCredential(PhoneAuthProvider.credential(
+        verificationId: verificationId, smsCode: code.trim()));
+    }
+    final idToken = await auth.currentUser?.getIdToken(true);
+    if (idToken == null) throw ApiException('Firebase phone verification did not complete.');
+    final data = await post('/api/auth', {
+      'action': 'verify', 'phone': e164(phone), 'idToken': idToken,
+      'role': 'provider',
+    });
     final provider = data['provider'];
     if (provider is! Map<String, dynamic>) {
       throw ApiException('Provider profile was not returned');
@@ -101,6 +134,7 @@ class Api {
       firstName: (provider['name'] ?? '').toString(),
     );
     await saveSession(user);
+    _phoneVerificationId = null;
     return user;
   }
 
