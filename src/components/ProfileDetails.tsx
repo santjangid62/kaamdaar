@@ -17,6 +17,7 @@ export default function ProfileDetails() {
   }));
   const [photo, setPhoto] = useState<string | undefined>(user?.photo);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -74,7 +75,7 @@ export default function ProfileDetails() {
       <div className="mt-5 flex items-center gap-4">
         <button
           type="button"
-          onClick={() => fileRef.current?.click()}
+          onClick={() => editing && fileRef.current?.click()}
           className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-blue-600 text-white"
           title="Change photo"
         >
@@ -105,6 +106,7 @@ export default function ProfileDetails() {
             className={`field ${errors.firstName ? "border-red-300 focus:border-red-400 focus:ring-red-100" : ""}`}
             value={form.firstName}
             onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+            disabled={!editing}
             placeholder="Aditi"
           />
           {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName}</p>}
@@ -115,6 +117,7 @@ export default function ProfileDetails() {
             className={`field ${errors.lastName ? "border-red-300 focus:border-red-400 focus:ring-red-100" : ""}`}
             value={form.lastName}
             onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+            disabled={!editing}
             placeholder="Sharma"
           />
           {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName}</p>}
@@ -132,6 +135,7 @@ export default function ProfileDetails() {
             type="email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
+            disabled={!editing}
             placeholder="you@example.com"
           />
           {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
@@ -141,12 +145,12 @@ export default function ProfileDetails() {
       <div className="mt-5 flex items-center gap-3">
         <button
           type="button"
-          onClick={() => void save()}
-          disabled={busy || !form.firstName.trim() || !form.lastName.trim()}
+          onClick={() => { if (!editing) { setEditing(true); setSaved(false); return; } void save().then(() => setEditing(false)); }}
+          disabled={busy || (editing && (!form.firstName.trim() || !form.lastName.trim()))}
           className="btn-primary"
         >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-          {s.profile.save}
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : editing ? <Check className="h-4 w-4" /> : null}
+          {editing ? "Save" : "Edit"}
         </button>
         {!form.firstName.trim() && (
           <span className="text-xs text-slate-400">{s.profile.required}</span>
