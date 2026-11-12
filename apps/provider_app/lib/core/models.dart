@@ -274,6 +274,7 @@ class BookingItem {
   final int amount;
   final String status;
   final int createdAt;
+  final int? offerExpiresAt;
   final List<String> notifiedIds;
   final int? acceptedAt;
   final int? enrouteAt;
@@ -310,6 +311,7 @@ class BookingItem {
         amount: _int(j["amount"]),
         status: (j["status"] ?? "dispatched").toString(),
         createdAt: _int(j["createdAt"]),
+        offerExpiresAt: _optInt(j["offerExpiresAt"]),
         notifiedIds: _strList(j["notifiedIds"]),
         acceptedAt: _optInt(j["acceptedAt"]),
         enrouteAt: _optInt(j["enrouteAt"]),
@@ -350,6 +352,7 @@ class BookingItem {
     this.amount = 0,
     this.status = "dispatched",
     this.createdAt = 0,
+    this.offerExpiresAt,
     this.notifiedIds = const [],
     this.acceptedAt,
     this.enrouteAt,
