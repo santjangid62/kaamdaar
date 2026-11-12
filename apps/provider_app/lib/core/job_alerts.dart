@@ -127,6 +127,9 @@ class JobAlertCenter {
     _silence();
   }
 
+  /// Public wake-up hook used by FCM when a push arrives in the foreground.
+  Future<void> checkNow() => _check();
+
   /* ------------------------------ polling ------------------------------ */
 
   Future<void> _check() async {
