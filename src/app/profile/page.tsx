@@ -57,8 +57,15 @@ function ProfileContent() {
           <div className="pointer-events-none absolute -right-12 -top-24 h-64 w-64 rounded-full border-[34px] border-white/5" />
           <div className="relative flex flex-wrap items-center justify-between gap-5">
             <div className="flex items-center gap-4">
-              <div className="grid h-16 w-16 place-items-center rounded-2xl border border-white/20 bg-white/15 text-xl font-black shadow-inner">
-                {(user.firstName?.[0] || "K").toUpperCase()}{(user.lastName?.[0] || "").toUpperCase()}
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/25 bg-white/15 shadow-inner">
+                {user.photo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.photo} alt="Profile photo" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="grid h-full w-full place-items-center text-xl font-black">
+                    {(user.firstName?.[0] || "K").toUpperCase()}{(user.lastName?.[0] || "").toUpperCase()}
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-sm font-medium text-blue-100">Welcome to your dashboard</p>
