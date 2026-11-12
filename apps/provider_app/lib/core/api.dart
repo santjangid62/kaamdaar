@@ -177,11 +177,23 @@ class Api {
     await p.setBool(_kOnboarded, true);
   }
 
+  /// Register an FCM token only when Firebase proves the provider's phone.
   static Future<void> registerDeviceToken(String providerId, String token) async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    final firebasePhone = e164(firebaseUser?.phoneNumber ?? '');
+    final idToken = await firebaseUser?.getIdToken(true);
+    if (idToken == null || firebasePhone.isEmpty) {
+      throw ApiException('Please sign in again to enable job notifications.');
+    }
+    final session = await restoreSession();
+    if (session == null || session.id != providerId || e164(session.phone) != firebasePhone) {
+      throw ApiException('Provider account does not match the verified Firebase number.');
+    }
     await post('/api/providers/device-token', {
       'providerId': providerId,
       'token': token,
       'platform': 'android',
+      'idToken': idToken,
     });
   }
 
