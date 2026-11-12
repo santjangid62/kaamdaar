@@ -103,7 +103,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   // stops showing the offer in the same write.
   if (changes.status === "accepted") {
     const expiresAt = booking.offerExpiresAt ?? ((booking.dispatchedAt ?? booking.createdAt) + 40_000);
-    if (booking.status !== "dispatched" || Date.now() > expiresAt) {
+    if (booking.status !== "dispatched" || Date.now() >= expiresAt) {
       return NextResponse.json({ error: "This 40-second job offer has expired" }, { status: 409 });
     }
     const acceptingId =
@@ -121,19 +121,27 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       );
     }
     const notified = booking.notifiedIds ?? [];
-    if (
-      booking.providerId !== acceptingId &&
-      notified.length > 0 &&
-      !notified.includes(acceptingId)
-    ) {
+    if (booking.providerId !== acceptingId && !notified.includes(acceptingId)) {
       return NextResponse.json(
         { error: "This request is no longer offered to you" },
         { status: 403 },
       );
     }
+    // The dispatch list is authoritative: an arbitrary provider id must not
+    // be able to claim a booking when notifiedIds is empty or malformed.
+    const pro = (await all<Provider>("providers")).find((p) => p.id === acceptingId);
+    if (!pro) {
+      return NextResponse.json({ error: "Professional account not found" }, { status: 404 });
+    }
+    if (!(pro.services ?? []).includes(booking.serviceId)) {
+      return NextResponse.json({ error: "You are not eligible for this service" }, { status: 403 });
+    }
+    if (!Number.isFinite(pro.lat) || !Number.isFinite(pro.lng) ||
+        Math.abs(pro.lat) > 90 || Math.abs(pro.lng) > 180) {
+      return NextResponse.json({ error: "Professional location is not configured" }, { status: 409 });
+    }
     // Freeze the Pro's public details, ETA and start OTP server-side so the
     // customer's card never depends on a client-supplied profile.
-    const pro = (await all<Provider>("providers")).find((p) => p.id === acceptingId);
     const [wallets, minimum] = await Promise.all([
       all<{ providerId: string; balance: number }>("wallets"),
       minWallet(),
