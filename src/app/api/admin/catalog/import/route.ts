@@ -20,7 +20,12 @@ function parseCsv(input: string): string[][] {
   return rows.filter((r) => r.some((v) => v.trim()));
 }
 
-function bilingual(value: string) {\n  const parts = value.split(/\\s+\\/\\s+/);\n  return { en: (parts[0] ?? value).trim(), hi: parts.length > 1 ? parts.slice(1).join(" / ").trim() : "" };\n}\n\nfunction slug(value: string) {
+function bilingual(value: string) {
+  const parts = value.split(/\s+\/\s+/);
+  return { en: (parts[0] ?? value).trim(), hi: parts.length > 1 ? parts.slice(1).join(" / ").trim() : "" };
+}
+
+function slug(value: string) {
   return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
