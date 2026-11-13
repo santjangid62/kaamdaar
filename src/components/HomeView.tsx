@@ -48,7 +48,7 @@ import {
 import HeroSearch from "./HeroSearch";
 import AreasWeServe from "./AreasWeServe";
 import LiveStats from "./LiveStats";
-import { fill, useLang } from "../lib/i18n";
+import { fill, useLang, useServiceLabels } from "../lib/i18n";
 import { SERVICE_HI } from "../lib/strings";
 import { openVoiceAssistant } from "../lib/assistant";
 import { FALLBACK_ICON, ICONS, SERVICE_ICONS } from "../lib/service-icons";
@@ -108,7 +108,7 @@ const testimonials = [
 const VOICE_CARD_ICONS = [Mic, CalendarCheck, MapPin];
 
 export default function HomeView() {
-  const { lang, s } = useLang();
+  const { lang, s } = useLang();\n  const serviceLabels = useServiceLabels();
   const { services, providers, settings } = useApp();
   const [tiles, setTiles] = useState<typeof services>([]);
   useEffect(() => {
@@ -139,7 +139,7 @@ export default function HomeView() {
   const heroSubtitle = settings[`home_hero_subtitle_${lang}`]?.trim() || s.hero.sub;
 
   function tileLabel(id: string, fallback: string): string {
-    return lang === "hi" && SERVICE_HI[id] ? SERVICE_HI[id].name : fallback;
+    const service = services.find((item) => item.id === id);\n    if (lang !== "hi") return fallback;\n    return (SERVICE_HI[id]?.name || service?.nameHi || (fallback.includes(" / ") ? fallback.split(/\\s+\\/\\s+/).slice(1).join(" / ").trim() : fallback));
   }
 
   return (
