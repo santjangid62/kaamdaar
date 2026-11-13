@@ -153,7 +153,7 @@ function TrackView() {
     }
     setBusy(true);
     try {
-      await updateBooking(booking.userId, booking.id, { status: "completed" });
+      await updateBooking(booking.userId, booking.id, { status: "completed" }, otp);
       setOtp("");
       setOtpError(false);
       setNote(null);
