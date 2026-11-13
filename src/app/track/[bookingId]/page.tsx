@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   CheckCircle2,
@@ -310,12 +310,9 @@ function TrackView() {
                 </span>
               </div>
               <div className="px-4 py-3">
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-flame to-amber-400 transition-all"
-                    style={{ width: `${Math.round(progress * 100)}%` }}
-                  />
-                </div>
+                <p className="text-xs font-semibold text-slate-600">
+                  Live GPS updates are shown on the map as the Professional moves.
+                </p>
                 <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
                   <MapPin className="h-3.5 w-3.5 text-flame-600" /> {d.sharedLocation}
                 </p>
