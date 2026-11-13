@@ -91,9 +91,16 @@ export function useServiceLabels() {
   return useMemo(
     () =>
       (service: Service): ServiceLabels => {
-        // admin-created rows may miss optional fields — never crash the page
+        // Imported catalogue rows may contain "English / Hindi" in the
+        // original name. Always render exactly one language.
+        const parts = (service.name ?? "").split(/\\s+\\/\\s+/);
+        const englishName = parts[0]?.trim() || service.name || "";
+        const hindiName =
+          SERVICE_HI[service.id]?.name ||
+          service.nameHi?.trim() ||
+          (parts.length > 1 ? parts.slice(1).join(" / ").trim() : "");
         const enLabels: ServiceLabels = {
-          name: service.name ?? "",
+          name: englishName,
           tagline: service.tagline ?? "",
           description: service.description ?? "",
           includes: service.includes ?? [],
@@ -101,10 +108,13 @@ export function useServiceLabels() {
           duration: service.duration ?? "—",
         };
         if (lang !== "hi") return enLabels;
-        const name = SERVICE_HI[service.id] ?? (service.nameHi ? { name: service.nameHi } : undefined) ?? (service.name.includes(" / ") ? { name: service.name.split(/\s+\/\s+/).slice(1).join(" / ").trim() } : undefined);
         const detail = SERVICE_DETAIL_HI[service.id];
-        if (!name && !detail) return enLabels;
-        return { ...enLabels, ...name, ...detail };
+        if (!hindiName && !detail) return enLabels;
+        return {
+          ...enLabels,
+          ...(hindiName ? { name: hindiName } : {}),
+          ...detail,
+        };
       },
     [lang],
   );
