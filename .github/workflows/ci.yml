@@ -6,6 +6,11 @@ on:
   push:
     branches: [main, "fix/**"]
 
+# Keep only the newest CI run for this branch; push and PR events share a key.
+concurrency:
+  group: kaamdaar-ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
