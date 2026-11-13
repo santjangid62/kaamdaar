@@ -75,7 +75,7 @@ export default function SystemLogsClient() {
         ["Provider activity", stats.providers, ShieldCheck, "text-emerald-700 bg-emerald-50"],
         ["Finance events", stats.finance, Activity, "text-violet-700 bg-violet-50"],
         ["Alerts / warnings", stats.warnings, AlertTriangle, "text-amber-700 bg-amber-50"],
-      ].map(([label, value, Icon, style]) => <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-500">{String(label)}</span><span className={`grid h-8 w-8 place-items-center rounded-lg ${String(style)}`}><Icon className="h-4 w-4" /></span></div><p className="mt-2 text-2xl font-extrabold text-navy">{Number(value).toLocaleString("en-IN")}</p></div>)}
+      ] as const).map(([label, value, Icon, style]) => <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-500">{String(label)}</span><span className={`grid h-8 w-8 place-items-center rounded-lg ${String(style)}`}><Icon className="h-4 w-4" /></span></div><p className="mt-2 text-2xl font-extrabold text-navy">{Number(value).toLocaleString("en-IN")}</p></div>)}
     </div>
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_180px_160px_150px]">
