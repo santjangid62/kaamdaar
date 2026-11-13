@@ -57,8 +57,9 @@ export async function POST(req: Request) {
     if (!categoryIdRaw || !categoryName || !subcategoryIdRaw || !subcategoryName) continue;
 
     const categoryId = `excel-category-${slug(categoryIdRaw)}`;
-    const subcategoryId = `excel-subcategory-${slug(subcategoryIdRaw)}`;
-    const serviceId = `excel-service-${slug(subcategoryIdRaw)}`;
+    const rowKey = String(cells[index("s.no")]?.trim() || (subcategories.length + 1));
+    const subcategoryId = `excel-subcategory-${slug(subcategoryIdRaw)}-${rowKey}`;
+    const serviceId = `excel-service-${slug(subcategoryIdRaw)}-${rowKey}`;
     categories.set(categoryId, { id: categoryId, name: categoryName, active: true, order: Number(categoryIdRaw) || categories.size });
     if (seen.has(subcategoryId)) continue;
     seen.add(subcategoryId);
