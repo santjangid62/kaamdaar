@@ -138,7 +138,23 @@ class _TrackScreenState extends State<TrackScreen> {
       setState(() => _otpError = 'That OTP does not match — please check again');
       return;
     }
-    await _patch({'status': 'completed'});
+    final user = _user, booking = _booking;
+    if (user == null || booking == null) return;
+    setState(() => _busy = true);
+    try {
+      final updated = await Api.updateBooking(
+        user.id, booking.id, {'status': 'completed'}, completionOtp: entered);
+      if (!mounted) return;
+      setState(() {
+        _booking = updated;
+        _otpError = null;
+        _otp.clear();
+      });
+    } catch (e) {
+      if (mounted) setState(() => _otpError = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
     if (!mounted) return;
     setState(() {
       _otpError = null;
