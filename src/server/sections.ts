@@ -418,6 +418,33 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
     }
 
     /* SERVICES ---------------------------------------------------- */
+    case "subcategories": {
+      const rows = await all<{ id: string; name: string; nameHi?: string; categoryId?: string; categoryName?: string; icon?: string; active?: boolean; order?: number }>("subcategories");
+      const categoryOptions = (await all<{ id: string; name: string; active?: boolean }>("categories"))
+        .filter((c) => c.active !== false)
+        .map((c) => ({ value: c.id, label: c.name }));
+      return {
+        title: "Subcategories",
+        description: "Manage the service groups nested under each main category.",
+        columns: [
+          { key: "name", label: "Subcategory" },
+          { key: "categoryName", label: "Main category" },
+          { key: "icon", label: "Icon" },
+          { key: "status", label: "Status" },
+        ],
+        rows: rows.map((r) => ({ ...r, status: r.active === false ? "Hidden" : "Active", active: r.active === false ? "false" : "true" })),
+        collection: "subcategories",
+        fields: [
+          { key: "name", label: "Subcategory name (English)", required: true },
+          { key: "nameHi", label: "Subcategory name (Hindi)" },
+          { key: "categoryId", label: "Main category", type: "select", options: categoryOptions, required: true },
+          { key: "categoryName", label: "Category display name" },
+          { key: "icon", label: "Icon", type: "select", options: ICON_NAMES },
+          { key: "order", label: "Display order", type: "number" },
+          { key: "active", label: "Visible", type: "toggle" },
+        ],
+      };
+    }
     case "categories": {
       const rows = await all<{ id: string; name: string; active: boolean; order: number }>("categories");
       return {
