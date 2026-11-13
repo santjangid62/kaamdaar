@@ -101,7 +101,7 @@ export function useServiceLabels() {
           duration: service.duration ?? "—",
         };
         if (lang !== "hi") return enLabels;
-        const name = SERVICE_HI[service.id];
+        const name = SERVICE_HI[service.id] ?? (service.nameHi ? { name: service.nameHi } : undefined) ?? (service.name.includes(" / ") ? { name: service.name.split(/\\s+\\/\\s+/).slice(1).join(" / ").trim() } : undefined);
         const detail = SERVICE_DETAIL_HI[service.id];
         if (!name && !detail) return enLabels;
         return { ...enLabels, ...name, ...detail };
@@ -114,7 +114,7 @@ export function useServiceLabels() {
 export function useCatLabel() {
   const { s } = useLang();
   return (cat: string): string =>
-    (s.services.cat as Record<string, string>)[cat] ?? cat;
+    (s.services.cat as Record<string, string>)[cat] ?? (s.services.cat as Record<string, string>)[cat.split(/\\s+\\/\\s+/)[0]] ?? (cat.includes(" / ") ? cat.split(/\\s+\\/\\s+/).slice(1).join(" / ").trim() : cat);
 }
 
 /** "{n}" interpolation: t.sub.replace("{n}", "20") */
