@@ -25,6 +25,7 @@ export type Collection =
   | "providers"
   | "services"
   | "categories"
+  | "subcategories"
   | "reviews"
   | "complaints"
   | "banners"
@@ -41,7 +42,7 @@ export type Collection =
   | "settings";
 
 export const COLLECTIONS: Collection[] = [
-  "users", "addresses", "bookings", "providers", "services", "categories",
+  "users", "addresses", "bookings", "providers", "services", "categories", "subcategories",
   "reviews", "complaints", "banners", "faqs", "pages", "campaigns", "notifications",
   "payouts", "wallets", "walletTxns", "providerPayments", "loginOtps", "adminUsers", "settings",
 ];
