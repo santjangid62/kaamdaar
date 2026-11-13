@@ -181,6 +181,10 @@ class _TrackScreenState extends State<TrackScreen> {
                           _stepper(b),
                           const SizedBox(height: 14),
                           _addressCard(b),
+                          if (b.status == 'arrived') ...[
+                            const SizedBox(height: 14),
+                            _startOtpCard(b),
+                          ],
                           if (b.status == 'pending_confirm') ...[
                             const SizedBox(height: 14),
                             _otpCard(b),
@@ -456,6 +460,26 @@ class _TrackScreenState extends State<TrackScreen> {
             Text('Note: ${b.notes}',
                 style: const TextStyle(fontSize: 12, color: Colors.black45)),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _startOtpCard(BookingItem b) {
+    return CardBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Service Start OTP',
+              style: TextStyle(fontWeight: FontWeight.w800, color: KColors.navy)),
+          const SizedBox(height: 6),
+          const Text('Professional ke pahunchne par ye OTP unhe batayein. Isse pehle service start nahi hogi.',
+              style: TextStyle(color: Colors.black54, fontSize: 12.5)),
+          const SizedBox(height: 12),
+          Center(
+            child: Text(b.startOtp ?? '------',
+              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: 8)),
+          ),
         ],
       ),
     );
