@@ -451,7 +451,9 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
         title: "Categories",
         description: "Top-level categories on the customer site.",
         columns: [
-          { key: "name", label: "Category" },
+          { key: "name", label: "Category (English)" },
+          { key: "nameHi", label: "Category (Hindi)" },
+          { key: "icon", label: "Icon" },
           { key: "order", label: "Order", align: "right" },
           { key: "status", label: "Status" },
         ],
@@ -462,7 +464,9 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
         })),
         collection: "categories",
         fields: [
-          { key: "name", label: "Category name", required: true, help: "Customer ko dikhne wali category — jaise “Cleaning”, “Kitchen”. Service add karte time yahi is dropdown me aayegi." },
+          { key: "name", label: "Category name (English)", required: true, help: "Customer-facing English category name." },
+          { key: "nameHi", label: "Category name (Hindi)", help: "Hindi translation shown alongside the English category name." },
+          { key: "icon", label: "Category icon", type: "select", options: ICON_NAMES },
           { key: "order", label: "Order (display order)", type: "number", help: "Site par kis order me dikhani hai — 1 = sabse pehle (top). Nayi category ke liye sabse bada number + 1 daal dein (jaise maujuda 3 hain to 4). Number chhota = upar, bada = neeche." },
           { key: "active", label: "Visible", type: "toggle", help: "On = category site par dikh rahi hai. Off = category aur uski saari services customer ko nahi dikhengi." },
         ],
