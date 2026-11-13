@@ -13,7 +13,8 @@ function parseCsv(input: string): string[][] {
       else cell += ch;
     } else if (ch === '"') quoted = true;
     else if (ch === ",") { row.push(cell); cell = ""; }
-    else if (ch === "\n") { row.push(cell.replace(/\r$/, "")); rows.push(row); row = []; cell = ""; }
+    else if (ch === "
+") { row.push(cell.replace(/\r$/, "")); rows.push(row); row = []; cell = ""; }
     else cell += ch;
   }
   if (cell.length || row.length) { row.push(cell.replace(/\r$/, "")); rows.push(row); }
@@ -62,7 +63,8 @@ export async function POST(req: Request) {
     const rowKey = String(cells[index("s.no")]?.trim() || (subcategories.length + 1));
     const subcategoryId = `excel-subcategory-${slug(subcategoryIdRaw)}-${rowKey}`;
     const serviceId = `excel-service-${slug(subcategoryIdRaw)}-${rowKey}`;
-    const categoryLabels = bilingual(categoryName);\n    categories.set(categoryId, { id: categoryId, name: categoryLabels.en, nameHi: categoryLabels.hi, active: true, order: Number(categoryIdRaw) || categories.size });
+    const categoryLabels = bilingual(categoryName);
+    categories.set(categoryId, { id: categoryId, name: categoryLabels.en, nameHi: categoryLabels.hi, active: true, order: Number(categoryIdRaw) || categories.size });
     if (seen.has(subcategoryId)) continue;
     seen.add(subcategoryId);
 
@@ -85,7 +87,15 @@ export async function POST(req: Request) {
     });
   }
 
-  // Replace the legacy service catalogue: only rows from this CSV remain bookable.\n  const existingServices = await all<{ id: string }>("services");\n  for (const existing of existingServices) await remove("services", existing.id);\n  const existingSubcategories = await all<{ id: string }>("subcategories");\n  for (const existing of existingSubcategories) await remove("subcategories", existing.id);\n  const existingCategories = await all<{ id: string }>("categories");\n  for (const existing of existingCategories) await remove("categories", existing.id);\n\n  for (const category of categories.values()) await upsert("categories", category.id, category);
+  // Replace the legacy service catalogue: only rows from this CSV remain bookable.
+  const existingServices = await all<{ id: string }>("services");
+  for (const existing of existingServices) await remove("services", existing.id);
+  const existingSubcategories = await all<{ id: string }>("subcategories");
+  for (const existing of existingSubcategories) await remove("subcategories", existing.id);
+  const existingCategories = await all<{ id: string }>("categories");
+  for (const existing of existingCategories) await remove("categories", existing.id);
+
+  for (const category of categories.values()) await upsert("categories", category.id, category);
   for (const subcategory of subcategories) await upsert("subcategories", String(subcategory.id), subcategory);
   for (const service of services) await upsert("services", String(service.id), service);
 
