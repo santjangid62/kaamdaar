@@ -6,7 +6,7 @@ export interface Service {
   category: string;
   categoryId?: string;
   subcategoryId?: string;
-  nameHi?: string;
+  nameHi?: string;\n  categoryHi?: string;
   tagline: string;
   description: string;
   includes: string[];
