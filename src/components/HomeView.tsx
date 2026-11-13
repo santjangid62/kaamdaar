@@ -49,6 +49,7 @@ import HeroSearch from "./HeroSearch";
 import AreasWeServe from "./AreasWeServe";
 import LiveStats from "./LiveStats";
 import { fill, useLang } from "../lib/i18n";
+import { SERVICE_HI } from "../lib/strings";
 import { openVoiceAssistant } from "../lib/assistant";
 import { FALLBACK_ICON, ICONS, SERVICE_ICONS } from "../lib/service-icons";
 import { useApp } from "./AppProvider";
@@ -140,7 +141,7 @@ export default function HomeView() {
   function tileLabel(id: string, fallback: string): string {
     const service = services.find((item) => item.id === id);
     if (lang !== "hi") return fallback;
-    return (SERVICE_HI[id]?.name || service?.nameHi || (fallback.includes(" / ") ? fallback.split(/\s+\\/\s+/).slice(1).join(" / ").trim() : fallback));
+    return (SERVICE_HI[id]?.name || service?.nameHi || (fallback.includes(" / ") ? fallback.split(/\s+\/\s+/).slice(1).join(" / ").trim() : fallback));
   }
 
   return (
