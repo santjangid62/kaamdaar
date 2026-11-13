@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api.dart';
@@ -25,6 +26,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   BookingItem? _booking;
   ProviderItem? _me;
   Timer? _poll;
+  Timer? _gpsTimer;
   bool _loading = true;
   bool _busy = false;
   String? _error;
@@ -41,6 +43,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   @override
   void dispose() {
     _poll?.cancel();
+    _gpsTimer?.cancel();
     _otp.dispose();
     super.dispose();
   }
@@ -70,10 +73,53 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         _booking = found.isEmpty ? null : found.first;
         _error = found.isEmpty ? 'This job is no longer assigned to you.' : null;
       });
+      if (_booking?.status == 'enroute') {
+        _startLiveGps();
+      } else {
+        _gpsTimer?.cancel();
+        _gpsTimer = null;
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _startLiveGps() {
+    if (_gpsTimer != null) return;
+    // Send a fresh point every 8 seconds while travelling. The server stamps
+    // each ping and shares the same point with the customer and admin maps.
+    _gpsTimer = Timer.periodic(const Duration(seconds: 8), (_) => _sendGpsPing());
+    _sendGpsPing();
+  }
+
+  Future<void> _sendGpsPing() async {
+    final b = _booking;
+    if (b == null || b.status != 'enroute' || _busy) return;
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) return;
+      final point = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+      await Api.updateJob(b.id, {
+        'providerPing': {
+          'lat': point.latitude,
+          'lng': point.longitude,
+          'accuracy': point.accuracy,
+        },
+      });
+    } catch (_) {
+      // A transient GPS/network failure must not stop the journey timer.
     }
   }
 
@@ -502,11 +548,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           icon: Icons.navigation,
           busy: _busy,
           onPressed: () async {
-            await _patch({
-              'status': 'enroute',
-              'enrouteAt': DateTime.now().millisecondsSinceEpoch,
-            });
-            await _openCustomerMap(b);
+            await _patch({'navigationStarted': true, 'status': 'enroute'});
+            if (_booking?.status == 'enroute') {
+              _startLiveGps();
+              await _openCustomerMap(_booking!);
+            }
           },
         );
       case 'enroute':
