@@ -191,33 +191,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   Future<void> _completeWork() async {
     await _patch({'status': 'pending_confirm'});
-    final otp = _booking?.completeOtp ?? '';
-    if (otp.isEmpty) {
-      await _refresh();
-    }
-    final serverOtp = _booking?.completeOtp ?? '';
     if (!mounted) return;
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Work marked complete'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Customer ko ye OTP dein — verify karte hi job close ho jayega:'),
-            const SizedBox(height: 12),
-            Center(
-              child: Text(serverOtp,
-                  style: const TextStyle(
-                      fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: 8)),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-        ],
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Customer ko completion OTP bhej diya gaya hai. OTP lekar yahan verify karein.')),
     );
   }
 
