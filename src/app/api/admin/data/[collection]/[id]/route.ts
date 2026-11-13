@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { COLLECTIONS, get, patch, ready, remove, type Collection } from "../../../../../../server/db";
 import { sanitizeRow } from "../../../../../../server/sanitize";
 import { isAuthed } from "../../../../../../lib/admin/auth";
+import { recordAudit } from "../../../../../../server/audit";
 
 function isCollection(value: string): value is Collection {
   return (COLLECTIONS as string[]).includes(value);
@@ -38,6 +39,7 @@ export async function PATCH(
 
   const row = await patch(collection, id, result.clean);
   if (!row) return NextResponse.json({ error: "Row not found" }, { status: 404 });
+  await recordAudit({ action: "updated", module: collection, title: `${collection} record updated`, description: id, reference: id });
   return NextResponse.json({ row });
 }
 
@@ -53,5 +55,6 @@ export async function DELETE(
   }
   const ok = await remove(collection, id);
   if (!ok) return NextResponse.json({ error: "Row not found" }, { status: 404 });
+  await recordAudit({ action: "deleted", module: collection, title: `${collection} record deleted`, description: id, reference: id, severity: "warning" });
   return NextResponse.json({ ok: true });
 }
