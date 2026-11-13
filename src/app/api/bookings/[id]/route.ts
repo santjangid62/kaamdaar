@@ -6,6 +6,8 @@ import { debitCommission, type WalletTxn } from "../../../../server/wallet";
 import { etaMinutes, generateOtp, toProfile } from "../../../../lib/dispatch";
 import { haversineKm } from "../../../../lib/geo";
 import { appendEvents, eventsForChange, newEvent } from "../../../../server/events";
+import { isAuthed } from "../../../../lib/admin/auth";
+import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
 import type {
   Booking,
   BookingActor,
@@ -48,19 +50,79 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
   const booking = await get<Booking>("bookings", id);
   if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
-  if (body.userId && booking.userId !== body.userId) {
-    return NextResponse.json({ error: "Not your booking" }, { status: 403 });
+
+  // Admin dashboard keeps its signed httpOnly session; customers and providers
+  // must prove their Firebase phone identity on every mutation.
+  const admin = await isAuthed();
+  let actorRole: "admin" | "customer" | "provider" = admin ? "admin" : "customer";
+  let authenticatedProviderId = "";
+  if (!admin) {
+    const identity = await firebaseIdentityFromRequest(req);
+    if (!identity) {
+      return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+    }
+    const [users, providers] = await Promise.all([
+      all<{ id: string; phone?: string }>("users"),
+      all<Provider & { phone?: string }>("providers"),
+    ]);
+    const customer = users.find((u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
+    const professional = providers.find((p) => normalizeIndianPhone(p.phone ?? "") === identity.phone);
+    if (customer?.id === booking.userId) {
+      actorRole = "customer";
+    } else if (
+      professional &&
+      (booking.providerId === professional.id ||
+        (booking.status === "dispatched" && (booking.notifiedIds ?? []).includes(professional.id)))
+    ) {
+      actorRole = "provider";
+      authenticatedProviderId = professional.id;
+    } else {
+      return NextResponse.json({ error: "Not authorized for this booking" }, { status: 403 });
+    }
   }
 
   const changes: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(body.patch ?? {})) {
     if (ALLOWED.has(k)) changes[k] = v;
   }
+  // Customers can only cancel their own booking; lifecycle and provider
+  // fields are controlled by the assigned professional or the Admin.
+  if (actorRole === "customer") {
+    const keys = Object.keys(body.patch ?? {});
+    if (keys.some((key) => key !== "status") || changes.status !== "cancelled") {
+      return NextResponse.json({ error: "Customers may only cancel their own booking" }, { status: 403 });
+    }
+    if (booking.status === "completed" || booking.status === "cancelled") {
+      return NextResponse.json({ error: "This booking can no longer be cancelled" }, { status: 409 });
+    }
+  }
+
+  if (actorRole === "provider") {
+    if (body.patch?.providerId && body.patch.providerId !== authenticatedProviderId) {
+      return NextResponse.json({ error: "Provider identity mismatch" }, { status: 403 });
+    }
+    if (changes.status === "accepted") {
+      changes.providerId = authenticatedProviderId;
+    } else if (booking.providerId !== authenticatedProviderId && !body.patch?.withdrawNotify) {
+      return NextResponse.json({ error: "Only the assigned provider can update this job" }, { status: 403 });
+    }
+    const providerStatuses = new Set(["accepted", "enroute", "arrived", "in_progress", "pending_confirm", "completed"]);
+    if (typeof changes.status === "string" && !providerStatuses.has(changes.status)) {
+      return NextResponse.json({ error: "Invalid provider booking status" }, { status: 403 });
+    }
+  }
+
   // commission stays server-owned; recalculate if the amount ever changes
   if (typeof changes.amount === "number") delete changes.amount;
 
-  // A Pro may withdraw their own offer; nothing else on the list moves.
-  const withdraw = body.patch?.withdrawNotify;
+  // A Pro may withdraw only their own offer; the id comes from Firebase identity.
+  let withdraw = body.patch?.withdrawNotify;
+  if (actorRole === "provider" && withdraw) {
+    if (withdraw !== authenticatedProviderId) {
+      return NextResponse.json({ error: "Provider identity mismatch" }, { status: 403 });
+    }
+    withdraw = authenticatedProviderId;
+  }
   if (typeof withdraw === "string" && withdraw) {
     changes.notifiedIds = (booking.notifiedIds ?? []).filter((pid) => pid !== withdraw);
   }
@@ -198,11 +260,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   }
 
   /* ---- audit trail: written here, never by a client ---- */
-  const actor: BookingActor = body.userId
-    ? "customer"
-    : changes.providerId || withdraw || pinged || changes.navigationStartedAt
-      ? "provider"
-      : "admin";
+  const actor: BookingActor = actorRole;
   const added: BookingEvent[] = [];
   if (typeof changes.status === "string" && changes.status !== booking.status) {
     added.push(
