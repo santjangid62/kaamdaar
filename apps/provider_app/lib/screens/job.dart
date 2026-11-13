@@ -183,17 +183,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     setState(() => _otpError = null);
     await _patch({
       'status': 'in_progress',
-      'startedAt': DateTime.now().millisecondsSinceEpoch,
+      'startOtp': entered,
     });
   }
 
   Future<void> _completeWork() async {
-    final otp = generateOtp();
-    await _patch({
-      'status': 'pending_confirm',
-      'completedAt': DateTime.now().millisecondsSinceEpoch,
-      'completeOtp': otp,
-    });
+    await _patch({'status': 'pending_confirm'});
+    final otp = _booking?.completeOtp ?? '';
+    if (otp.isEmpty) {
+      await _refresh();
+    }
+    final serverOtp = _booking?.completeOtp ?? '';
     if (!mounted) return;
     showDialog<void>(
       context: context,
@@ -206,7 +206,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             const Text('Customer ko ye OTP dein — verify karte hi job close ho jayega:'),
             const SizedBox(height: 12),
             Center(
-              child: Text(otp,
+              child: Text(serverOtp,
                   style: const TextStyle(
                       fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: 8)),
             ),
@@ -256,10 +256,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         'paidAt': DateTime.now().millisecondsSinceEpoch,
         'paymentMethod': method,
       });
-      // 10% platform commission leaves the wallet the moment money is taken
-      try {
-        await Api.commission(me.id, commissionOf(b.amount), service: b.serviceName);
-      } catch (_) {}
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Payment recorded — ${rupees(commissionOf(b.amount))} commission debited')));
