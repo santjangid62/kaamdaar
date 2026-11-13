@@ -98,11 +98,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       if (booking.status === "completed" || booking.status === "cancelled") {
         return NextResponse.json({ error: "This booking can no longer be cancelled" }, { status: 409 });
       }
-    } else if (changes.status === "completed") {
-      if (booking.status !== "pending_confirm" || !booking.completeOtp ||
-          body.completionOtp !== booking.completeOtp) {
-        return NextResponse.json({ error: "Invalid completion OTP" }, { status: 403 });
-      }
+    } else if (changes.status !== undefined) {
+      return NextResponse.json({ error: "Only the assigned provider can verify completion OTP" }, { status: 403 });
     } else if (changes.status !== undefined) {
       return NextResponse.json({ error: "Invalid customer booking status" }, { status: 403 });
     }
