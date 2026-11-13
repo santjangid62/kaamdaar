@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     all<Booking>("bookings"), all<User>("users"), all<Provider>("providers"),
     all<Record<string, unknown>>("notifications"), all<Record<string, unknown>>("reviews"),
     all<Record<string, unknown>>("walletTxns"), all<Record<string, unknown>>("payouts"),
-    all<Record<string, unknown>>("providerPayments"), all<Record<string, unknown>>("complaints"), all<Record<string, unknown>>("auditLogs"), all<Record<string, unknown>>("auditLogs"),
+    all<Record<string, unknown>>("providerPayments"), all<Record<string, unknown>>("complaints"), all<Record<string, unknown>>("auditLogs"),
   ]);
   const rows: LogRow[] = [];
   for (const b of bookings) {
