@@ -21,9 +21,7 @@ const ALLOWED = new Set([
   // NB: notifiedIds is deliberately absent — the notify list is server-owned,
   // so no client can dispatch a request or mask an offer from another Pro.
   "status", "providerId", "providerName", "providerProfile",
-  "dispatchedAt", "acceptedAt", "enrouteAt", "arrivedAt", "startedAt",
-  "completedAt", "paidAt", "paymentMethod", "etaMinutes", "startOtp",
-  "completeOtp", "providerPoint", "originPoint", "date", "slot", "duration",
+  "paymentMethod", "date", "slot", "duration",
 ]);
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -42,6 +40,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       providerAcceptPoint?: { lat: number; lng: number; accuracy?: number };
       /** Pro tapped "Start navigation" — timestamped server-side */
       navigationStarted?: boolean;
+      startOtp?: string;
     };
   };
   try {
@@ -91,7 +90,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   // animation, completion-code confirmation, and payment confirmation.
   if (actorRole === "customer") {
     const keys = Object.keys(body.patch ?? {});
-    const customerFields = new Set(["status", "arrivedAt", "paidAt", "paymentMethod"]);
+    const customerFields = new Set(["status"]);
     if (keys.some((key) => !customerFields.has(key))) {
       return NextResponse.json({ error: "Customers cannot edit provider or dispatch fields" }, { status: 403 });
     }
@@ -99,33 +98,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       if (booking.status === "completed" || booking.status === "cancelled") {
         return NextResponse.json({ error: "This booking can no longer be cancelled" }, { status: 409 });
       }
-    } else if (changes.status === "arrived") {
-      if (booking.status !== "enroute" || !booking.enrouteAt ||
-          Date.now() < booking.enrouteAt + DEMO_TRAVEL_MS) {
-        return NextResponse.json({ error: "Arrival cannot be confirmed yet" }, { status: 409 });
-      }
-      changes.arrivedAt = Date.now();
     } else if (changes.status === "completed") {
       if (booking.status !== "pending_confirm" || !booking.completeOtp ||
           body.completionOtp !== booking.completeOtp) {
         return NextResponse.json({ error: "Invalid completion OTP" }, { status: 403 });
       }
-    } else if (changes.status === "in_progress") {
-      if (booking.status !== "pending_confirm") {
-        return NextResponse.json({ error: "This job cannot be sent back to in-progress" }, { status: 409 });
-      }
     } else if (changes.status !== undefined) {
       return NextResponse.json({ error: "Invalid customer booking status" }, { status: 403 });
-    }
-    if (changes.paymentMethod !== undefined &&
-        !new Set(["cash", "upi", "card"]).has(String(changes.paymentMethod))) {
-      return NextResponse.json({ error: "Invalid payment method" }, { status: 422 });
-    }
-    if (changes.paidAt !== undefined) {
-      if (booking.status !== "completed") {
-        return NextResponse.json({ error: "Payment can only be confirmed after completion" }, { status: 409 });
-      }
-      changes.paidAt = Date.now();
     }
   }
 
@@ -141,6 +120,50 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     const providerStatuses = new Set(["accepted", "enroute", "arrived", "in_progress", "pending_confirm", "completed"]);
     if (typeof changes.status === "string" && !providerStatuses.has(changes.status)) {
       return NextResponse.json({ error: "Invalid provider booking status" }, { status: 403 });
+    }
+    if (changes.status === "enroute" && booking.status !== "accepted") {
+      return NextResponse.json({ error: "Navigation can start only after accepting the job" }, { status: 409 });
+    }
+    if (changes.status === "arrived") {
+      const point = booking.livePoint ?? booking.providerPoint;
+      if (booking.status !== "enroute" || !point || !booking.pingAt ||
+          Date.now() - booking.pingAt > 30_000 || !booking.originPoint ||
+          haversineKm(point, booking.originPoint) > 0.15) {
+        return NextResponse.json({ error: "Arrival can be confirmed only within 150 metres with a fresh GPS fix" }, { status: 409 });
+      }
+      changes.arrivedAt = Date.now();
+    }
+    if (changes.status === "in_progress") {
+      if (booking.status !== "arrived" || !booking.startOtp ||
+          body.patch?.startOtp !== booking.startOtp) {
+        return NextResponse.json({ error: "A valid customer start OTP is required" }, { status: 403 });
+      }
+      changes.startedAt = Date.now();
+    }
+    if (changes.status === "pending_confirm") {
+      if (booking.status !== "in_progress") {
+        return NextResponse.json({ error: "Work can be completed only after it has started" }, { status: 409 });
+      }
+      changes.workMarkedCompleteAt = Date.now();
+      changes.completeOtp = generateOtp();
+    }
+    if (changes.status === "completed") {
+      if (booking.status !== "pending_confirm" || !booking.completeOtp ||
+          body.completionOtp !== booking.completeOtp) {
+        return NextResponse.json({ error: "Customer completion OTP is invalid" }, { status: 403 });
+      }
+      changes.completedAt = Date.now();
+    }
+    if (body.patch?.paidAt !== undefined || body.patch?.paymentMethod !== undefined) {
+      if (booking.status !== "completed" || booking.paidAt) {
+        return NextResponse.json({ error: "Payment can be recorded once, after customer completion verification" }, { status: 409 });
+      }
+      const method = String(body.patch?.paymentMethod ?? "");
+      if (!new Set(["cash", "upi"]).has(method)) {
+        return NextResponse.json({ error: "Select cash or UPI payment" }, { status: 422 });
+      }
+      changes.paidAt = Date.now();
+      changes.paymentMethod = method;
     }
   }
 
@@ -313,13 +336,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (changes.navigationStartedAt) {
     added.push(newEvent("provider", "navigation", "Pro started navigation to the customer"));
   }
+  if (changes.paidAt) added.push(newEvent("provider", "paid", "Provider confirmed payment received"));
   if (pinged && !booking.livePoint) {
     added.push(newEvent("provider", "ping", "Live GPS tracking started"));
   }
   if (added.length) changes.events = appendEvents(booking.events, added);
 
   const updated = await patch<Booking>("bookings", id, changes);
-  if (changes.status === "completed" && booking.status !== "completed" && booking.providerId) {
+  if (changes.paidAt && !booking.paidAt && booking.providerId) {
     const txns = await all<WalletTxn>("walletTxns");
     const alreadyDebited = txns.some((txn) => txn.bookingId === booking.id && txn.kind === "commission");
     const commission = Math.max(0, Number(booking.commission ?? 0));
