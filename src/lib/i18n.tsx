@@ -93,7 +93,7 @@ export function useServiceLabels() {
       (service: Service): ServiceLabels => {
         // Imported catalogue rows may contain "English / Hindi" in the
         // original name. Always render exactly one language.
-        const parts = (service.name ?? "").split(/\\s+\\/\\s+/);
+        const parts = (service.name ?? "").split(/\s+\/\s+/);
         const englishName = parts[0]?.trim() || service.name || "";
         const hindiName =
           SERVICE_HI[service.id]?.name ||
