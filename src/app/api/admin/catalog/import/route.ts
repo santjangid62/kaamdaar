@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAuthed } from "../../../../../lib/admin/auth";
-import { ready, upsert } from "../../../../../server/db";
+import { all, ready, remove, upsert } from "../../../../../server/db";
 
 function parseCsv(input: string): string[][] {
   const rows: string[][] = [];
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     });
   }
 
-  for (const category of categories.values()) await upsert("categories", category.id, category);
+  // Replace the legacy service catalogue: only rows from this CSV remain bookable.\n  const existingServices = await all<{ id: string }>("services");\n  for (const existing of existingServices) await remove("services", existing.id);\n  const existingSubcategories = await all<{ id: string }>("subcategories");\n  for (const existing of existingSubcategories) await remove("subcategories", existing.id);\n  const existingCategories = await all<{ id: string }>("categories");\n  for (const existing of existingCategories) await remove("categories", existing.id);\n\n  for (const category of categories.values()) await upsert("categories", category.id, category);
   for (const subcategory of subcategories) await upsert("subcategories", String(subcategory.id), subcategory);
   for (const service of services) await upsert("services", String(service.id), service);
 
