@@ -343,6 +343,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (added.length) changes.events = appendEvents(booking.events, added);
 
   const updated = await patch<Booking>("bookings", id, changes);
+  if (!updated) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   if (changes.paidAt && !booking.paidAt && booking.providerId) {
     const txns = await all<WalletTxn>("walletTxns");
     const alreadyDebited = txns.some((txn) => txn.bookingId === booking.id && txn.kind === "commission");
