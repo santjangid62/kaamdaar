@@ -11,23 +11,33 @@ import {
   AirVent,
   ArrowRight,
   BadgeCheck,
+  Baby,
+  Camera,
+  CarFront,
   CalendarCheck,
   Car,
   ChefHat,
   Clock,
   Droplets,
   Fan,
+  FileText,
+  Flower2,
+  Gem,
+  GraduationCap,
   Hammer,
   LayoutGrid,
   MapPin,
   Mic,
+  Music2,
   MessageCircleQuestion,
   PaintRoller,
   Plug,
   Refrigerator,
+  Scissors,
   Search,
   ShieldCheck,
   Shirt,
+  Tv,
   Sparkles,
   SprayCan,
   Star,
@@ -65,6 +75,29 @@ const TILE_ICONS: Record<string, typeof Clock> = {
 };
 
 const STEPS_ICONS = [Search, CalendarCheck, MapPin, ShieldCheck];
+
+// Name-based icon fallbacks make imported catalogue services visually distinct
+// even when the spreadsheet does not contain an icon field.
+function catalogueIcon(name: string) {
+  const value = name.toLowerCase();
+  if (/baby|nanny|child|caregiver/.test(value)) return Baby;
+  if (/car|mechanic|vehicle|automobile/.test(value)) return CarFront;
+  if (/beaut|salon|makeup|spa|groom|hair/.test(value)) return Scissors;
+  if (/tutor|teacher|education|coach|instructor/.test(value)) return GraduationCap;
+  if (/csc|online form|document|form filling|cyber/.test(value)) return FileText;
+  if (/puja|ritual|priest|flower/.test(value)) return Flower2;
+  if (/ro |water purifier|water filter|plumb|bathroom|clean/.test(value)) return Droplets;
+  if (/tv|television|led|electronics/.test(value)) return Tv;
+  if (/cctv|camera|security|surveillance/.test(value)) return Camera;
+  if (/jewel|goldsmith|gold|silver/.test(value)) return Gem;
+  if (/dance|music|sing|dj|instrument/.test(value)) return Music2;
+  if (/kitchen|cook|chef|food/.test(value)) return ChefHat;
+  if (/electric|wiring|fan|ac |air condition/.test(value)) return Plug;
+  if (/paint|painter/.test(value)) return PaintRoller;
+  if (/carpenter|furniture|wood/.test(value)) return Hammer;
+  if (/laundry|ironing|clothes|wash/.test(value)) return Shirt;
+  return LayoutGrid;
+}
 
 const testimonials = [
   { name: "Priya Sharma", place: "Malviya Nagar, Jaipur" },
@@ -263,7 +296,7 @@ export default function HomeView() {
           </Link>
         </div>
 
-        <div className="mt-7 grid grid-cols-3 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-6">
+        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-4 xl:gap-6">
           {tiles.map((t) => {
             // tile map first (extra ids), then admin-chosen / id-based icon
             const Icon =
@@ -275,7 +308,7 @@ export default function HomeView() {
               <Link
                 key={t.id}
                 href={`/services/${t.id}`}
-                className="card group flex flex-col items-center gap-3 p-4 text-center transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg"
+                className="card group flex min-h-[204px] flex-col items-center justify-start gap-4 rounded-2xl p-5 text-center transition duration-200 hover:-translate-y-1 hover:border-blue-300 hover:shadow-xl sm:min-h-[220px] sm:p-6"
               >
                 {t.image ? (
                   <Image
@@ -284,14 +317,14 @@ export default function HomeView() {
                     width={48}
                     height={48}
                     unoptimized
-                    className="h-12 w-12 rounded-2xl object-cover transition group-hover:scale-105"
+                    className="h-14 w-14 rounded-2xl object-cover transition group-hover:scale-105 sm:h-16 sm:w-16"
                   />
                 ) : (
-                  <span className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-50 text-blue-600 transition group-hover:bg-flame group-hover:text-white">
-                    <Icon className="h-6 w-6" />
+                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-600 shadow-sm transition group-hover:bg-flame group-hover:text-white sm:h-16 sm:w-16">
+                    <Icon className="h-7 w-7 sm:h-8 sm:w-8" />
                   </span>
                 )}
-                <span className="text-xs font-semibold leading-4 text-slate-700 sm:text-sm">
+                <span title={t.name}\n                  className="line-clamp-4 text-sm font-semibold leading-5 text-slate-800 sm:text-[15px] sm:leading-[1.35rem]">
                   {tileLabel(t.id, t.name)}
                 </span>
               </Link>
@@ -299,12 +332,12 @@ export default function HomeView() {
           })}
           <Link
             href="/services"
-            className="card group flex flex-col items-center gap-3 p-4 text-center transition hover:-translate-y-0.5 hover:border-flame-400 hover:shadow-lg"
+            className="card group flex min-h-[204px] flex-col items-center justify-center gap-4 rounded-2xl p-5 text-center transition hover:-translate-y-1 hover:border-flame-400 hover:shadow-xl sm:min-h-[220px] sm:p-6"
           >
-            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-flame-50 text-flame-600 transition group-hover:bg-flame group-hover:text-white">
+            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-flame-50 text-flame-600 transition group-hover:bg-flame group-hover:text-white sm:h-16 sm:w-16">
               <LayoutGrid className="h-6 w-6" />
             </span>
-            <span className="text-xs font-semibold leading-4 text-slate-700 sm:text-sm">
+            <span className="text-sm font-semibold leading-5 text-slate-800 sm:text-[15px]">
               {lang === "hi" ? "और सेवाएं" : "More Services"}
             </span>
           </Link>
