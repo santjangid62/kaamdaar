@@ -1,0 +1,94 @@
+import { NextResponse } from "next/server";
+import { isAuthed } from "../../../../../lib/admin/auth";
+import { ready, upsert } from "../../../../../server/db";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+function parseCsv(input: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [], cell = "", quoted = false;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (quoted) {
+      if (ch === '"' && input[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ",") { row.push(cell); cell = ""; }
+    else if (ch === "\n") { row.push(cell.replace(/\r$/, "")); rows.push(row); row = []; cell = ""; }
+    else cell += ch;
+  }
+  if (cell.length || row.length) { row.push(cell.replace(/\r$/, "")); rows.push(row); }
+  return rows.filter((r) => r.some((v) => v.trim()));
+}
+
+function slug(value: string) {
+  return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+export async function POST(req: Request) {
+  if (!(await isAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  await ready();
+  const form = await req.formData();
+  const file = form.get("file");
+  if (!(file instanceof File)) return NextResponse.json({ error: "CSV file field is required" }, { status: 400 });
+  const text = await file.text();
+  const rows = parseCsv(text);
+  if (rows.length < 2) return NextResponse.json({ error: "CSV has no data rows" }, { status: 400 });
+
+  const headers = rows[0].map((v) => v.trim().toLowerCase());
+  const index = (name: string) => headers.indexOf(name);
+  const required = ["category id", "main category", "subcategory id", "subcategory name"];
+  const missing = required.filter((name) => index(name) < 0);
+  if (missing.length) return NextResponse.json({ error: `Missing columns: ${missing.join(", ")}` }, { status: 400 });
+
+  const categories = new Map<string, { id: string; name: string; active: boolean; order: number }>();
+  const subcategories: Array<Record<string, unknown>> = [];
+  const services: Array<Record<string, unknown>> = [];
+  const seen = new Set<string>();
+
+  for (const cells of rows.slice(1)) {
+    const categoryIdRaw = cells[index("category id")]?.trim() ?? "";
+    const categoryName = cells[index("main category")]?.trim() ?? "";
+    const subcategoryIdRaw = cells[index("subcategory id")]?.trim() ?? "";
+    const subcategoryName = cells[index("subcategory name")]?.trim() ?? "";
+    if (!categoryIdRaw || !categoryName || !subcategoryIdRaw || !subcategoryName) continue;
+
+    const categoryId = `excel-category-${slug(categoryIdRaw)}`;
+    const subcategoryId = `excel-subcategory-${slug(subcategoryIdRaw)}`;
+    const serviceId = `excel-service-${slug(subcategoryIdRaw)}`;
+    categories.set(categoryId, { id: categoryId, name: categoryName, active: true, order: Number(categoryIdRaw) || categories.size });
+    if (seen.has(subcategoryId)) continue;
+    seen.add(subcategoryId);
+
+    const order = subcategories.length;
+    const price = 149 + (order % 8) * 50;
+    const duration = order % 3 === 0 ? "30–45 min" : order % 3 === 1 ? "45–60 min" : "60–90 min";
+    subcategories.push({
+      id: subcategoryId, name: subcategoryName, categoryId, categoryName,
+      active: true, order, source: "excel_catalogue", pricingStatus: "dummy",
+    });
+    services.push({
+      id: serviceId, name: subcategoryName, nameHi: subcategoryName.split("/").slice(1).join("/").trim(),
+      category: categoryName, categoryId, subcategoryId,
+      tagline: `Demo listing for ${subcategoryName}`,
+      description: `Temporary catalogue description for ${subcategoryName}. Please review and replace this text, price and duration from Admin before accepting real bookings.`,
+      includes: ["Standard service work (demo — edit before launch)"],
+      excludes: ["Items not listed in the final service scope"],
+      duration, price, unit: "per task", active: true, order,
+      popular: false, parent: subcategoryId, pricingStatus: "dummy", source: "excel_catalogue",
+    });
+  }
+
+  for (const category of categories.values()) await upsert("categories", category.id, category);
+  for (const subcategory of subcategories) await upsert("subcategories", String(subcategory.id), subcategory);
+  for (const service of services) await upsert("services", String(service.id), service);
+
+  return NextResponse.json({
+    ok: true,
+    imported: { categories: categories.size, subcategories: subcategories.length, services: services.length },
+    note: "Prices, durations and descriptions are placeholders. Review them in Admin before accepting bookings.",
+  });
+}
