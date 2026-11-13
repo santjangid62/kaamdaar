@@ -86,8 +86,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   for (const [k, v] of Object.entries(body.patch ?? {})) {
     if (ALLOWED.has(k)) changes[k] = v;
   }
-  // Customer actions are narrowly limited to cancellation, the timed arrival
-  // animation, completion-code confirmation, and payment confirmation.
+  // Customers may cancel their own active booking; provider lifecycle changes are server-verified.
   if (actorRole === "customer") {
     const keys = Object.keys(body.patch ?? {});
     const customerFields = new Set(["status"]);
@@ -99,9 +98,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
         return NextResponse.json({ error: "This booking can no longer be cancelled" }, { status: 409 });
       }
     } else if (changes.status !== undefined) {
-      return NextResponse.json({ error: "Only the assigned provider can verify completion OTP" }, { status: 403 });
-    } else if (changes.status !== undefined) {
-      return NextResponse.json({ error: "Invalid customer booking status" }, { status: 403 });
+      return NextResponse.json({ error: "Customers can only cancel an active booking" }, { status: 403 });
     }
   }
 
