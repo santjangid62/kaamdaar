@@ -20,7 +20,7 @@ function parseCsv(input: string): string[][] {
   return rows.filter((r) => r.some((v) => v.trim()));
 }
 
-function slug(value: string) {
+function bilingual(value: string) {\n  const parts = value.split(/\\s+\\/\\s+/);\n  return { en: (parts[0] ?? value).trim(), hi: parts.length > 1 ? parts.slice(1).join(" / ").trim() : "" };\n}\n\nfunction slug(value: string) {
   return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     const rowKey = String(cells[index("s.no")]?.trim() || (subcategories.length + 1));
     const subcategoryId = `excel-subcategory-${slug(subcategoryIdRaw)}-${rowKey}`;
     const serviceId = `excel-service-${slug(subcategoryIdRaw)}-${rowKey}`;
-    categories.set(categoryId, { id: categoryId, name: categoryName, active: true, order: Number(categoryIdRaw) || categories.size });
+    const categoryLabels = bilingual(categoryName);\n    categories.set(categoryId, { id: categoryId, name: categoryLabels.en, nameHi: categoryLabels.hi, active: true, order: Number(categoryIdRaw) || categories.size });
     if (seen.has(subcategoryId)) continue;
     seen.add(subcategoryId);
 
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     const price = 149 + (order % 8) * 50;
     const duration = order % 3 === 0 ? "30–45 min" : order % 3 === 1 ? "45–60 min" : "60–90 min";
     subcategories.push({
-      id: subcategoryId, name: subcategoryName, categoryId, categoryName,
+      id: subcategoryId, name: serviceLabels.en, nameHi: serviceLabels.hi, categoryId, categoryName: categoryLabels.en, categoryNameHi: categoryLabels.hi,
       active: true, order, source: "excel_catalogue", pricingStatus: "dummy",
     });
     services.push({
