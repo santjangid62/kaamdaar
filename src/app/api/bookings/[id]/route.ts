@@ -359,5 +359,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       );
     }
   }
+  if (actorRole === "provider") {
+    const { startOtp: _startOtp, completeOtp: _completeOtp, ...safeBooking } = updated;
+    return NextResponse.json({ booking: safeBooking });
+  }
   return NextResponse.json({ booking: updated });
 }
