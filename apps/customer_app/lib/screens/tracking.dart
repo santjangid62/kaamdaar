@@ -24,8 +24,6 @@ class _TrackScreenState extends State<TrackScreen> {
   bool _loading = true;
   bool _busy = false;
   String? _error;
-  final _otp = TextEditingController();
-  String? _otpError;
   int _rating = 0;
   int _serviceRating = 0;
   final _reviewText = TextEditingController();
@@ -41,7 +39,6 @@ class _TrackScreenState extends State<TrackScreen> {
   @override
   void dispose() {
     _poll?.cancel();
-    _otp.dispose();
     _reviewText.dispose();
     super.dispose();
   }
@@ -141,42 +138,6 @@ class _TrackScreenState extends State<TrackScreen> {
     await _patch({'status': 'cancelled'});
   }
 
-  Future<void> _verifyOtp() async {
-    final b = _booking;
-    if (b == null) return;
-    final entered = _otp.text.trim();
-    if (entered.isEmpty) {
-      setState(() => _otpError = 'Enter the OTP shown by your Professional');
-      return;
-    }
-    final expected = b.completeOtp ?? '';
-    if (expected.isNotEmpty && entered != expected) {
-      setState(() => _otpError = 'That OTP does not match — please check again');
-      return;
-    }
-    final user = _user, booking = _booking;
-    if (user == null || booking == null) return;
-    setState(() => _busy = true);
-    try {
-      final updated = await Api.updateBooking(
-        user.id, booking.id, {'status': 'completed'}, completionOtp: entered);
-      if (!mounted) return;
-      setState(() {
-        _booking = updated;
-        _otpError = null;
-        _otp.clear();
-      });
-    } catch (e) {
-      if (mounted) setState(() => _otpError = e.toString());
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-    if (!mounted) return;
-    setState(() {
-      _otpError = null;
-      _otp.clear();
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
