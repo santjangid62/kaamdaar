@@ -324,7 +324,8 @@ export default function HomeView() {
                     <Icon className="h-7 w-7 sm:h-8 sm:w-8" />
                   </span>
                 )}
-                <span title={t.name}\n                  className="line-clamp-4 text-sm font-semibold leading-5 text-slate-800 sm:text-[15px] sm:leading-[1.35rem]">
+                <span title={t.name}
+                  className="line-clamp-4 text-sm font-semibold leading-5 text-slate-800 sm:text-[15px] sm:leading-[1.35rem]">
                   {tileLabel(t.id, t.name)}
                 </span>
               </Link>
