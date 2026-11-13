@@ -27,7 +27,7 @@ import {
   updateBooking,
   type Wallet,
 } from "../lib/store";
-import { commissionOf, generateOtp } from "../lib/dispatch";
+import { commissionOf } from "../lib/dispatch";
 import type { Booking } from "../lib/types";
 
 export interface PanelCandidate {
@@ -107,7 +107,7 @@ export default function ProviderPanel({
     try {
       await updateBooking(booking.userId, booking.id, {
         status: "in_progress",
-        startedAt: Date.now(),
+        startOtp: otp,
       });
       setOtp("");
       setError(false);
@@ -123,9 +123,37 @@ export default function ProviderPanel({
     try {
       await updateBooking(booking.userId, booking.id, {
         status: "pending_confirm",
-        completedAt: Date.now(),
-        completeOtp: generateOtp(),
       });
+      onChanged?.();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyCompletion() {
+    if (!booking || otp.length !== 6) return;
+    setBusy(true);
+    try {
+      await updateBooking(booking.userId, booking.id, { status: "completed" }, otp);
+      setOtp("");
+      setError(false);
+      onChanged?.();
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function collectPayment() {
+    if (!booking) return;
+    setBusy(true);
+    try {
+      await updateBooking(booking.userId, booking.id, {
+        paidAt: Date.now(),
+        paymentMethod: "cash",
+      });
+      setWalletState(await getWallet(booking.providerId));
       onChanged?.();
     } finally {
       setBusy(false);
@@ -239,8 +267,20 @@ export default function ProviderPanel({
     );
   } else if (booking && status === "pending_confirm") {
     requestBody = (
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-        {d.waitingUserOtp}
+      <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <p className="text-sm text-amber-800">Customer se completion OTP lein aur verify karein.</p>
+        <input
+          value={otp}
+          onChange={(e) => { setOtp(e.target.value.replace(/\\D/g, "").slice(0, 6)); setError(false); }}
+          inputMode="numeric"
+          placeholder="6-digit OTP"
+          className="w-full rounded-xl border border-amber-300 bg-white px-4 py-3 text-center font-mono text-xl tracking-[0.35em]"
+        />
+        {error && <p className="text-xs font-semibold text-red-600">OTP galat hai. Dobara check karein.</p>}
+        <button type="button" onClick={() => void verifyCompletion()} disabled={busy || otp.length !== 6} className="btn-primary w-full justify-center">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          Verify OTP & Close Job
+        </button>
       </div>
     );
   } else if (booking && status === "completed") {
@@ -253,8 +293,14 @@ export default function ProviderPanel({
                 method: booking.paymentMethod === "upi" ? d.payUpi : d.payCash,
                 comm: commissionOf(booking.amount),
               })
-            : d.waitingUserOtp}
+            : "Customer se payment receive hone ke baad mark karein."}
         </div>
+        {!booking.paidAt && (
+          <button type="button" onClick={() => void collectPayment()} disabled={busy} className="btn-primary w-full justify-center">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            Payment Received (Cash)
+          </button>
+        )}
         {booking.paidAt && wallet && (
           <p className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200">
             {d.balance}
