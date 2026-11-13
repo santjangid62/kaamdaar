@@ -29,6 +29,10 @@ registerSeeder((store) => {
     );
   }
 
+  // Versioned catalogue migration: keep existing admin data intact while introducing
+  // a dedicated subcategory collection for hierarchical browsing.
+  store.subcategories ??= {};
+
   /* platform settings — live values the app and admin both read */
   if (!store.settings || Object.keys(store.settings).length === 0) {
     store.settings = {
@@ -38,10 +42,13 @@ registerSeeder((store) => {
       area_radius_km: { id: "area_radius_km", key: "Areas-we-serve radius", value: "10", scope: "Discovery", updatedAt: 0 },
       payment_modes: { id: "payment_modes", key: "Payment modes", value: "Cash, UPI", scope: "Checkout", updatedAt: 0 },
       languages: { id: "languages", key: "Languages", value: "English, हिन्दी", scope: "i18n", updatedAt: 0 },
+      catalog_schema_version: { id: "catalog_schema_version", key: "Catalogue schema version", value: "2", scope: "System", updatedAt: Date.now() },
       location_scope: { id: "location_scope", key: "Location support", value: "India only (+91, Indian PINs)", scope: "Validation", updatedAt: 0 },
       login_method: { id: "login_method", key: "Login method", value: "Phone OTP (Firebase)", scope: "Auth", updatedAt: 0 },
     };
   }
+
+  settings.catalog_schema_version ??= { id: "catalog_schema_version", key: "Catalogue schema version", value: "2", scope: "System", updatedAt: Date.now() };
 
   const siteSettings = [
     ["site_name", "Site name", "Kaamdaar", "Branding"],
