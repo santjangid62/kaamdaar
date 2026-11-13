@@ -408,13 +408,6 @@ function TrackView() {
                 {booking.startOtp}
               </p>
               <p className="mt-2 text-xs text-slate-500">{d.arrivedSub}</p>
-              <button
-                type="button"
-                onClick={() => setPanelOpen(true)}
-                className="btn-primary mt-4 w-full justify-center"
-              >
-                {d.proMode}: {d.enterStartOtp}
-              </button>
             </div>
           )}
 
