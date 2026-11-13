@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { useApp } from "../../../components/AppProvider";
 import DispatchMap, { type MapProviderMarker } from "../../../components/DispatchMap";
-import ProviderPanel from "../../../components/ProviderPanel";
 import { fill, useLang } from "../../../lib/i18n";
 import { commissionOf } from "../../../lib/dispatch";
 import { haversineKm } from "../../../lib/geo";
@@ -50,7 +49,6 @@ function TrackView() {
   const [loaded, setLoaded] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -505,13 +503,6 @@ function TrackView() {
         </div>
       </div>
 
-      {/* Pro mode — demo of the Provider app for THIS booking */}
-      <ProviderPanel
-        open={panelOpen}
-        onToggle={() => setPanelOpen((v) => !v)}
-        booking={booking}
-        onChanged={() => void refresh()}
-      />
     </div>
   );
 }
