@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { all, claimDispatchedBooking, get, patch, ready } from "../../../../server/db";
 import { minWallet } from "../../../../server/settings";
 import { debitCommission, type WalletTxn } from "../../../../server/wallet";
-import { etaMinutes, generateOtp, toProfile } from "../../../../lib/dispatch";
+import { DEMO_TRAVEL_MS, etaMinutes, generateOtp, toProfile } from "../../../../lib/dispatch";
 import { haversineKm } from "../../../../lib/geo";
 import { appendEvents, eventsForChange, newEvent } from "../../../../server/events";
 import { isAuthed } from "../../../../lib/admin/auth";
@@ -101,7 +101,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       }
     } else if (changes.status === "arrived") {
       if (booking.status !== "enroute" || !booking.enrouteAt ||
-          Date.now() < booking.enrouteAt + 120_000) {
+          Date.now() < booking.enrouteAt + DEMO_TRAVEL_MS) {
         return NextResponse.json({ error: "Arrival cannot be confirmed yet" }, { status: 409 });
       }
       changes.arrivedAt = Date.now();
