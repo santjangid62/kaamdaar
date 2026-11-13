@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, AlertTriangle, Download, RefreshCw, Search, ShieldCheck } from "lucide-react";
+import { Activity, AlertTriangle, Download, RefreshCw, Search, ShieldCheck, type LucideIcon } from "lucide-react";
 
 type LogRow = {
   id: string; at: number; actor: string; action: string; module: string;
@@ -59,6 +59,14 @@ export default function SystemLogsClient() {
   }
 
   const stats = data?.counts ?? { total: 0, bookings: 0, customers: 0, providers: 0, finance: 0, warnings: 0 };
+  const statCards: Array<[string, number, LucideIcon, string]> = [
+    ["All events", stats.total, Activity, "text-blue-700 bg-blue-50"],
+    ["Booking events", stats.bookings, Activity, "text-indigo-700 bg-indigo-50"],
+    ["Customer activity", stats.customers, ShieldCheck, "text-cyan-700 bg-cyan-50"],
+    ["Provider activity", stats.providers, ShieldCheck, "text-emerald-700 bg-emerald-50"],
+    ["Finance events", stats.finance, Activity, "text-violet-700 bg-violet-50"],
+    ["Alerts / warnings", stats.warnings, AlertTriangle, "text-amber-700 bg-amber-50"],
+  ];
   return <div className="space-y-6">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><div className="flex items-center gap-2"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-700"><Activity className="h-5 w-5" /></span><div><h1 className="text-2xl font-extrabold tracking-tight text-navy">System Logs</h1><p className="mt-0.5 text-sm text-slate-500">Central activity dashboard across bookings, users, providers, notifications and finance.</p></div></div></div>
@@ -68,14 +76,7 @@ export default function SystemLogsClient() {
       </div>
     </div>
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-      {[
-        ["All events", stats.total, Activity, "text-blue-700 bg-blue-50"],
-        ["Booking events", stats.bookings, Activity, "text-indigo-700 bg-indigo-50"],
-        ["Customer activity", stats.customers, ShieldCheck, "text-cyan-700 bg-cyan-50"],
-        ["Provider activity", stats.providers, ShieldCheck, "text-emerald-700 bg-emerald-50"],
-        ["Finance events", stats.finance, Activity, "text-violet-700 bg-violet-50"],
-        ["Alerts / warnings", stats.warnings, AlertTriangle, "text-amber-700 bg-amber-50"],
-      ] as const).map(([label, value, Icon, style]) => <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-500">{String(label)}</span><span className={`grid h-8 w-8 place-items-center rounded-lg ${String(style)}`}><Icon className="h-4 w-4" /></span></div><p className="mt-2 text-2xl font-extrabold text-navy">{Number(value).toLocaleString("en-IN")}</p></div>)}
+      {statCards.map(([label, value, Icon, style]) => <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-500">{label}</span><span className={`grid h-8 w-8 place-items-center rounded-lg ${style}`}><Icon className="h-4 w-4" /></span></div><p className="mt-2 text-2xl font-extrabold text-navy">{value.toLocaleString("en-IN")}</p></div>)}
     </div>
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_180px_160px_150px]">
