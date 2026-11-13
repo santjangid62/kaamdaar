@@ -62,7 +62,7 @@ class Api {
 
   static Future<Map<String, dynamic>> patch(String path, Map body) async {
     final r = await http.patch(Uri.parse('$baseUrl$path'),
-        headers: _headers, body: jsonEncode(body));
+        headers: await _headers(), body: jsonEncode(body));
     final data = await _decode(r);
     if (r.statusCode >= 400) {
       throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
