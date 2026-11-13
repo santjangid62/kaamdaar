@@ -54,7 +54,7 @@ export async function firebaseIdentityFromRequest(
   request: Request,
 ): Promise<{ phone: string; uid: string } | null> {
   const authorization = request.headers.get("authorization") ?? "";
-  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match?.[1]) return null;
   try {
     return await verifyFirebasePhoneToken(match[1]);
