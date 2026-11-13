@@ -56,6 +56,7 @@ export const NAV: NavGroup[] = [
   {
     section: "Services",
     items: [
+      { slug: "catalog-import", label: "Import Excel Catalogue", icon: "FileSpreadsheet" },
       { slug: "categories", label: "Categories", icon: "Grid3X3" },
       { slug: "services", label: "Services", icon: "Wrench" },
       { slug: "subcategories", label: "Subcategories", icon: "ListTree" },
