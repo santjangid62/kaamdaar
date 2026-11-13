@@ -209,7 +209,7 @@ const mongoEngine = {
     const meta = db.collection(META_COLLECTION);
     const flag = await meta.findOne({ _id: "seeded" } as Document);
     if (flag) {
-      const [services, admins, settings] = await Promise.all([
+      const [services, admins, settings, catalogueVersionCount] = await Promise.all([
         db.collection("services").countDocuments(),
         db.collection("adminUsers").countDocuments(),
         db.collection("settings").countDocuments({ _id: { $in: REQUIRED_SITE_SETTINGS } } as Document),
@@ -217,8 +217,7 @@ const mongoEngine = {
       ]);
       // Same rule as the file store: a data set that predates a collection is
       // re-seeded, an existing-but-empty collection is the admin's own state.
-      const catalogueVersion = await db.collection("settings").findOne({ _id: "catalog_schema_version" } as Document);
-      if (services > 0 && admins > 0 && settings === REQUIRED_SITE_SETTINGS.length && catalogueVersion) return;
+      if (services > 0 && admins > 0 && settings === REQUIRED_SITE_SETTINGS.length && catalogueVersionCount > 0) return;
     }
 
     await import("./seed");
