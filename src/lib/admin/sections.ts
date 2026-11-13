@@ -26,7 +26,12 @@ export const NAV: NavGroup[] = [
       { slug: "all-bookings", label: "All Bookings", icon: "List" },
       { slug: "live-bookings", label: "Live Bookings", icon: "Monitor" },
       { slug: "cancelled-bookings", label: "Cancelled Bookings", icon: "CircleX" },
-      { slug: "activity-log", label: "Activity Log", icon: "FileText" },
+    ],
+  },
+  {
+    section: "System & Audit",
+    items: [
+      { slug: "system-logs", label: "System Logs", icon: "FileText" },
     ],
   },
   {
