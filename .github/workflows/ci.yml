@@ -4,11 +4,11 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, "fix/**"]
+    branches: [main]
 
 # Keep only the newest CI run for this branch; push and PR events share a key.
 concurrency:
-  group: kaamdaar-ci-${{ github.head_ref || github.ref_name }}
+  group: kaamdaar-ci-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
