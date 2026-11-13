@@ -271,7 +271,7 @@ export default function ProviderPanel({
         <p className="text-sm text-amber-800">Customer se completion OTP lein aur verify karein.</p>
         <input
           value={otp}
-          onChange={(e) => { setOtp(e.target.value.replace(/\\D/g, "").slice(0, 6)); setError(false); }}
+          onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(false); }}
           inputMode="numeric"
           placeholder="6-digit OTP"
           className="w-full rounded-xl border border-amber-300 bg-white px-4 py-3 text-center font-mono text-xl tracking-[0.35em]"
