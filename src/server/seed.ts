@@ -32,6 +32,7 @@ registerSeeder((store) => {
   // Versioned catalogue migration: keep existing admin data intact while introducing
   // a dedicated subcategory collection for hierarchical browsing.
   store.subcategories ??= {};
+  const settings = (store.settings ??= {});
 
   /* platform settings — live values the app and admin both read */
   if (!store.settings || Object.keys(store.settings).length === 0) {
@@ -63,7 +64,6 @@ registerSeeder((store) => {
     ["home_hero_title_hi", "Home hero title (Hindi)", "हर घर का हर काम तुरंत", "Homepage"],
     ["home_hero_subtitle_hi", "Home hero subtitle (Hindi)", "आपके घर और ऑफिस के हर काम के लिए वेरिफाइड प्रोफेशनल। आसानी से बुक करें, लाइव ट्रैक करें, सुरक्षित भुगतान करें।", "Homepage"],
   ] as const;
-  const settings = (store.settings ??= {});
   for (const [id, key, value, scope] of siteSettings) {
     if (!settings[id]) settings[id] = { id, key, value, scope, updatedAt: 0 };
   }
