@@ -53,7 +53,8 @@ export const NAV: NavGroup[] = [
     items: [
       { slug: "categories", label: "Categories", icon: "Grid3X3" },
       { slug: "services", label: "Services", icon: "Wrench" },
-      { slug: "sub-services", label: "Sub Services", icon: "ListTree" },
+      { slug: "subcategories", label: "Subcategories", icon: "ListTree" },
+      { slug: "sub-services", label: "Service Details", icon: "List" },
       { slug: "pricing-commission", label: "Pricing & Commission", icon: "Tag" },
     ],
   },
