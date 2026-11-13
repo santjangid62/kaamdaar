@@ -245,8 +245,11 @@ class Api {
   }
 
   static Future<BookingItem> updateJob(
-      String id, Map<String, dynamic> changes) async {
-    final data = await patch('/api/bookings/$id', {'patch': changes});
+      String id, Map<String, dynamic> changes, {String? completionOtp}) async {
+    final data = await patch('/api/bookings/$id', {
+      if (completionOtp != null) 'completionOtp': completionOtp,
+      'patch': changes,
+    });
     return BookingItem.fromJson(
         (data['booking'] as Map<String, dynamic>?) ?? const {});
   }
