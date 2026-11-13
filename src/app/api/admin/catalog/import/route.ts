@@ -69,6 +69,7 @@ export async function POST(req: Request) {
     seen.add(subcategoryId);
 
     const order = subcategories.length;
+    const serviceLabels = bilingual(subcategoryName);
     const price = 149 + (order % 8) * 50;
     const duration = order % 3 === 0 ? "30–45 min" : order % 3 === 1 ? "45–60 min" : "60–90 min";
     subcategories.push({
@@ -76,10 +77,10 @@ export async function POST(req: Request) {
       active: true, order, source: "excel_catalogue", pricingStatus: "dummy",
     });
     services.push({
-      id: serviceId, name: subcategoryName, nameHi: subcategoryName.split("/").slice(1).join("/").trim(),
-      category: categoryName, categoryId, subcategoryId,
-      tagline: `Demo listing for ${subcategoryName}`,
-      description: `Temporary catalogue description for ${subcategoryName}. Please review and replace this text, price and duration from Admin before accepting real bookings.`,
+      id: serviceId, name: serviceLabels.en, nameHi: serviceLabels.hi,
+      category: categoryLabels.en, categoryHi: categoryLabels.hi, categoryId, subcategoryId,
+      tagline: `Demo listing for ${serviceLabels.en}`,
+      description: `Temporary catalogue description for ${serviceLabels.en}. Please review and replace this text, price and duration from Admin before accepting real bookings.`,
       includes: ["Standard service work (demo — edit before launch)"],
       excludes: ["Items not listed in the final service scope"],
       duration, price, unit: "per task", active: true, order,
