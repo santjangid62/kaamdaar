@@ -31,6 +31,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   bool _busy = false;
   String? _error;
   final _otp = TextEditingController();
+  final _completionOtp = TextEditingController();
   String? _otpError;
 
   @override
@@ -45,6 +46,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     _poll?.cancel();
     _gpsTimer?.cancel();
     _otp.dispose();
+    _completionOtp.dispose();
     super.dispose();
   }
 
@@ -217,6 +219,27 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _verifyCompletionOtp() async {
+    final b = _booking;
+    final entered = _completionOtp.text.trim();
+    if (b == null || entered.length != 6) return;
+    setState(() => _busy = true);
+    try {
+      final updated = await Api.updateJob(b.id, {'status': 'completed'},
+          completionOtp: entered);
+      if (!mounted) return;
+      setState(() {
+        _booking = updated;
+        _completionOtp.clear();
+        _otpError = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _otpError = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _takePayment() async {
@@ -473,16 +496,24 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Waiting for customer verification',
+          const Text('Enter customer completion OTP',
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
           const SizedBox(height: 6),
-          const Text('Customer ko ye OTP batayein — verify karte hi job complete ho jayegi.',
+          const Text('Customer ko app par mila OTP lein aur yahan enter karein.',
               style: TextStyle(fontSize: 11.5, color: Colors.black54)),
           const SizedBox(height: 10),
-          Center(
-            child: Text(b.completeOtp ?? '—',
-                style: const TextStyle(
-                    fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 8)),
+          TextField(
+            controller: _completionOtp,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 8),
+            decoration: InputDecoration(counterText: '', errorText: _otpError),
+          ),
+          PrimaryBtn(
+            label: 'Verify & Close Job',
+            busy: _busy,
+            onPressed: _completionOtp.text.trim().length == 6 ? _verifyCompletionOtp : null,
           ),
         ],
       ),
@@ -583,11 +614,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           ],
         );
       case 'pending_confirm':
-        return GhostBtn(
-          label: 'Customer verification ka intezaar… (refresh)',
-          onPressed: _refresh,
-          color: PColors.green,
-        );
+        return const SizedBox.shrink();
       case 'completed':
         if (b.paidAt != null) {
           return Container(
