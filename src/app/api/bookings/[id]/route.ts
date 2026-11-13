@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { all, claimDispatchedBooking, get, patch, ready } from "../../../../server/db";
 import { minWallet } from "../../../../server/settings";
 import { debitCommission, type WalletTxn } from "../../../../server/wallet";
-import { DEMO_TRAVEL_MS, etaMinutes, generateOtp, toProfile } from "../../../../lib/dispatch";
+import { etaMinutes, generateOtp, toProfile } from "../../../../lib/dispatch";
 import { haversineKm } from "../../../../lib/geo";
 import { appendEvents, eventsForChange, newEvent } from "../../../../server/events";
 import { isAuthed } from "../../../../lib/admin/auth";
@@ -20,7 +20,7 @@ import type {
 const ALLOWED = new Set([
   // NB: notifiedIds is deliberately absent — the notify list is server-owned,
   // so no client can dispatch a request or mask an offer from another Pro.
-  "status", "providerId", "providerName", "providerProfile",
+  "status", "providerId",
   "paymentMethod", "date", "slot", "duration",
 ]);
 
@@ -192,6 +192,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     return NextResponse.json({ error: "providerPing is outside valid coordinates" }, { status: 422 });
   }
   if (ping) {
+    if (actorRole !== "provider" || booking.status !== "enroute") {
+      return NextResponse.json({ error: "Live GPS is accepted only from the assigned provider while en route" }, { status: 403 });
+    }
     if (!booking.providerId) {
       return NextResponse.json(
         { error: "No Pro is assigned to this job yet" },
@@ -209,6 +212,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   }
 
   if (body.patch?.navigationStarted === true && booking.providerId) {
+    if (actorRole !== "provider" || booking.status !== "accepted") {
+      return NextResponse.json({ error: "Navigation can start only for an accepted job" }, { status: 409 });
+    }
     if (!booking.navigationStartedAt) changes.navigationStartedAt = Date.now();
   }
 
