@@ -288,6 +288,20 @@ class Api {
     return null;
   }
 
+  static Future<void> submitReview({
+    required String bookingId,
+    required int providerRating,
+    required int serviceRating,
+    String text = '',
+  }) async {
+    await post('/api/reviews', {
+      'bookingId': bookingId,
+      'providerRating': providerRating,
+      'serviceRating': serviceRating,
+      'text': text,
+    });
+  }
+
   static Future<BookingItem> updateBooking(
       String userId, String id, Map<String, dynamic> changes,
       {String? completionOtp}) async {
