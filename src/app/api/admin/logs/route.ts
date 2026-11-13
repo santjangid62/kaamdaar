@@ -15,11 +15,11 @@ export async function GET(req: Request) {
   await ready();
   const url = new URL(req.url);
   const limit = Math.min(1000, Math.max(50, Number(url.searchParams.get("limit") || 500)));
-  const [bookings, users, providers, notifications, reviews, walletTxns, payouts, providerPayments, complaints] = await Promise.all([
+  const [bookings, users, providers, notifications, reviews, walletTxns, payouts, providerPayments, complaints, auditLogs] = await Promise.all([
     all<Booking>("bookings"), all<User>("users"), all<Provider>("providers"),
     all<Record<string, unknown>>("notifications"), all<Record<string, unknown>>("reviews"),
     all<Record<string, unknown>>("walletTxns"), all<Record<string, unknown>>("payouts"),
-    all<Record<string, unknown>>("providerPayments"), all<Record<string, unknown>>("complaints"),
+    all<Record<string, unknown>>("providerPayments"), all<Record<string, unknown>>("complaints"), all<Record<string, unknown>>("auditLogs"), all<Record<string, unknown>>("auditLogs"),
   ]);
   const rows: LogRow[] = [];
   for (const b of bookings) {
@@ -47,6 +47,12 @@ export async function GET(req: Request) {
   addRecords(payouts, "Payouts", "Payout", "admin");
   addRecords(providerPayments, "Provider Payments", "Provider payment", "system");
   addRecords(complaints, "Support", "Complaint", "customer");
+  for (const log of auditLogs) rows.push({
+    id: String(log.id), at: agoSafe(log.at), actor: String(log.actor ?? "admin"),
+    action: String(log.action ?? "activity"), module: String(log.module ?? "System"),
+    title: String(log.title ?? "System activity"), description: String(log.description ?? ""),
+    reference: String(log.reference ?? ""), severity: (log.severity as LogRow["severity"]) ?? "info",
+  });
   rows.sort((a, b) => b.at - a.at);
   const selected = rows.slice(0, limit);
   const counts = {
