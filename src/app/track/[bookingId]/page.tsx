@@ -476,106 +476,25 @@ function TrackView() {
             </div>
           )}
 
-          {/* provider marked completed → user confirms with OTP */}
+          {/* provider marked completed → customer shares OTP with provider */}
           {status === "pending_confirm" && (
             <div className="card border-green-200 p-5">
               <h2 className="flex items-center gap-2 font-extrabold text-slate-900">
-                <CheckCircle2 className="h-5 w-5 text-green-600" /> {d.confirmTitle}
+                <CheckCircle2 className="h-5 w-5 text-green-600" /> Work completion verification
               </h2>
-              <p className="mt-1 text-sm text-slate-500">{d.confirmSub}</p>
-
-              <div className="mt-3 rounded-xl bg-slate-50 p-3 text-center ring-1 ring-slate-200">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  {s.bookings.status.completed} OTP
-                </p>
-                <p className="font-mono text-3xl font-extrabold tracking-[0.3em] text-navy">
-                  {booking.completeOtp}
-                </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Kaam poora hone par ye OTP provider ko batayein. Provider app mein OTP verify karega.
+              </p>
+              <div className="mt-3 rounded-xl bg-slate-50 p-4 text-center ring-1 ring-slate-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Your completion OTP</p>
+                <p className="font-mono text-3xl font-extrabold tracking-[0.3em] text-navy">{booking.completeOtp}</p>
               </div>
-
-              <label className="mt-3 block text-sm font-bold text-slate-800">
-                {d.verifyOtp}
-                <input
-                  value={otp}
-                  onChange={(e) => {
-                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6));
-                    setOtpError(false);
-                  }}
-                  inputMode="numeric"
-                  placeholder="••••••"
-                  className="mt-1.5 w-full rounded-xl border border-slate-300 px-4 py-3 text-center font-mono text-2xl tracking-[0.4em] outline-none focus:border-green-500"
-                />
-              </label>
-              {otpError && (
-                <p className="mt-1 text-xs font-semibold text-red-600">{d.wrongOtp}</p>
-              )}
-
-              <button
-                type="button"
-                onClick={() => void verifyComplete()}
-                disabled={busy || otp.length !== 6}
-                className="btn-primary mt-3 w-full justify-center"
-              >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                {d.verifyOtp}
-              </button>
-              <button
-                type="button"
-                onClick={() => void sendBack()}
-                disabled={busy}
-                className="btn-ghost mt-2 w-full justify-center text-red-600"
-              >
-                <RefreshCcw className="h-4 w-4" /> {d.notDoneYet}
-              </button>
-              {note && <p className="mt-2 text-xs font-semibold text-amber-600">{note}</p>}
             </div>
           )}
 
-          {/* completed → cash / UPI */}
-          {status === "completed" && !booking.paidAt && pro && (
-            <div className="card p-5">
-              <h2 className="flex items-center gap-2 font-extrabold text-slate-900">
-                <IndianRupee className="h-5 w-5 text-flame-600" /> {d.payTitle}
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">{d.paySub}</p>
-
-              <div className="mt-3 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
-                <div className="flex items-center justify-between text-sm text-slate-500">
-                  <span>{booking.serviceName}</span>
-                  <span className="font-bold text-slate-800">₹{booking.amount}</span>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
-                  <span>{d.commissionCut}</span>
-                  <span>−₹{commissionOf(booking.amount)}</span>
-                </div>
-              </div>
-
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {(["cash", "upi"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMethod(m)}
-                    className={`rounded-xl border-2 px-4 py-3 text-sm font-bold transition ${
-                      method === m
-                        ? "border-flame bg-flame-50 text-flame-700"
-                        : "border-slate-200 text-slate-500 hover:border-slate-300"
-                    }`}
-                  >
-                    {m === "cash" ? d.payCash : d.payUpi}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => void pay()}
-                disabled={busy}
-                className="btn-accent mt-3 w-full justify-center"
-              >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <IndianRupee className="h-4 w-4" />}
-                {d.payConfirm}
-              </button>
+          {status === "completed" && !booking.paidAt && (
+            <div className="card p-5 text-sm text-slate-600">
+              Work completion verified. Provider se payment collection confirmation ka intezaar hai.
             </div>
           )}
 
