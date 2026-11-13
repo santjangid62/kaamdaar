@@ -105,12 +105,6 @@ export default function HomeView() {
   const heroAccent = heroWords.at(-1) ?? "";
   const heroSubtitle = settings[`home_hero_subtitle_${lang}`]?.trim() || s.hero.sub;
 
-  // live catalogue first — popular services, then the rest, capped at 11
-  const tiles = [
-    ...services.filter((x) => x.popular),
-    ...services.filter((x) => !x.popular),
-  ].slice(0, 11);
-
   function tileLabel(id: string, fallback: string): string {
     return lang === "hi" && SERVICE_HI[id] ? SERVICE_HI[id].name : fallback;
   }
