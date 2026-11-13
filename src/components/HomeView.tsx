@@ -140,8 +140,9 @@ export default function HomeView() {
 
   function tileLabel(id: string, fallback: string): string {
     const service = services.find((item) => item.id === id);
-    if (lang !== "hi") return fallback;
-    return (SERVICE_HI[id]?.name || service?.nameHi || (fallback.includes(" / ") ? fallback.split(/\s+\/\s+/).slice(1).join(" / ").trim() : fallback));
+    const parts = fallback.split(/\s+\/\s+/);
+    if (lang !== "hi") return parts[0]?.trim() || fallback;
+    return SERVICE_HI[id]?.name || service?.nameHi || (parts.length > 1 ? parts.slice(1).join(" / ").trim() : fallback);
   }
 
   return (
