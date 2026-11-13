@@ -99,7 +99,7 @@ export default function ProviderPanel({
   }
 
   async function startWork() {
-    if (!booking || otp !== booking.startOtp) {
+    if (!booking || otp.length !== 6) {
       setError(true);
       return;
     }
