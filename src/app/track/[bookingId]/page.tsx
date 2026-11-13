@@ -21,8 +21,8 @@ import ProviderPanel from "../../../components/ProviderPanel";
 import { fill, useLang } from "../../../lib/i18n";
 import { commissionOf } from "../../../lib/dispatch";
 import { haversineKm } from "../../../lib/geo";
-import { debitCommission, listBookings, updateBooking } from "../../../lib/store";
-import type { Booking, GeoPoint, PaymentMethod } from "../../../lib/types";
+import { listBookings, updateBooking } from "../../../lib/store";
+import type { Booking, GeoPoint } from "../../../lib/types";
 
 const STEPS = [
   "dispatched",
@@ -49,10 +49,6 @@ function TrackView() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const [otp, setOtp] = useState("");
-  const [otpError, setOtpError] = useState(false);
-  const [method, setMethod] = useState<PaymentMethod>("cash");
-  const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
 
@@ -127,58 +123,6 @@ function TrackView() {
     setBusy(true);
     try {
       await updateBooking(booking.userId, booking.id, { status: "cancelled" });
-      await refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function verifyComplete() {
-    if (!booking) return;
-    if (otp !== booking.completeOtp) {
-      setOtpError(true);
-      return;
-    }
-    setBusy(true);
-    try {
-      await updateBooking(booking.userId, booking.id, { status: "completed" }, otp);
-      setOtp("");
-      setOtpError(false);
-      setNote(null);
-      await refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function sendBack() {
-    if (!booking) return;
-    setBusy(true);
-    try {
-      await updateBooking(booking.userId, booking.id, {
-        status: "in_progress",
-        completeOtp: undefined,
-      });
-      setNote(d.sentBack);
-      setOtp("");
-      await refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function pay() {
-    if (!booking?.providerId) return;
-    setBusy(true);
-    try {
-      const comm = commissionOf(booking.amount);
-      // company rule: 10% commission leaves the Pro's wallet the moment it is paid
-      await debitCommission(booking.providerId, comm, booking.serviceName);
-      await updateBooking(booking.userId, booking.id, {
-        paidAt: Date.now(),
-        paymentMethod: method,
-        commission: comm,
-      });
       await refresh();
     } finally {
       setBusy(false);
