@@ -19,7 +19,7 @@ import { useApp } from "../../../components/AppProvider";
 import DispatchMap, { type MapProviderMarker } from "../../../components/DispatchMap";
 import ProviderPanel from "../../../components/ProviderPanel";
 import { fill, useLang } from "../../../lib/i18n";
-import { DEMO_TRAVEL_MS, commissionOf, lerpPoint } from "../../../lib/dispatch";
+import { commissionOf } from "../../../lib/dispatch";
 import { haversineKm } from "../../../lib/geo";
 import { debitCommission, listBookings, updateBooking } from "../../../lib/store";
 import type { Booking, GeoPoint, PaymentMethod } from "../../../lib/types";
@@ -48,7 +48,6 @@ function TrackView() {
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState(false);
@@ -56,7 +55,6 @@ function TrackView() {
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
-  const arrivedRef = useRef(false);
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -67,31 +65,25 @@ function TrackView() {
 
   useEffect(() => {
     if (!ready || !user) return;
-    void listBookings(user.id).then((list) => {
+    let active = true;
+    const load = async () => {
+      const list = await listBookings(user.id);
+      if (!active) return;
       setBooking(list.find((b) => b.id === params.bookingId) ?? null);
       setLoaded(true);
-    });
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 4000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [ready, user, params.bookingId]);
 
-  /* live ETA: the Pro's marker rides from its accept point to the user */
+  // Arrival is confirmed only by the Provider app after its fresh GPS point
+  // reaches the customer geofence; the customer screen never simulates arrival.
   useEffect(() => {
-    if (booking?.status !== "enroute" || !booking.enrouteAt) return;
-    const enrouteAt = booking.enrouteAt;
-    const tick = () => {
-      const p = Math.min(1, (Date.now() - enrouteAt) / DEMO_TRAVEL_MS);
-      setProgress(p);
-      if (p >= 1 && !arrivedRef.current) {
-        arrivedRef.current = true;
-        void updateBooking(booking.userId, booking.id, {
-          status: "arrived",
-          arrivedAt: Date.now(),
-        }).then(refresh);
-      }
-    };
-    tick();
-    const id = window.setInterval(tick, 400);
-    return () => window.clearInterval(id);
-  }, [booking, refresh]);
+  }, [booking?.status]);
 
   /* elapsed clock while the work runs */
   useEffect(() => {
@@ -111,13 +103,9 @@ function TrackView() {
 
   const activePoint = useMemo<GeoPoint | null>(() => {
     if (!booking || !origin) return null;
-    // a real GPS ping from the Provider app always beats the demo animation
-    if (booking.livePoint) return booking.livePoint;
-    const start = booking.providerPoint;
-    if (booking.status === "enroute" && start) return lerpPoint(start, origin, progress);
-    if (start) return { lat: origin.lat + 0.0004, lng: origin.lng + 0.0004 };
-    return origin;
-  }, [booking, origin, progress]);
+    // Never fabricate a moving marker: show only the last GPS point reported by the Provider app.
+    return booking.livePoint ?? booking.providerPoint ?? null;
+  }, [booking, origin]);
 
   const markers: MapProviderMarker[] = useMemo(() => {
     if (!booking || !activePoint) return [];
@@ -231,7 +219,7 @@ function TrackView() {
 
   const status = booking.status;
   const pro = booking.providerProfile;
-  const etaLeft = Math.max(1, Math.ceil((1 - progress) * (booking.etaMinutes ?? 8)));
+  const etaLeft = Math.max(1, booking.etaMinutes ?? 8);
   const stepIdx =
     status === "accepted"
       ? STEPS.indexOf("enroute")
