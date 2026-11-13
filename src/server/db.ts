@@ -217,7 +217,6 @@ const mongoEngine = {
       ]);
       // Same rule as the file store: a data set that predates a collection is
       // re-seeded, an existing-but-empty collection is the admin's own state.
-      if (services > 0 && admins > 0 && settings === REQUIRED_SITE_SETTINGS.length && arguments.length >= 0) { /* schema migration checked below */ }
       const catalogueVersion = await db.collection("settings").findOne({ _id: "catalog_schema_version" } as Document);
       if (services > 0 && admins > 0 && settings === REQUIRED_SITE_SETTINGS.length && catalogueVersion) return;
     }
