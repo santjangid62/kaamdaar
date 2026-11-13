@@ -71,6 +71,7 @@ class _TrackScreenState extends State<TrackScreen> {
     try {
       final b = await Api.booking(user.id, widget.bookingId);
       if (!mounted) return;
+      final previousStatus = _booking?.status;
       setState(() {
         _booking = b;
         _error = b == null ? 'Booking not found.' : null;
@@ -78,6 +79,17 @@ class _TrackScreenState extends State<TrackScreen> {
           _startedAt = DateTime.fromMillisecondsSinceEpoch(b!.startedAt!);
         }
       });
+      if (previousStatus != null && previousStatus != b?.status && mounted) {
+        final message = b?.status == 'arrived'
+            ? 'Professional aapke location par pahunch gaya hai.'
+            : b?.status == 'pending_confirm'
+                ? 'Work completion OTP aa gaya hai. Provider ko OTP batayein.'
+                : b?.status == 'completed'
+                    ? 'Completion OTP verify ho gaya. Work complete!'
+                    : null;
+        if (message != null) ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -212,7 +224,7 @@ class _TrackScreenState extends State<TrackScreen> {
                             const SizedBox(height: 14),
                             _otpCard(b),
                           ],
-                          if (b.status == 'completed') ...[
+                          if (b.status == 'completed' && b.paidAt != null) ...[
                             const SizedBox(height: 14),
                             _invoiceCard(b),
                             const SizedBox(height: 14),
