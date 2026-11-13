@@ -31,6 +31,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const { id } = await ctx.params;
   let body: {
     userId?: string;
+    /** One-time completion code entered by the customer. */
+    completionOtp?: string;
     /** `withdrawNotify` lets a Pro drop only their own offer. */
     patch?: Partial<Booking> & {
       withdrawNotify?: string;
@@ -85,15 +87,45 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   for (const [k, v] of Object.entries(body.patch ?? {})) {
     if (ALLOWED.has(k)) changes[k] = v;
   }
-  // Customers can only cancel their own booking; lifecycle and provider
-  // fields are controlled by the assigned professional or the Admin.
+  // Customer actions are narrowly limited to cancellation, the timed arrival
+  // animation, completion-code confirmation, and payment confirmation.
   if (actorRole === "customer") {
     const keys = Object.keys(body.patch ?? {});
-    if (keys.some((key) => key !== "status") || changes.status !== "cancelled") {
-      return NextResponse.json({ error: "Customers may only cancel their own booking" }, { status: 403 });
+    const customerFields = new Set(["status", "arrivedAt", "paidAt", "paymentMethod"]);
+    if (keys.some((key) => !customerFields.has(key))) {
+      return NextResponse.json({ error: "Customers cannot edit provider or dispatch fields" }, { status: 403 });
     }
-    if (booking.status === "completed" || booking.status === "cancelled") {
-      return NextResponse.json({ error: "This booking can no longer be cancelled" }, { status: 409 });
+    if (changes.status === "cancelled") {
+      if (booking.status === "completed" || booking.status === "cancelled") {
+        return NextResponse.json({ error: "This booking can no longer be cancelled" }, { status: 409 });
+      }
+    } else if (changes.status === "arrived") {
+      if (booking.status !== "enroute" || !booking.enrouteAt ||
+          Date.now() < booking.enrouteAt + 120_000) {
+        return NextResponse.json({ error: "Arrival cannot be confirmed yet" }, { status: 409 });
+      }
+      changes.arrivedAt = Date.now();
+    } else if (changes.status === "completed") {
+      if (booking.status !== "pending_confirm" || !booking.completeOtp ||
+          body.completionOtp !== booking.completeOtp) {
+        return NextResponse.json({ error: "Invalid completion OTP" }, { status: 403 });
+      }
+    } else if (changes.status === "in_progress") {
+      if (booking.status !== "pending_confirm") {
+        return NextResponse.json({ error: "This job cannot be sent back to in-progress" }, { status: 409 });
+      }
+    } else if (changes.status !== undefined) {
+      return NextResponse.json({ error: "Invalid customer booking status" }, { status: 403 });
+    }
+    if (changes.paymentMethod !== undefined &&
+        !new Set(["cash", "upi", "card"]).has(String(changes.paymentMethod))) {
+      return NextResponse.json({ error: "Invalid payment method" }, { status: 422 });
+    }
+    if (changes.paidAt !== undefined) {
+      if (booking.status !== "completed") {
+        return NextResponse.json({ error: "Payment can only be confirmed after completion" }, { status: 409 });
+      }
+      changes.paidAt = Date.now();
     }
   }
 
