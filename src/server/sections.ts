@@ -493,6 +493,7 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
       const rows = (slug === "sub-services" ? allServices.filter((s) => s.parent) : allServices.filter((s) => !s.parent)).map((s) => ({
         id: s.id,
         name: s.name,
+        nameHi: s.nameHi ?? "",
         category: s.parent || s.category,
         price: Number(s.price ?? 0), // raw for the edit form
         priceLabel: inr(s.price ?? 0), // displayed
@@ -520,6 +521,7 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
             : "The live catalogue customers search and book — changes show on the website immediately.",
         columns: [
           { key: "name", label: "Service" },
+          { key: "nameHi", label: "Hindi name" },
           { key: "category", label: slug === "sub-services" ? "Parent" : "Category" },
           { key: "priceLabel", label: "From", align: "right" },
           { key: "duration", label: "Duration" },
@@ -529,7 +531,10 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
         rows,
         collection: "services",
         fields: [
-          { key: "name", label: "Service name", required: true, help: "Customer ko jo dikhana hai — jaise “Kitchen Cleaning”. URL slug (link) naam se hi ban jayega." },
+          { key: "name", label: "Service name (English)", required: true, help: "Customer ko jo dikhana hai — jaise “Kitchen Cleaning”. URL slug (link) naam se hi ban jayega." },
+          { key: "nameHi", label: "Service name (Hindi)" },
+          { key: "categoryId", label: "Category ID" },
+          { key: "subcategoryId", label: "Subcategory ID" },
           { key: "category", label: "Category", type: "select", options: categoryOptions, required: true, help: "Sirf wahi categories dropdown me aati hain jo aapne Categories section me add ki hain. Nayi category chahiye to pehle Categories → Add karein, phir yahan refresh karke choose karein." },
           { key: "tagline", label: "Tagline", help: "Ek chhoti selling line — card par naam ke neeche dikhti hai. Optional." },
           { key: "description", label: "Description", type: "textarea", full: true, help: "Service detail page par puri jankari. Kya hota hai is service me, kaise karte hain." },
