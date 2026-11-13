@@ -27,6 +27,9 @@ class _TrackScreenState extends State<TrackScreen> {
   final _otp = TextEditingController();
   String? _otpError;
   int _rating = 0;
+  int _serviceRating = 0;
+  final _reviewText = TextEditingController();
+  bool _reviewSubmitted = false;
   DateTime? _startedAt;
 
   @override
@@ -39,6 +42,7 @@ class _TrackScreenState extends State<TrackScreen> {
   void dispose() {
     _poll?.cancel();
     _otp.dispose();
+    _reviewText.dispose();
     super.dispose();
   }
 
@@ -546,6 +550,21 @@ class _TrackScreenState extends State<TrackScreen> {
   }
 
   Widget _reviewCard() {
+    final b = _booking;
+    if (b == null) return const SizedBox.shrink();
+    if (_reviewSubmitted) {
+      return const CardBox(
+        child: Text('Thank you! Your provider and service review has been submitted.',
+            style: TextStyle(fontWeight: FontWeight.w700, color: KColors.green)),
+      );
+    }
+    Widget stars(int value, ValueChanged<int> onChanged) => Row(
+      children: List.generate(5, (i) => IconButton(
+        onPressed: () => onChanged(i + 1),
+        icon: Icon(i < value ? Icons.star : Icons.star_border,
+            color: KColors.amber, size: 28),
+      )),
+    );
     return CardBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -553,29 +572,41 @@ class _TrackScreenState extends State<TrackScreen> {
           const Text('Rate Your Experience',
               style: TextStyle(fontWeight: FontWeight.w800, color: KColors.navy)),
           const SizedBox(height: 8),
-          Row(
-            children: List.generate(5, (i) {
-              return IconButton(
-                onPressed: () => setState(() => _rating = i + 1),
-                icon: Icon(i < _rating ? Icons.star : Icons.star_border,
-                    color: KColors.amber, size: 30),
-              );
-            }),
+          const Text('Professional rating', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          stars(_rating, (v) => setState(() => _rating = v)),
+          const Text('Service rating', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          stars(_serviceRating, (v) => setState(() => _serviceRating = v)),
+          TextField(
+            controller: _reviewText,
+            maxLines: 3,
+            maxLength: 1000,
+            decoration: const InputDecoration(
+              hintText: 'Share your experience (optional)',
+              border: OutlineInputBorder(),
+            ),
           ),
           PrimaryBtn(
             label: 'Submit Review',
-            onPressed: _rating == 0
-                ? null
-                : () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Thanks for your feedback!')));
-                    setState(() => _rating = 0);
-                  },
+            onPressed: _rating == 0 || _serviceRating == 0 ? null : () async {
+              try {
+                await Api.submitReview(
+                  bookingId: b.id,
+                  providerRating: _rating,
+                  serviceRating: _serviceRating,
+                  text: _reviewText.text.trim(),
+                );
+                if (mounted) setState(() => _reviewSubmitted = true);
+              } catch (e) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.toString())));
+              }
+            },
           ),
         ],
       ),
     );
   }
+
 }
 
 const kStatusActivity = <String, String>{
