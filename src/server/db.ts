@@ -213,10 +213,13 @@ const mongoEngine = {
         db.collection("services").countDocuments(),
         db.collection("adminUsers").countDocuments(),
         db.collection("settings").countDocuments({ _id: { $in: REQUIRED_SITE_SETTINGS } } as Document),
+        db.collection("settings").countDocuments({ _id: "catalog_schema_version" } as Document),
       ]);
       // Same rule as the file store: a data set that predates a collection is
       // re-seeded, an existing-but-empty collection is the admin's own state.
-      if (services > 0 && admins > 0 && settings === REQUIRED_SITE_SETTINGS.length) return;
+      if (services > 0 && admins > 0 && settings === REQUIRED_SITE_SETTINGS.length && arguments.length >= 0) { /* schema migration checked below */ }
+      const catalogueVersion = await db.collection("settings").findOne({ _id: "catalog_schema_version" } as Document);
+      if (services > 0 && admins > 0 && settings === REQUIRED_SITE_SETTINGS.length && catalogueVersion) return;
     }
 
     await import("./seed");
@@ -388,11 +391,12 @@ const fileEngine = {
   async seed(): Promise<void> {
     const store = await readStore();
     const hasSiteSettings = REQUIRED_SITE_SETTINGS.every((id) => Boolean(store.settings?.[id]));
+    const hasCatalogueVersion = Boolean(store.settings?.catalog_schema_version);
     // Seeders are idempotent. The flag alone is not enough: an older data file
     // can predate a collection (e.g. `services`), so run them again until the
     // core collections exist. An existing-but-empty collection is left alone —
     // that is the Admin panel's own state, not a missing seed.
-    if (store.seeded && store.services && hasSiteSettings && store.adminUsers) return;
+    if (store.seeded && store.services && hasSiteSettings && hasCatalogueVersion && store.adminUsers) return;
     // dynamic import: registering side effects must run after this module is
     // fully evaluated (the seeder module imports `registerSeeder` from here)
     await import("./seed");
