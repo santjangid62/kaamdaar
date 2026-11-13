@@ -206,7 +206,7 @@ class _TrackScreenState extends State<TrackScreen> {
                           _addressCard(b),
                           if (b.status == 'pending_confirm') ...[
                             const SizedBox(height: 14),
-                            _otpCard(),
+                            _otpCard(b),
                           ],
                           if (b.status == 'completed') ...[
                             const SizedBox(height: 14),
@@ -484,31 +484,21 @@ class _TrackScreenState extends State<TrackScreen> {
     );
   }
 
-  Widget _otpCard() {
+  Widget _otpCard(BookingItem b) {
     return CardBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Verify & Complete',
+          const Text('Your work completion OTP',
               style: TextStyle(fontWeight: FontWeight.w800, color: KColors.navy)),
           const SizedBox(height: 6),
-          const Text('Ask your Professional for the completion OTP.',
+          const Text('Kaam poora hone ki tasdeek ke liye ye OTP Professional ko batayein.',
               style: TextStyle(color: Colors.black54, fontSize: 12.5)),
           const SizedBox(height: 12),
-          TextField(
-            controller: _otp,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            style: const TextStyle(
-                fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 10),
-            decoration: InputDecoration(
-              counterText: '',
-              hintText: '••••',
-              errorText: _otpError,
-            ),
+          Center(
+            child: Text(b.completeOtp ?? '------',
+              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: 8)),
           ),
-          const SizedBox(height: 10),
-          PrimaryBtn(label: 'Confirm & Complete', busy: _busy, onPressed: _verifyOtp),
         ],
       ),
     );
