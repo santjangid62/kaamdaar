@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { isAuthed } from "../../../../../lib/admin/auth";
 import { ready, upsert } from "../../../../../server/db";
 
-export const runtime = "nodejs";
-export const maxDuration = 60;
-
 function parseCsv(input: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [], cell = "", quoted = false;
