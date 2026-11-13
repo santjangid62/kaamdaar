@@ -37,9 +37,13 @@ export function normalizeService(raw: Partial<ServiceRow> & { id: string }): Ser
 
 export async function getServices(includeHidden = false): Promise<ServiceRow[]> {
   await ready();
-  const rows = await all<ServiceRow>("services");
+  const [rows, categories] = await Promise.all([all<ServiceRow>("services"), all<{ id: string; name: string; active?: boolean }>("categories")]);
+  const categoryIdByName = new Map(categories.map((category) => [category.name.trim().toLowerCase(), category.id]));
   return rows
-    .map((s) => normalizeService(s))
+    .map((s) => {
+      const normalized = normalizeService(s);
+      return { ...normalized, categoryId: normalized.categoryId || categoryIdByName.get(normalized.category.toLowerCase()) };
+    })
     .filter((s) => includeHidden || s.active !== false)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
