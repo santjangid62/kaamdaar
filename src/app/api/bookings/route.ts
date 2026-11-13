@@ -5,7 +5,7 @@
  * client can never set those itself.
  */
 import { NextResponse } from "next/server";
-import { all, insert, ready } from "../../../server/db";
+import { all, insert, patch, ready } from "../../../server/db";
 import { commissionRate, minWallet } from "../../../server/settings";
 import type { Booking, GeoPoint, Provider } from "../../../lib/types";
 import { matchProviders } from "../../../lib/match";
@@ -150,6 +150,13 @@ export async function POST(req: Request) {
       ),
     ],
   } as unknown as Record<string, unknown>);
+
+  // Persist real catalogue demand so homepage ranking learns from actual bookings.
+  const bookedService = await all<{ id: string; bookingCount?: number }>("services");
+  const serviceRow = bookedService.find((service) => service.id === body.serviceId);
+  if (serviceRow) {
+    await patch("services", serviceRow.id, { bookingCount: Number(serviceRow.bookingCount ?? 0) + 1, lastBookedAt: now });
+  }
 
   return NextResponse.json({
     booking,
