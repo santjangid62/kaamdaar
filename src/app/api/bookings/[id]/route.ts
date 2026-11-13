@@ -69,15 +69,15 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     ]);
     const customer = users.find((u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
     const professional = providers.find((p) => normalizeIndianPhone(p.phone ?? "") === identity.phone);
-    if (customer?.id === booking.userId) {
-      actorRole = "customer";
-    } else if (
+    if (
       professional &&
       (booking.providerId === professional.id ||
         (booking.status === "dispatched" && (booking.notifiedIds ?? []).includes(professional.id)))
     ) {
       actorRole = "provider";
       authenticatedProviderId = professional.id;
+    } else if (customer?.id === booking.userId) {
+      actorRole = "customer";
     } else {
       return NextResponse.json({ error: "Not authorized for this booking" }, { status: 403 });
     }
