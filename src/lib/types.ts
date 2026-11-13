@@ -4,6 +4,9 @@ export interface Service {
   id: string; // slug
   name: string;
   category: string;
+  categoryId?: string;
+  subcategoryId?: string;
+  nameHi?: string;
   tagline: string;
   description: string;
   includes: string[];
