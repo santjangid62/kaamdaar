@@ -81,7 +81,7 @@ export default function HomeView() {
   useEffect(() => {
     // Weighted random sampling: admin-popular and most-booked services appear more often,
     // while the featured selection changes on each fresh page visit.
-    const pool = services.filter((service) => service.active !== false);
+    const pool = [...services];
     const selected: typeof services = [];
     const remaining = [...pool];
     while (remaining.length && selected.length < 11) {
