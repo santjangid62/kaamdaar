@@ -67,7 +67,10 @@ export async function GET(req: Request) {
     .filter((b) => b.status !== "dispatched" || !b.offerExpiresAt || b.offerExpiresAt > Date.now())
     .sort((a, b) => b.createdAt - a.createdAt);
 
-  return NextResponse.json({ bookings: rows });
+  const visibleRows = providerId
+    ? rows.map(({ startOtp: _startOtp, completeOtp: _completeOtp, ...safe }) => safe)
+    : rows;
+  return NextResponse.json({ bookings: visibleRows });
 }
 
 export async function POST(req: Request) {
