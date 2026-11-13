@@ -4,6 +4,7 @@
  * Home page body (client so it can read the language switcher).
  * The route file (src/app/page.tsx) keeps exporting `metadata`.
  */
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -76,6 +77,23 @@ const VOICE_CARD_ICONS = [Mic, CalendarCheck, MapPin];
 export default function HomeView() {
   const { lang, s } = useLang();
   const { services, providers, settings } = useApp();
+  const [tiles, setTiles] = useState<typeof services>([]);
+  useEffect(() => {
+    // Weighted random sampling: admin-popular and most-booked services appear more often,
+    // while the featured selection changes on each fresh page visit.
+    const pool = services.filter((service) => service.active !== false);
+    const selected: typeof services = [];
+    const remaining = [...pool];
+    while (remaining.length && selected.length < 11) {
+      const weights = remaining.map((service) => 1 + (service.popular ? 4 : 0) + Math.min(8, Math.log2(1 + Number((service as typeof service & { bookingCount?: number }).bookingCount ?? 0))));
+      const total = weights.reduce((sum, weight) => sum + weight, 0);
+      let pick = Math.random() * total;
+      let index = 0;
+      for (; index < weights.length - 1 && pick >= weights[index]; index++) pick -= weights[index];
+      selected.push(remaining.splice(index, 1)[0]);
+    }
+    setTiles(selected);
+  }, [services]);
   const onlinePros = providers.filter(
     (p) => (p as { status?: string }).status === "Online",
   ).length;
