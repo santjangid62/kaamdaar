@@ -60,7 +60,8 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
     const list = services.filter((s) => {
       const matchTerm =
         !term ||
-        s.name.toLowerCase().includes(term) ||\n        (s.nameHi ?? "").toLowerCase().includes(term) ||
+        s.name.toLowerCase().includes(term) ||
+        (s.nameHi ?? "").toLowerCase().includes(term) ||
         s.category.toLowerCase().includes(term) ||
         s.tagline.toLowerCase().includes(term) ||
         s.description.toLowerCase().includes(term);
