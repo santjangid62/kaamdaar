@@ -1,8 +1,8 @@
 /** POST /api/reviews — one verified customer review per paid booking. */
 import { NextResponse } from "next/server";
-import { all, get, insert, patch, ready, uid } from "../../../../server/db";
-import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
-import type { Booking, Provider, User } from "../../../../lib/types";
+import { all, get, insert, patch, ready, uid } from "../../../server/db";
+import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
+import type { Booking, Provider, User } from "../../../lib/types";
 
 export async function POST(req: Request) {
   await ready();
