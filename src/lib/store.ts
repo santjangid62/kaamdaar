@@ -158,11 +158,12 @@ export async function updateBooking(
   userId: string,
   id: string,
   patch: Partial<Booking>,
+  completionOtp?: string,
 ): Promise<Booking | null> {
   try {
     const data = await api<{ booking: Booking | null }>(
       `/api/bookings/${encodeURIComponent(id)}`,
-      { method: "PATCH", body: JSON.stringify({ userId, patch }) },
+      { method: "PATCH", body: JSON.stringify({ userId, patch, ...(completionOtp ? { completionOtp } : {}) }) },
     );
     return data.booking;
   } catch {
