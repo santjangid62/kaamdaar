@@ -89,7 +89,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   // Customers may cancel their own active booking; provider lifecycle changes are server-verified.
   if (actorRole === "customer") {
     const keys = Object.keys(body.patch ?? {});
-    const customerFields = new Set(["status"]);
+    const customerFields = new Set(["status", "cancellationReason"]);
     if (keys.some((key) => !customerFields.has(key))) {
       return NextResponse.json({ error: "Customers cannot edit provider or dispatch fields" }, { status: 403 });
     }
@@ -99,7 +99,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       }
       changes.cancelledAt = Date.now();
       changes.cancelledBy = "customer";
-      changes.cancellationReason = "Cancelled by customer";
+      changes.cancellationReason = String((body.patch as Record<string, unknown>)?.cancellationReason ?? "Cancelled by customer").slice(0, 300);
       changes.notifiedIds = [];
     } else if (changes.status !== undefined) {
       return NextResponse.json({ error: "Customers can only cancel an active booking" }, { status: 403 });
