@@ -22,11 +22,14 @@ export async function PATCH(req: Request) {
   catch { return NextResponse.json({ error: "Invalid request body" }, { status: 400 }); }
   const booking = await get<Booking>("bookings", String(body.bookingId ?? ""));
   if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
-  if (booking.paymentStatus !== "reported" || !booking.paymentReportedAt) {
+  if (!["reported", "disputed"].includes(booking.paymentStatus ?? "") || !booking.paymentReportedAt) {
     return NextResponse.json({ error: "No pending provider payment report exists for this booking" }, { status: 409 });
   }
   if (body.action !== "verify" && body.action !== "dispute") {
     return NextResponse.json({ error: "Choose verify or dispute" }, { status: 422 });
+  }
+  if (body.action === "dispute" && booking.paymentStatus !== "reported") {
+    return NextResponse.json({ error: "Only a new report can be marked disputed" }, { status: 409 });
   }
   const now = Date.now();
   const events = appendEvents(booking.events, [newEvent("admin", body.action === "verify" ? "paid" : "payment_disputed",
