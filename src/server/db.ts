@@ -555,7 +555,7 @@ export function registerSeeder(fn: Seeder): void {
 
 /** Every API route calls this first — cheap once the flag exists. */
 export async function ready(): Promise<void> {
-  if (process.env.NODE_ENV === "production" && !MONGODB_URI) {
+  if (process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build" && !MONGODB_URI) {
     throw new Error("[db] MONGODB_URI is required in production; refusing ephemeral file storage.");
   }
   await engine.seed();
