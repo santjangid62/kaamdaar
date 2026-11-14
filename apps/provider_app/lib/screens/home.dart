@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api.dart';
 import '../core/job_alerts.dart';
+import '../core/push_notifications.dart';
 import '../core/models.dart';
 import '../core/theme.dart';
 import 'auth.dart';
@@ -36,6 +37,7 @@ class _ProviderShellState extends State<ProviderShell> {
     try {
       final me = await Api.me(user.phone);
       if (me == null) return;
+      await ProviderPushNotifications.instance.initialize(me.id);
       await JobAlertCenter.instance.start(user: user, me: me);
     } catch (_) {
       // The dashboard's own retry will surface connectivity problems.

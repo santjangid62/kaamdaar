@@ -1,6 +1,7 @@
 /// Service detail (Overview / Pricing / FAQ tabs) → booking review → dispatch.
 library;
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../core/api.dart';
 import '../core/models.dart';
@@ -350,7 +351,20 @@ class _BookingScreenState extends State<BookingScreen> {
       // The backend works out who can serve this near the address (3 km,
       // widening to 5 km), notifies every one of them and the first accept
       // wins — the app never picks or ranks Pros itself.
-      final lat = addr.lat ?? 26.975, lng = addr.lng ?? 75.762;
+      // Never substitute a hard-coded Jaipur coordinate: it can dispatch a
+      // real job to professionals around the wrong address. The backend will
+      // validate the saved address pin before creating the booking.
+      final lat = addr.lat;
+      final lng = addr.lng;
+      if (lat == null || lng == null ||
+          !lat.isFinite || !lng.isFinite ||
+          lat.abs() > 90 || lng.abs() > 180) {
+        setState(() {
+          _busy = false;
+          _error = 'Is address ka map location save nahi hai. Map pin ke saath address update karke dobara booking karein.';
+        });
+        return;
+      }
       final booking = await Api.createBooking({
         'userId': user.id,
         'phone': user.phone,
@@ -387,10 +401,19 @@ class _BookingScreenState extends State<BookingScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Add Address'),
-        content: TextField(
-          controller: ctrl,
-          maxLines: 3,
-          decoration: const InputDecoration(hintText: 'House no, Street, Area, City'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Save this address while you are physically at the service location so we can pin it accurately.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'House no, Street, Area, City',
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -405,6 +428,23 @@ class _BookingScreenState extends State<BookingScreen> {
     );
     if (ok != true || ctrl.text.trim().isEmpty) return;
     try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw Exception('Address map pin save karne ke liye location permission dein.');
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw Exception('GPS on karein aur address save dobara karein.');
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
       final parts = ctrl.text.split(',').map((e) => e.trim()).toList();
       await Api.addAddress(user.id, {
         'label': 'Home',
@@ -412,8 +452,8 @@ class _BookingScreenState extends State<BookingScreen> {
         if (parts.length > 1) 'line2': parts.sublist(1).join(', '),
         'city': 'Jaipur',
         'pincode': '302017',
-        'lat': 26.975,
-        'lng': 75.762,
+        'lat': position.latitude,
+        'lng': position.longitude,
       });
       await _load();
     } catch (e) {

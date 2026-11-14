@@ -91,9 +91,16 @@ export function useServiceLabels() {
   return useMemo(
     () =>
       (service: Service): ServiceLabels => {
-        // admin-created rows may miss optional fields — never crash the page
+        // Imported catalogue rows may contain "English / Hindi" in the
+        // original name. Always render exactly one language.
+        const parts = (service.name ?? "").split(/\s+\/\s+/);
+        const englishName = parts[0]?.trim() || service.name || "";
+        const hindiName =
+          SERVICE_HI[service.id]?.name ||
+          service.nameHi?.trim() ||
+          (parts.length > 1 ? parts.slice(1).join(" / ").trim() : "");
         const enLabels: ServiceLabels = {
-          name: service.name ?? "",
+          name: englishName,
           tagline: service.tagline ?? "",
           description: service.description ?? "",
           includes: service.includes ?? [],
@@ -101,10 +108,13 @@ export function useServiceLabels() {
           duration: service.duration ?? "—",
         };
         if (lang !== "hi") return enLabels;
-        const name = SERVICE_HI[service.id];
         const detail = SERVICE_DETAIL_HI[service.id];
-        if (!name && !detail) return enLabels;
-        return { ...enLabels, ...name, ...detail };
+        if (!hindiName && !detail) return enLabels;
+        return {
+          ...enLabels,
+          ...(hindiName ? { name: hindiName } : {}),
+          ...detail,
+        };
       },
     [lang],
   );
@@ -114,7 +124,7 @@ export function useServiceLabels() {
 export function useCatLabel() {
   const { s } = useLang();
   return (cat: string): string =>
-    (s.services.cat as Record<string, string>)[cat] ?? cat;
+    (s.services.cat as Record<string, string>)[cat] ?? (s.services.cat as Record<string, string>)[cat.split(/\s+\/\s+/)[0]] ?? (cat.includes(" / ") ? cat.split(/\s+\/\s+/).slice(1).join(" / ").trim() : cat);
 }
 
 /** "{n}" interpolation: t.sub.replace("{n}", "20") */

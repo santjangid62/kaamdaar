@@ -1,0 +1,78 @@
+name: Kaamdaar CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Keep only the newest CI run for this branch; push and PR events share a key.
+concurrency:
+  group: kaamdaar-ci-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web lint and production build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: ESLint (changed web files)
+        run: >-
+          npx eslint
+          src/app/api/auth/route.ts
+          'src/app/api/bookings/[id]/route.ts'
+          src/app/api/bookings/route.ts
+          src/app/api/providers/device-token/route.ts
+          src/app/login/page.tsx
+          src/lib/auth-service.ts
+          src/lib/types.ts
+          src/server/db.ts
+          src/server/fcm.ts
+          src/server/firebase-auth.ts
+      - name: Next.js production build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: ""
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ""
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ""
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ""
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ""
+          NEXT_PUBLIC_FIREBASE_APP_ID: ""
+          FIREBASE_PROJECT_ID: active-valve-162810
+
+  flutter:
+    name: Flutter ${{ matrix.app }} checks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [customer_app, provider_app]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install packages
+        working-directory: apps/${{ matrix.app }}
+        run: flutter pub get
+      - name: Analyze
+        working-directory: apps/${{ matrix.app }}
+        run: flutter analyze --no-fatal-infos
+      - name: Build Android debug APK
+        working-directory: apps/${{ matrix.app }}
+        run: flutter build apk --debug

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   CheckCircle2,
@@ -17,12 +17,11 @@ import {
 } from "lucide-react";
 import { useApp } from "../../../components/AppProvider";
 import DispatchMap, { type MapProviderMarker } from "../../../components/DispatchMap";
-import ProviderPanel from "../../../components/ProviderPanel";
 import { fill, useLang } from "../../../lib/i18n";
-import { DEMO_TRAVEL_MS, commissionOf, lerpPoint } from "../../../lib/dispatch";
+import { commissionOf } from "../../../lib/dispatch";
 import { haversineKm } from "../../../lib/geo";
-import { debitCommission, listBookings, updateBooking } from "../../../lib/store";
-import type { Booking, GeoPoint, PaymentMethod } from "../../../lib/types";
+import { listBookings, updateBooking } from "../../../lib/store";
+import type { Booking, GeoPoint } from "../../../lib/types";
 
 const STEPS = [
   "dispatched",
@@ -48,15 +47,8 @@ function TrackView() {
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [now, setNow] = useState(() => Date.now());
-  const [otp, setOtp] = useState("");
-  const [otpError, setOtpError] = useState(false);
-  const [method, setMethod] = useState<PaymentMethod>("cash");
-  const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(false);
-  const arrivedRef = useRef(false);
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -67,31 +59,25 @@ function TrackView() {
 
   useEffect(() => {
     if (!ready || !user) return;
-    void listBookings(user.id).then((list) => {
+    let active = true;
+    const load = async () => {
+      const list = await listBookings(user.id);
+      if (!active) return;
       setBooking(list.find((b) => b.id === params.bookingId) ?? null);
       setLoaded(true);
-    });
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 4000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [ready, user, params.bookingId]);
 
-  /* live ETA: the Pro's marker rides from its accept point to the user */
+  // Arrival is confirmed only by the Provider app after its fresh GPS point
+  // reaches the customer geofence; the customer screen never simulates arrival.
   useEffect(() => {
-    if (booking?.status !== "enroute" || !booking.enrouteAt) return;
-    const enrouteAt = booking.enrouteAt;
-    const tick = () => {
-      const p = Math.min(1, (Date.now() - enrouteAt) / DEMO_TRAVEL_MS);
-      setProgress(p);
-      if (p >= 1 && !arrivedRef.current) {
-        arrivedRef.current = true;
-        void updateBooking(booking.userId, booking.id, {
-          status: "arrived",
-          arrivedAt: Date.now(),
-        }).then(refresh);
-      }
-    };
-    tick();
-    const id = window.setInterval(tick, 400);
-    return () => window.clearInterval(id);
-  }, [booking, refresh]);
+  }, [booking?.status]);
 
   /* elapsed clock while the work runs */
   useEffect(() => {
@@ -111,13 +97,9 @@ function TrackView() {
 
   const activePoint = useMemo<GeoPoint | null>(() => {
     if (!booking || !origin) return null;
-    // a real GPS ping from the Provider app always beats the demo animation
-    if (booking.livePoint) return booking.livePoint;
-    const start = booking.providerPoint;
-    if (booking.status === "enroute" && start) return lerpPoint(start, origin, progress);
-    if (start) return { lat: origin.lat + 0.0004, lng: origin.lng + 0.0004 };
-    return origin;
-  }, [booking, origin, progress]);
+    // Never fabricate a moving marker: show only the last GPS point reported by the Provider app.
+    return booking.livePoint ?? booking.providerPoint ?? null;
+  }, [booking, origin]);
 
   const markers: MapProviderMarker[] = useMemo(() => {
     if (!booking || !activePoint) return [];
@@ -139,58 +121,6 @@ function TrackView() {
     setBusy(true);
     try {
       await updateBooking(booking.userId, booking.id, { status: "cancelled" });
-      await refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function verifyComplete() {
-    if (!booking) return;
-    if (otp !== booking.completeOtp) {
-      setOtpError(true);
-      return;
-    }
-    setBusy(true);
-    try {
-      await updateBooking(booking.userId, booking.id, { status: "completed" });
-      setOtp("");
-      setOtpError(false);
-      setNote(null);
-      await refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function sendBack() {
-    if (!booking) return;
-    setBusy(true);
-    try {
-      await updateBooking(booking.userId, booking.id, {
-        status: "in_progress",
-        completeOtp: undefined,
-      });
-      setNote(d.sentBack);
-      setOtp("");
-      await refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function pay() {
-    if (!booking?.providerId) return;
-    setBusy(true);
-    try {
-      const comm = commissionOf(booking.amount);
-      // company rule: 10% commission leaves the Pro's wallet the moment it is paid
-      await debitCommission(booking.providerId, comm, booking.serviceName);
-      await updateBooking(booking.userId, booking.id, {
-        paidAt: Date.now(),
-        paymentMethod: method,
-        commission: comm,
-      });
       await refresh();
     } finally {
       setBusy(false);
@@ -231,7 +161,7 @@ function TrackView() {
 
   const status = booking.status;
   const pro = booking.providerProfile;
-  const etaLeft = Math.max(1, Math.ceil((1 - progress) * (booking.etaMinutes ?? 8)));
+  const etaLeft = Math.max(1, booking.etaMinutes ?? 8);
   const stepIdx =
     status === "accepted"
       ? STEPS.indexOf("enroute")
@@ -322,12 +252,9 @@ function TrackView() {
                 </span>
               </div>
               <div className="px-4 py-3">
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-flame to-amber-400 transition-all"
-                    style={{ width: `${Math.round(progress * 100)}%` }}
-                  />
-                </div>
+                <p className="text-xs font-semibold text-slate-600">
+                  Live GPS updates are shown on the map as the Professional moves.
+                </p>
                 <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
                   <MapPin className="h-3.5 w-3.5 text-flame-600" /> {d.sharedLocation}
                 </p>
@@ -481,116 +408,28 @@ function TrackView() {
                 {booking.startOtp}
               </p>
               <p className="mt-2 text-xs text-slate-500">{d.arrivedSub}</p>
-              <button
-                type="button"
-                onClick={() => setPanelOpen(true)}
-                className="btn-primary mt-4 w-full justify-center"
-              >
-                {d.proMode}: {d.enterStartOtp}
-              </button>
             </div>
           )}
 
-          {/* provider marked completed → user confirms with OTP */}
+          {/* provider marked completed → customer shares OTP with provider */}
           {status === "pending_confirm" && (
             <div className="card border-green-200 p-5">
               <h2 className="flex items-center gap-2 font-extrabold text-slate-900">
-                <CheckCircle2 className="h-5 w-5 text-green-600" /> {d.confirmTitle}
+                <CheckCircle2 className="h-5 w-5 text-green-600" /> Work completion verification
               </h2>
-              <p className="mt-1 text-sm text-slate-500">{d.confirmSub}</p>
-
-              <div className="mt-3 rounded-xl bg-slate-50 p-3 text-center ring-1 ring-slate-200">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  {s.bookings.status.completed} OTP
-                </p>
-                <p className="font-mono text-3xl font-extrabold tracking-[0.3em] text-navy">
-                  {booking.completeOtp}
-                </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Kaam poora hone par ye OTP provider ko batayein. Provider app mein OTP verify karega.
+              </p>
+              <div className="mt-3 rounded-xl bg-slate-50 p-4 text-center ring-1 ring-slate-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Your completion OTP</p>
+                <p className="font-mono text-3xl font-extrabold tracking-[0.3em] text-navy">{booking.completeOtp}</p>
               </div>
-
-              <label className="mt-3 block text-sm font-bold text-slate-800">
-                {d.verifyOtp}
-                <input
-                  value={otp}
-                  onChange={(e) => {
-                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6));
-                    setOtpError(false);
-                  }}
-                  inputMode="numeric"
-                  placeholder="••••••"
-                  className="mt-1.5 w-full rounded-xl border border-slate-300 px-4 py-3 text-center font-mono text-2xl tracking-[0.4em] outline-none focus:border-green-500"
-                />
-              </label>
-              {otpError && (
-                <p className="mt-1 text-xs font-semibold text-red-600">{d.wrongOtp}</p>
-              )}
-
-              <button
-                type="button"
-                onClick={() => void verifyComplete()}
-                disabled={busy || otp.length !== 6}
-                className="btn-primary mt-3 w-full justify-center"
-              >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                {d.verifyOtp}
-              </button>
-              <button
-                type="button"
-                onClick={() => void sendBack()}
-                disabled={busy}
-                className="btn-ghost mt-2 w-full justify-center text-red-600"
-              >
-                <RefreshCcw className="h-4 w-4" /> {d.notDoneYet}
-              </button>
-              {note && <p className="mt-2 text-xs font-semibold text-amber-600">{note}</p>}
             </div>
           )}
 
-          {/* completed → cash / UPI */}
-          {status === "completed" && !booking.paidAt && pro && (
-            <div className="card p-5">
-              <h2 className="flex items-center gap-2 font-extrabold text-slate-900">
-                <IndianRupee className="h-5 w-5 text-flame-600" /> {d.payTitle}
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">{d.paySub}</p>
-
-              <div className="mt-3 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
-                <div className="flex items-center justify-between text-sm text-slate-500">
-                  <span>{booking.serviceName}</span>
-                  <span className="font-bold text-slate-800">₹{booking.amount}</span>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
-                  <span>{d.commissionCut}</span>
-                  <span>−₹{commissionOf(booking.amount)}</span>
-                </div>
-              </div>
-
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {(["cash", "upi"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMethod(m)}
-                    className={`rounded-xl border-2 px-4 py-3 text-sm font-bold transition ${
-                      method === m
-                        ? "border-flame bg-flame-50 text-flame-700"
-                        : "border-slate-200 text-slate-500 hover:border-slate-300"
-                    }`}
-                  >
-                    {m === "cash" ? d.payCash : d.payUpi}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => void pay()}
-                disabled={busy}
-                className="btn-accent mt-3 w-full justify-center"
-              >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <IndianRupee className="h-4 w-4" />}
-                {d.payConfirm}
-              </button>
+          {status === "completed" && !booking.paidAt && (
+            <div className="card p-5 text-sm text-slate-600">
+              Work completion verified. Provider se payment collection confirmation ka intezaar hai.
             </div>
           )}
 
@@ -657,13 +496,6 @@ function TrackView() {
         </div>
       </div>
 
-      {/* Pro mode — demo of the Provider app for THIS booking */}
-      <ProviderPanel
-        open={panelOpen}
-        onToggle={() => setPanelOpen((v) => !v)}
-        booking={booking}
-        onChanged={() => void refresh()}
-      />
     </div>
   );
 }

@@ -26,7 +26,12 @@ export const NAV: NavGroup[] = [
       { slug: "all-bookings", label: "All Bookings", icon: "List" },
       { slug: "live-bookings", label: "Live Bookings", icon: "Monitor" },
       { slug: "cancelled-bookings", label: "Cancelled Bookings", icon: "CircleX" },
-      { slug: "activity-log", label: "Activity Log", icon: "FileText" },
+    ],
+  },
+  {
+    section: "System & Audit",
+    items: [
+      { slug: "system-logs", label: "System Logs", icon: "FileText" },
     ],
   },
   {
@@ -51,9 +56,11 @@ export const NAV: NavGroup[] = [
   {
     section: "Services",
     items: [
+      { slug: "catalog-import", label: "Import Excel Catalogue", icon: "FileSpreadsheet" },
       { slug: "categories", label: "Categories", icon: "Grid3X3" },
       { slug: "services", label: "Services", icon: "Wrench" },
-      { slug: "sub-services", label: "Sub Services", icon: "ListTree" },
+      { slug: "subcategories", label: "Subcategories", icon: "ListTree" },
+      { slug: "sub-services", label: "Service Details", icon: "List" },
       { slug: "pricing-commission", label: "Pricing & Commission", icon: "Tag" },
     ],
   },

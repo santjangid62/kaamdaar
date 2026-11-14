@@ -4,6 +4,7 @@
  */
 import { NextResponse } from "next/server";
 import { all, patch, ready, uid } from "../../../../../server/db";
+import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../../server/firebase-auth";
 import type { Address } from "../../../../../lib/types";
 
 const PIN_PREFIXES = new Set([
@@ -17,20 +18,29 @@ const PIN_PREFIXES = new Set([
   "80","81","82","83","84","85",
 ]);
 
+async function ownsUser(req: Request, userId: string): Promise<boolean> {
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return false;
+  const users = await all<{ id: string; phone?: string }>("users");
+  return users.some((u) => u.id === userId && normalizeIndianPhone(u.phone ?? "") === identity.phone);
+}
+
 async function listFor(userId: string): Promise<Address[]> {
   const rows = await all<Address & { userId: string }>("addresses");
   return rows.filter((a) => a.userId === userId);
 }
 
-export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   await ready();
   const { id } = await ctx.params;
+  if (!(await ownsUser(req, id))) return NextResponse.json({ error: "Not authorized to view these addresses" }, { status: 403 });
   return NextResponse.json({ addresses: await listFor(id) });
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   await ready();
   const { id: userId } = await ctx.params;
+  if (!(await ownsUser(req, userId))) return NextResponse.json({ error: "Not authorized to change these addresses" }, { status: 403 });
   let body: Partial<Address>;
   try {
     body = (await req.json()) as Partial<Address>;

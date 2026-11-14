@@ -24,9 +24,10 @@ class _TrackScreenState extends State<TrackScreen> {
   bool _loading = true;
   bool _busy = false;
   String? _error;
-  final _otp = TextEditingController();
-  String? _otpError;
   int _rating = 0;
+  int _serviceRating = 0;
+  final _reviewText = TextEditingController();
+  bool _reviewSubmitted = false;
   DateTime? _startedAt;
 
   @override
@@ -38,7 +39,7 @@ class _TrackScreenState extends State<TrackScreen> {
   @override
   void dispose() {
     _poll?.cancel();
-    _otp.dispose();
+    _reviewText.dispose();
     super.dispose();
   }
 
@@ -67,6 +68,7 @@ class _TrackScreenState extends State<TrackScreen> {
     try {
       final b = await Api.booking(user.id, widget.bookingId);
       if (!mounted) return;
+      final previousStatus = _booking?.status;
       setState(() {
         _booking = b;
         _error = b == null ? 'Booking not found.' : null;
@@ -74,6 +76,17 @@ class _TrackScreenState extends State<TrackScreen> {
           _startedAt = DateTime.fromMillisecondsSinceEpoch(b!.startedAt!);
         }
       });
+      if (previousStatus != null && previousStatus != b?.status && mounted) {
+        final message = b?.status == 'arrived'
+            ? 'Professional aapke location par pahunch gaya hai.'
+            : b?.status == 'pending_confirm'
+                ? 'Work completion OTP aa gaya hai. Provider ko OTP batayein.'
+                : b?.status == 'completed'
+                    ? 'Completion OTP verify ho gaya. Work complete!'
+                    : null;
+        if (message != null) ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -125,26 +138,6 @@ class _TrackScreenState extends State<TrackScreen> {
     await _patch({'status': 'cancelled'});
   }
 
-  Future<void> _verifyOtp() async {
-    final b = _booking;
-    if (b == null) return;
-    final entered = _otp.text.trim();
-    if (entered.isEmpty) {
-      setState(() => _otpError = 'Enter the OTP shown by your Professional');
-      return;
-    }
-    final expected = b.completeOtp ?? '';
-    if (expected.isNotEmpty && entered != expected) {
-      setState(() => _otpError = 'That OTP does not match — please check again');
-      return;
-    }
-    await _patch({'status': 'completed'});
-    if (!mounted) return;
-    setState(() {
-      _otpError = null;
-      _otp.clear();
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -188,11 +181,15 @@ class _TrackScreenState extends State<TrackScreen> {
                           _stepper(b),
                           const SizedBox(height: 14),
                           _addressCard(b),
+                          if (b.status == 'arrived') ...[
+                            const SizedBox(height: 14),
+                            _startOtpCard(b),
+                          ],
                           if (b.status == 'pending_confirm') ...[
                             const SizedBox(height: 14),
-                            _otpCard(),
+                            _otpCard(b),
                           ],
-                          if (b.status == 'completed') ...[
+                          if (b.status == 'completed' && b.paidAt != null) ...[
                             const SizedBox(height: 14),
                             _invoiceCard(b),
                             const SizedBox(height: 14),
@@ -468,31 +465,41 @@ class _TrackScreenState extends State<TrackScreen> {
     );
   }
 
-  Widget _otpCard() {
+  Widget _startOtpCard(BookingItem b) {
     return CardBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Verify & Complete',
+          const Text('Service Start OTP',
               style: TextStyle(fontWeight: FontWeight.w800, color: KColors.navy)),
           const SizedBox(height: 6),
-          const Text('Ask your Professional for the completion OTP.',
+          const Text('Professional ke pahunchne par ye OTP unhe batayein. Isse pehle service start nahi hogi.',
               style: TextStyle(color: Colors.black54, fontSize: 12.5)),
           const SizedBox(height: 12),
-          TextField(
-            controller: _otp,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            style: const TextStyle(
-                fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 10),
-            decoration: InputDecoration(
-              counterText: '',
-              hintText: '••••',
-              errorText: _otpError,
-            ),
+          Center(
+            child: Text(b.startOtp ?? '------',
+              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: 8)),
           ),
-          const SizedBox(height: 10),
-          PrimaryBtn(label: 'Confirm & Complete', busy: _busy, onPressed: _verifyOtp),
+        ],
+      ),
+    );
+  }
+
+  Widget _otpCard(BookingItem b) {
+    return CardBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Your work completion OTP',
+              style: TextStyle(fontWeight: FontWeight.w800, color: KColors.navy)),
+          const SizedBox(height: 6),
+          const Text('Kaam poora hone ki tasdeek ke liye ye OTP Professional ko batayein.',
+              style: TextStyle(color: Colors.black54, fontSize: 12.5)),
+          const SizedBox(height: 12),
+          Center(
+            child: Text(b.completeOtp ?? '------',
+              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: 8)),
+          ),
         ],
       ),
     );
@@ -540,6 +547,21 @@ class _TrackScreenState extends State<TrackScreen> {
   }
 
   Widget _reviewCard() {
+    final b = _booking;
+    if (b == null) return const SizedBox.shrink();
+    if (_reviewSubmitted) {
+      return const CardBox(
+        child: Text('Thank you! Your provider and service review has been submitted.',
+            style: TextStyle(fontWeight: FontWeight.w700, color: KColors.green)),
+      );
+    }
+    Widget stars(int value, ValueChanged<int> onChanged) => Row(
+      children: List.generate(5, (i) => IconButton(
+        onPressed: () => onChanged(i + 1),
+        icon: Icon(i < value ? Icons.star : Icons.star_border,
+            color: KColors.amber, size: 28),
+      )),
+    );
     return CardBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -547,29 +569,41 @@ class _TrackScreenState extends State<TrackScreen> {
           const Text('Rate Your Experience',
               style: TextStyle(fontWeight: FontWeight.w800, color: KColors.navy)),
           const SizedBox(height: 8),
-          Row(
-            children: List.generate(5, (i) {
-              return IconButton(
-                onPressed: () => setState(() => _rating = i + 1),
-                icon: Icon(i < _rating ? Icons.star : Icons.star_border,
-                    color: KColors.amber, size: 30),
-              );
-            }),
+          const Text('Professional rating', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          stars(_rating, (v) => setState(() => _rating = v)),
+          const Text('Service rating', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          stars(_serviceRating, (v) => setState(() => _serviceRating = v)),
+          TextField(
+            controller: _reviewText,
+            maxLines: 3,
+            maxLength: 1000,
+            decoration: const InputDecoration(
+              hintText: 'Share your experience (optional)',
+              border: OutlineInputBorder(),
+            ),
           ),
           PrimaryBtn(
             label: 'Submit Review',
-            onPressed: _rating == 0
-                ? null
-                : () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Thanks for your feedback!')));
-                    setState(() => _rating = 0);
-                  },
+            onPressed: _rating == 0 || _serviceRating == 0 ? null : () async {
+              try {
+                await Api.submitReview(
+                  bookingId: b.id,
+                  providerRating: _rating,
+                  serviceRating: _serviceRating,
+                  text: _reviewText.text.trim(),
+                );
+                if (mounted) setState(() => _reviewSubmitted = true);
+              } catch (e) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.toString())));
+              }
+            },
           ),
         ],
       ),
     );
   }
+
 }
 
 const kStatusActivity = <String, String>{

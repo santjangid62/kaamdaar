@@ -6,6 +6,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api.dart';
 import '../core/models.dart';
@@ -24,10 +26,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   BookingItem? _booking;
   ProviderItem? _me;
   Timer? _poll;
+  Timer? _gpsTimer;
   bool _loading = true;
   bool _busy = false;
   String? _error;
   final _otp = TextEditingController();
+  final _completionOtp = TextEditingController();
   String? _otpError;
 
   @override
@@ -40,7 +44,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   @override
   void dispose() {
     _poll?.cancel();
+    _gpsTimer?.cancel();
     _otp.dispose();
+    _completionOtp.dispose();
     super.dispose();
   }
 
@@ -69,10 +75,79 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         _booking = found.isEmpty ? null : found.first;
         _error = found.isEmpty ? 'This job is no longer assigned to you.' : null;
       });
+      if (_booking?.status == 'enroute') {
+        _startLiveGps();
+      } else {
+        _gpsTimer?.cancel();
+        _gpsTimer = null;
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _startLiveGps() {
+    if (_gpsTimer != null) return;
+    // Send a fresh point every 8 seconds while travelling. The server stamps
+    // each ping and shares the same point with the customer and admin maps.
+    _gpsTimer = Timer.periodic(const Duration(seconds: 8), (_) => _sendGpsPing());
+    _sendGpsPing();
+  }
+
+  Future<void> _sendGpsPing() async {
+    final b = _booking;
+    if (b == null || b.status != 'enroute' || _busy) return;
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) return;
+      final point = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+      await Api.updateJob(b.id, {
+        'providerPing': {
+          'lat': point.latitude,
+          'lng': point.longitude,
+          'accuracy': point.accuracy,
+        },
+      });
+    } catch (_) {
+      // A transient GPS/network failure must not stop the journey timer.
+    }
+  }
+
+  Future<void> _openCustomerMap(BookingItem booking) async {
+    final lat = booking.customerLat;
+    final lng = booking.customerLng;
+    if (lat == null || lng == null ||
+        !lat.isFinite || !lng.isFinite ||
+        lat.abs() > 90 || lng.abs() > 180) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Customer ka map pin available nahi hai.')),
+        );
+      }
+      return;
+    }
+    final uri = Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'destination': '$lat,$lng',
+      'travelmode': 'driving',
+    });
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Google Maps open nahi ho paya.')),
+      );
     }
   }
 
@@ -110,40 +185,37 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     setState(() => _otpError = null);
     await _patch({
       'status': 'in_progress',
-      'startedAt': DateTime.now().millisecondsSinceEpoch,
+      'startOtp': entered,
     });
   }
 
   Future<void> _completeWork() async {
-    final otp = generateOtp();
-    await _patch({
-      'status': 'pending_confirm',
-      'completedAt': DateTime.now().millisecondsSinceEpoch,
-      'completeOtp': otp,
-    });
+    await _patch({'status': 'pending_confirm'});
     if (!mounted) return;
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Work marked complete'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Customer ko ye OTP dein — verify karte hi job close ho jayega:'),
-            const SizedBox(height: 12),
-            Center(
-              child: Text(otp,
-                  style: const TextStyle(
-                      fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: 8)),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-        ],
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Customer ko completion OTP bhej diya gaya hai. OTP lekar yahan verify karein.')),
     );
+  }
+
+  Future<void> _verifyCompletionOtp() async {
+    final b = _booking;
+    final entered = _completionOtp.text.trim();
+    if (b == null || entered.length != 6) return;
+    setState(() => _busy = true);
+    try {
+      final updated = await Api.updateJob(b.id, {'status': 'completed'},
+          completionOtp: entered);
+      if (!mounted) return;
+      setState(() {
+        _booking = updated;
+        _completionOtp.clear();
+        _otpError = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _otpError = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _takePayment() async {
@@ -183,10 +255,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         'paidAt': DateTime.now().millisecondsSinceEpoch,
         'paymentMethod': method,
       });
-      // 10% platform commission leaves the wallet the moment money is taken
-      try {
-        await Api.commission(me.id, commissionOf(b.amount), service: b.serviceName);
-      } catch (_) {}
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Payment recorded — ${rupees(commissionOf(b.amount))} commission debited')));
@@ -351,6 +419,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           const SizedBox(height: 8),
           Text(b.address.oneLine,
               style: const TextStyle(fontSize: 12.5, color: Colors.black54)),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _openCustomerMap(b),
+              icon: const Icon(Icons.map_outlined, size: 18),
+              label: const Text('View customer location / Navigate'),
+            ),
+          ),
           const SizedBox(height: 6),
           Text('${b.date} • ${b.slot}',
               style: const TextStyle(fontSize: 12, color: Colors.black45)),
@@ -396,16 +472,24 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Waiting for customer verification',
+          const Text('Enter customer completion OTP',
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
           const SizedBox(height: 6),
-          const Text('Customer ko ye OTP batayein — verify karte hi job complete ho jayegi.',
+          const Text('Customer ko app par mila OTP lein aur yahan enter karein.',
               style: TextStyle(fontSize: 11.5, color: Colors.black54)),
           const SizedBox(height: 10),
-          Center(
-            child: Text(b.completeOtp ?? '—',
-                style: const TextStyle(
-                    fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 8)),
+          TextField(
+            controller: _completionOtp,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 8),
+            decoration: InputDecoration(counterText: '', errorText: _otpError),
+          ),
+          PrimaryBtn(
+            label: 'Verify & Close Job',
+            busy: _busy,
+            onPressed: _completionOtp.text.trim().length == 6 ? _verifyCompletionOtp : null,
           ),
         ],
       ),
@@ -466,10 +550,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           label: 'Start Navigation',
           icon: Icons.navigation,
           busy: _busy,
-          onPressed: () => _patch({
-            'status': 'enroute',
-            'enrouteAt': DateTime.now().millisecondsSinceEpoch,
-          }),
+          onPressed: () async {
+            await _patch({'navigationStarted': true, 'status': 'enroute'});
+            if (_booking?.status == 'enroute') {
+              _startLiveGps();
+              await _openCustomerMap(_booking!);
+            }
+          },
         );
       case 'enroute':
         return PrimaryBtn(
@@ -503,11 +590,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           ],
         );
       case 'pending_confirm':
-        return GhostBtn(
-          label: 'Customer verification ka intezaar… (refresh)',
-          onPressed: _refresh,
-          color: PColors.green,
-        );
+        return const SizedBox.shrink();
       case 'completed':
         if (b.paidAt != null) {
           return Container(

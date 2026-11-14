@@ -274,6 +274,7 @@ class BookingItem {
   final int amount;
   final String status;
   final int createdAt;
+  final int? offerExpiresAt;
   final List<String> notifiedIds;
   final int? acceptedAt;
   final int? enrouteAt;
@@ -288,8 +289,13 @@ class BookingItem {
   final String? startOtp;
   final String? completeOtp;
   final String notes;
+  final double? customerLat;
+  final double? customerLng;
 
-  factory BookingItem.fromJson(Map<String, dynamic> j) => BookingItem(
+  factory BookingItem.fromJson(Map<String, dynamic> j) {
+    final origin = j["originPoint"] as Map<String, dynamic>?;
+    final address = (j["address"] as Map<String, dynamic>?) ?? const {};
+    return BookingItem(
         id: (j["id"] ?? "").toString(),
         userId: (j["userId"] ?? "").toString(),
         phone: (j["phone"] ?? "").toString(),
@@ -305,6 +311,7 @@ class BookingItem {
         amount: _int(j["amount"]),
         status: (j["status"] ?? "dispatched").toString(),
         createdAt: _int(j["createdAt"]),
+        offerExpiresAt: _optInt(j["offerExpiresAt"]),
         notifiedIds: _strList(j["notifiedIds"]),
         acceptedAt: _optInt(j["acceptedAt"]),
         enrouteAt: _optInt(j["enrouteAt"]),
@@ -321,7 +328,14 @@ class BookingItem {
         startOtp: j["startOtp"]?.toString(),
         completeOtp: j["completeOtp"]?.toString(),
         notes: (j["notes"] ?? "").toString(),
+        customerLat: origin?["lat"] == null
+            ? (address["lat"] == null ? null : _num(address["lat"]).toDouble())
+            : _num(origin?["lat"]).toDouble(),
+        customerLng: origin?["lng"] == null
+            ? (address["lng"] == null ? null : _num(address["lng"]).toDouble())
+            : _num(origin?["lng"]).toDouble(),
       );
+  }
 
   const BookingItem({
     required this.id,
@@ -338,6 +352,7 @@ class BookingItem {
     this.amount = 0,
     this.status = "dispatched",
     this.createdAt = 0,
+    this.offerExpiresAt,
     this.notifiedIds = const [],
     this.acceptedAt,
     this.enrouteAt,
@@ -352,6 +367,8 @@ class BookingItem {
     this.startOtp,
     this.completeOtp,
     this.notes = "",
+    this.customerLat,
+    this.customerLng,
   });
 
   bool get isLive =>

@@ -4,9 +4,11 @@ library;
 /// The API base URL defaults to the Android emulator loopback; override it
 /// for a device or desktop run:
 ///   flutter run --dart-define=API_BASE=http://192.168.1.5:3100
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
@@ -25,7 +27,13 @@ class Api {
     defaultValue: 'https://kaamdaar-seven.vercel.app',
   );
 
-  static const Map<String, String> _headers = {'Content-Type': 'application/json'};
+  static Future<Map<String, String>> _headers() async {
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
 
   static Future<Map<String, dynamic>> _decode(http.Response r) async {
     final data = jsonDecode(r.body.isEmpty ? '{}' : r.body);
@@ -35,7 +43,7 @@ class Api {
 
   static Future<Map<String, dynamic>> post(String path, Map body) async {
     final r = await http.post(Uri.parse('$baseUrl$path'),
-        headers: _headers, body: jsonEncode(body));
+        headers: await _headers(), body: jsonEncode(body));
     final data = await _decode(r);
     if (r.statusCode >= 400) {
       throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
@@ -44,7 +52,7 @@ class Api {
   }
 
   static Future<Map<String, dynamic>> get(String path) async {
-    final r = await http.get(Uri.parse('$baseUrl$path'), headers: _headers);
+    final r = await http.get(Uri.parse('$baseUrl$path'), headers: await _headers());
     final data = await _decode(r);
     if (r.statusCode >= 400) {
       throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
@@ -54,7 +62,7 @@ class Api {
 
   static Future<Map<String, dynamic>> patch(String path, Map body) async {
     final r = await http.patch(Uri.parse('$baseUrl$path'),
-        headers: _headers, body: jsonEncode(body));
+        headers: await _headers(), body: jsonEncode(body));
     final data = await _decode(r);
     if (r.statusCode >= 400) {
       throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
@@ -79,21 +87,56 @@ class Api {
     return RegExp(r'^[6-9]\d{9}$').hasMatch(mobile);
   }
 
+  static String? _phoneVerificationId;
+
   static Future<String> sendOtp(String phone) async {
-    final data = await post('/api/auth', {'action': 'send', 'phone': e164(phone), 'platform': 'mobile_app'});
-    return (data['devCode'] ?? '').toString();
+    final auth = FirebaseAuth.instance;
+    await auth.signOut();
+    _phoneVerificationId = null;
+    final completed = Completer<void>();
+    await auth.verifyPhoneNumber(
+      phoneNumber: e164(phone),
+      timeout: const Duration(seconds: 60),
+      verificationCompleted: (credential) async {
+        try { await auth.signInWithCredential(credential); } catch (_) {}
+        if (!completed.isCompleted) completed.complete();
+      },
+      verificationFailed: (error) {
+        if (!completed.isCompleted) completed.completeError(
+          ApiException(error.message ?? 'Firebase could not send OTP'));
+      },
+      codeSent: (verificationId, resendToken) {
+        _phoneVerificationId = verificationId;
+        if (!completed.isCompleted) completed.complete();
+      },
+      codeAutoRetrievalTimeout: (verificationId) {
+        _phoneVerificationId = verificationId;
+        if (!completed.isCompleted) completed.complete();
+      },
+    );
+    await completed.future;
+    return '';
   }
 
-  /// Returns the account plus whether the backend had to create it, so the app
-  /// can mirror the web flow: first-timers complete their profile, everyone
-  /// else goes straight to booking.
   static Future<({SessionUser user, bool isNew})> verifyOtp(
       String phone, String code) async {
-    final data = await post(
-        '/api/auth', {'action': 'verify', 'phone': e164(phone), 'code': code, 'platform': 'mobile_app'});
-    final user = SessionUser.fromJson(
-        (data['user'] as Map<String, dynamic>?) ?? const {});
+    final auth = FirebaseAuth.instance;
+    final current = auth.currentUser;
+    if (current == null || e164(current.phoneNumber ?? '') != e164(phone)) {
+      final verificationId = _phoneVerificationId;
+      if (verificationId == null) throw ApiException('OTP session expired. Please resend.');
+      await auth.signInWithCredential(PhoneAuthProvider.credential(
+        verificationId: verificationId, smsCode: code.trim()));
+    }
+    final idToken = await auth.currentUser?.getIdToken(true);
+    if (idToken == null) throw ApiException('Firebase phone verification did not complete.');
+    final data = await post('/api/auth', {
+      'action': 'verify', 'phone': e164(phone), 'idToken': idToken,
+      'platform': 'mobile_app',
+    });
+    final user = SessionUser.fromJson((data['user'] as Map<String, dynamic>?) ?? const {});
     await saveSession(user);
+    _phoneVerificationId = null;
     return (user: user, isNew: data['isNew'] == true);
   }
 
@@ -245,10 +288,28 @@ class Api {
     return null;
   }
 
+  static Future<void> submitReview({
+    required String bookingId,
+    required int providerRating,
+    required int serviceRating,
+    String text = '',
+  }) async {
+    await post('/api/reviews', {
+      'bookingId': bookingId,
+      'providerRating': providerRating,
+      'serviceRating': serviceRating,
+      'text': text,
+    });
+  }
+
   static Future<BookingItem> updateBooking(
-      String userId, String id, Map<String, dynamic> changes) async {
-    final data = await patch('/api/bookings/$id',
-        {'userId': userId, 'patch': changes});
+      String userId, String id, Map<String, dynamic> changes,
+      {String? completionOtp}) async {
+    final data = await patch('/api/bookings/$id', {
+      'userId': userId,
+      if (completionOtp != null) 'completionOtp': completionOtp,
+      'patch': changes,
+    });
     return BookingItem.fromJson(
         (data['booking'] as Map<String, dynamic>?) ?? const {});
   }

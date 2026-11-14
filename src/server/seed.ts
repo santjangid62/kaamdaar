@@ -29,6 +29,11 @@ registerSeeder((store) => {
     );
   }
 
+  // Versioned catalogue migration: keep existing admin data intact while introducing
+  // a dedicated subcategory collection for hierarchical browsing.
+  store.subcategories ??= {};
+  const settings = (store.settings ??= {});
+
   /* platform settings — live values the app and admin both read */
   if (!store.settings || Object.keys(store.settings).length === 0) {
     store.settings = {
@@ -38,10 +43,13 @@ registerSeeder((store) => {
       area_radius_km: { id: "area_radius_km", key: "Areas-we-serve radius", value: "10", scope: "Discovery", updatedAt: 0 },
       payment_modes: { id: "payment_modes", key: "Payment modes", value: "Cash, UPI", scope: "Checkout", updatedAt: 0 },
       languages: { id: "languages", key: "Languages", value: "English, हिन्दी", scope: "i18n", updatedAt: 0 },
+      catalog_schema_version: { id: "catalog_schema_version", key: "Catalogue schema version", value: "2", scope: "System", updatedAt: Date.now() },
       location_scope: { id: "location_scope", key: "Location support", value: "India only (+91, Indian PINs)", scope: "Validation", updatedAt: 0 },
       login_method: { id: "login_method", key: "Login method", value: "Phone OTP (Firebase)", scope: "Auth", updatedAt: 0 },
     };
   }
+
+  settings.catalog_schema_version ??= { id: "catalog_schema_version", key: "Catalogue schema version", value: "2", scope: "System", updatedAt: Date.now() };
 
   const siteSettings = [
     ["site_name", "Site name", "Kaamdaar", "Branding"],
@@ -56,7 +64,6 @@ registerSeeder((store) => {
     ["home_hero_title_hi", "Home hero title (Hindi)", "हर घर का हर काम तुरंत", "Homepage"],
     ["home_hero_subtitle_hi", "Home hero subtitle (Hindi)", "आपके घर और ऑफिस के हर काम के लिए वेरिफाइड प्रोफेशनल। आसानी से बुक करें, लाइव ट्रैक करें, सुरक्षित भुगतान करें।", "Homepage"],
   ] as const;
-  const settings = (store.settings ??= {});
   for (const [id, key, value, scope] of siteSettings) {
     if (!settings[id]) settings[id] = { id, key, value, scope, updatedAt: 0 };
   }

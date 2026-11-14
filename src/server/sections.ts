@@ -418,13 +418,42 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
     }
 
     /* SERVICES ---------------------------------------------------- */
+    case "subcategories": {
+      const rows = await all<{ id: string; name: string; nameHi?: string; categoryId?: string; categoryName?: string; icon?: string; active?: boolean; order?: number }>("subcategories");
+      const categoryOptions = (await all<{ id: string; name: string; active?: boolean }>("categories"))
+        .filter((c) => c.active !== false)
+        .map((c) => ({ value: c.id, label: c.name }));
+      return {
+        title: "Subcategories",
+        description: "Manage the service groups nested under each main category.",
+        columns: [
+          { key: "name", label: "Subcategory" },
+          { key: "categoryName", label: "Main category" },
+          { key: "icon", label: "Icon" },
+          { key: "status", label: "Status" },
+        ],
+        rows: rows.map((r) => ({ ...r, status: r.active === false ? "Hidden" : "Active", active: r.active === false ? "false" : "true" })),
+        collection: "subcategories",
+        fields: [
+          { key: "name", label: "Subcategory name (English)", required: true },
+          { key: "nameHi", label: "Subcategory name (Hindi)" },
+          { key: "categoryId", label: "Main category", type: "select", options: categoryOptions, required: true },
+          { key: "categoryName", label: "Category display name" },
+          { key: "icon", label: "Icon", type: "select", options: ICON_NAMES },
+          { key: "order", label: "Display order", type: "number" },
+          { key: "active", label: "Visible", type: "toggle" },
+        ],
+      };
+    }
     case "categories": {
       const rows = await all<{ id: string; name: string; active: boolean; order: number }>("categories");
       return {
         title: "Categories",
         description: "Top-level categories on the customer site.",
         columns: [
-          { key: "name", label: "Category" },
+          { key: "name", label: "Category (English)" },
+          { key: "nameHi", label: "Category (Hindi)" },
+          { key: "icon", label: "Icon" },
           { key: "order", label: "Order", align: "right" },
           { key: "status", label: "Status" },
         ],
@@ -435,7 +464,9 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
         })),
         collection: "categories",
         fields: [
-          { key: "name", label: "Category name", required: true, help: "Customer ko dikhne wali category — jaise “Cleaning”, “Kitchen”. Service add karte time yahi is dropdown me aayegi." },
+          { key: "name", label: "Category name (English)", required: true, help: "Customer-facing English category name." },
+          { key: "nameHi", label: "Category name (Hindi)", help: "Hindi translation shown alongside the English category name." },
+          { key: "icon", label: "Category icon", type: "select", options: ICON_NAMES },
           { key: "order", label: "Order (display order)", type: "number", help: "Site par kis order me dikhani hai — 1 = sabse pehle (top). Nayi category ke liye sabse bada number + 1 daal dein (jaise maujuda 3 hain to 4). Number chhota = upar, bada = neeche." },
           { key: "active", label: "Visible", type: "toggle", help: "On = category site par dikh rahi hai. Off = category aur uski saari services customer ko nahi dikhengi." },
         ],
@@ -462,6 +493,7 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
       const rows = (slug === "sub-services" ? allServices.filter((s) => s.parent) : allServices.filter((s) => !s.parent)).map((s) => ({
         id: s.id,
         name: s.name,
+        nameHi: s.nameHi ?? "",
         category: s.parent || s.category,
         price: Number(s.price ?? 0), // raw for the edit form
         priceLabel: inr(s.price ?? 0), // displayed
@@ -489,6 +521,7 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
             : "The live catalogue customers search and book — changes show on the website immediately.",
         columns: [
           { key: "name", label: "Service" },
+          { key: "nameHi", label: "Hindi name" },
           { key: "category", label: slug === "sub-services" ? "Parent" : "Category" },
           { key: "priceLabel", label: "From", align: "right" },
           { key: "duration", label: "Duration" },
@@ -498,7 +531,10 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
         rows,
         collection: "services",
         fields: [
-          { key: "name", label: "Service name", required: true, help: "Customer ko jo dikhana hai — jaise “Kitchen Cleaning”. URL slug (link) naam se hi ban jayega." },
+          { key: "name", label: "Service name (English)", required: true, help: "Customer ko jo dikhana hai — jaise “Kitchen Cleaning”. URL slug (link) naam se hi ban jayega." },
+          { key: "nameHi", label: "Service name (Hindi)" },
+          { key: "categoryId", label: "Category ID" },
+          { key: "subcategoryId", label: "Subcategory ID" },
           { key: "category", label: "Category", type: "select", options: categoryOptions, required: true, help: "Sirf wahi categories dropdown me aati hain jo aapne Categories section me add ki hain. Nayi category chahiye to pehle Categories → Add karein, phir yahan refresh karke choose karein." },
           { key: "tagline", label: "Tagline", help: "Ek chhoti selling line — card par naam ke neeche dikhti hai. Optional." },
           { key: "description", label: "Description", type: "textarea", full: true, help: "Service detail page par puri jankari. Kya hota hai is service me, kaise karte hain." },

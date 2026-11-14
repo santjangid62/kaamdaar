@@ -27,7 +27,7 @@ export default function ServicesExplorer(props: Props) {
 function Explorer({ initialQuery, initialCategory, services }: Props) {
   const router = useRouter();
   const { location } = useApp();
-  const { s } = useLang();
+  const { s, lang } = useLang();
   const catLabel = useCatLabel();
   const [q, setQ] = useState(initialQuery);
   const [cat, setCat] = useState(initialCategory);
@@ -61,6 +61,7 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
       const matchTerm =
         !term ||
         s.name.toLowerCase().includes(term) ||
+        (s.nameHi ?? "").toLowerCase().includes(term) ||
         s.category.toLowerCase().includes(term) ||
         s.tagline.toLowerCase().includes(term) ||
         s.description.toLowerCase().includes(term);
@@ -112,7 +113,7 @@ function Explorer({ initialQuery, initialCategory, services }: Props) {
                     onChange={() => go(q, cat === c ? "All" : c)}
                     className="h-4 w-4 rounded border-slate-300 accent-blue-600"
                   />
-                  <span className="flex-1">{catLabel(c)}</span>
+                  <span className="flex-1">{lang === "hi" ? (services.find((service) => service.category === c)?.categoryHi || catLabel(c)) : c}</span>
                   <span className="text-xs text-slate-400">({count})</span>
                 </label>
               </li>

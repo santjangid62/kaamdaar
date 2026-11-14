@@ -4,10 +4,13 @@
 ///   flutter run --dart-define=API_BASE=http://192.168.1.5:3100
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
 
 import 'models.dart';
 
@@ -25,7 +28,13 @@ class Api {
     defaultValue: 'https://kaamdaar-seven.vercel.app',
   );
 
-  static const Map<String, String> _headers = {'Content-Type': 'application/json'};
+  static Future<Map<String, String>> _headers() async {
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
 
   static Map<String, dynamic> _decode(http.Response r) {
     final raw = r.body.isEmpty ? '{}' : r.body;
@@ -39,7 +48,7 @@ class Api {
 
   static Future<Map<String, dynamic>> post(String path, Map body) async {
     final r = await http
-        .post(Uri.parse('$baseUrl$path'), headers: _headers, body: jsonEncode(body));
+        .post(Uri.parse('$baseUrl$path'), headers: await _headers(), body: jsonEncode(body));
     final data = _decode(r);
     if (r.statusCode >= 400) {
       throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
@@ -48,7 +57,7 @@ class Api {
   }
 
   static Future<Map<String, dynamic>> get(String path) async {
-    final r = await http.get(Uri.parse('$baseUrl$path'), headers: _headers);
+    final r = await http.get(Uri.parse('$baseUrl$path'), headers: await _headers());
     final data = _decode(r);
     if (r.statusCode >= 400) {
       throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
@@ -58,7 +67,7 @@ class Api {
 
   static Future<Map<String, dynamic>> patch(String path, Map body) async {
     final r = await http
-        .patch(Uri.parse('$baseUrl$path'), headers: _headers, body: jsonEncode(body));
+        .patch(Uri.parse('$baseUrl$path'), headers: await _headers(), body: jsonEncode(body));
     final data = _decode(r);
     if (r.statusCode >= 400) {
       throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
@@ -75,21 +84,52 @@ class Api {
     return '+91$ten';
   }
 
+  static String? _phoneVerificationId;
+
   static Future<String> sendOtp(String phone) async {
-    final data = await post('/api/auth', {'action': 'send', 'phone': e164(phone)});
-    return (data['devCode'] ?? '').toString();
+    final auth = FirebaseAuth.instance;
+    await auth.signOut();
+    _phoneVerificationId = null;
+    final completed = Completer<void>();
+    await auth.verifyPhoneNumber(
+      phoneNumber: e164(phone),
+      timeout: const Duration(seconds: 60),
+      verificationCompleted: (credential) async {
+        try { await auth.signInWithCredential(credential); } catch (_) {}
+        if (!completed.isCompleted) completed.complete();
+      },
+      verificationFailed: (error) {
+        if (!completed.isCompleted) completed.completeError(
+          ApiException(error.message ?? 'Firebase could not send OTP'));
+      },
+      codeSent: (verificationId, resendToken) {
+        _phoneVerificationId = verificationId;
+        if (!completed.isCompleted) completed.complete();
+      },
+      codeAutoRetrievalTimeout: (verificationId) {
+        _phoneVerificationId = verificationId;
+        if (!completed.isCompleted) completed.complete();
+      },
+    );
+    await completed.future;
+    return '';
   }
 
   static Future<SessionUser> verifyOtp(String phone, String code) async {
-    final data = await post(
-      '/api/auth',
-      {
-        'action': 'verify',
-        'phone': e164(phone),
-        'code': code,
-        'role': 'provider',
-      },
-    );
+    final auth = FirebaseAuth.instance;
+    final current = auth.currentUser;
+    if (current == null || e164(current.phoneNumber ?? '') != e164(phone)) {
+      final verificationId = _phoneVerificationId;
+      if (verificationId == null) throw ApiException('OTP session expired. Please resend.');
+      await auth.signInWithCredential(PhoneAuthProvider.credential(
+        verificationId: verificationId, smsCode: code.trim()));
+    }
+    final idToken = await auth.currentUser?.getIdToken(true);
+    if (idToken == null) throw ApiException('Firebase phone verification did not complete.');
+    final data = await post('/api/auth', {
+      'action': 'verify', 'phone': e164(phone), 'idToken': idToken,
+      'role': 'provider',
+    });
     final provider = data['provider'];
     if (provider is! Map<String, dynamic>) {
       throw ApiException('Provider profile was not returned');
@@ -100,6 +140,7 @@ class Api {
       firstName: (provider['name'] ?? '').toString(),
     );
     await saveSession(user);
+    _phoneVerificationId = null;
     return user;
   }
 
@@ -140,6 +181,27 @@ class Api {
   static Future<void> setOnboarded() async {
     final p = await SharedPreferences.getInstance();
     await p.setBool(_kOnboarded, true);
+  }
+
+  /// Register an FCM token only when Firebase proves the provider's phone.
+  static Future<void> registerDeviceToken(String providerId, String token) async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    final rawFirebasePhone = firebaseUser?.phoneNumber ?? '';
+    final firebasePhone = rawFirebasePhone.isEmpty ? '' : e164(rawFirebasePhone);
+    final idToken = await firebaseUser?.getIdToken(true);
+    if (idToken == null || firebasePhone.isEmpty) {
+      throw ApiException('Please sign in again to enable job notifications.');
+    }
+    final session = await restoreSession();
+    if (session == null || session.id != providerId || e164(session.phone) != firebasePhone) {
+      throw ApiException('Provider account does not match the verified Firebase number.');
+    }
+    await post('/api/providers/device-token', {
+      'providerId': providerId,
+      'token': token,
+      'platform': 'android',
+      'idToken': idToken,
+    });
   }
 
   /* --------------------------- catalogue --------------------------- */
@@ -183,8 +245,11 @@ class Api {
   }
 
   static Future<BookingItem> updateJob(
-      String id, Map<String, dynamic> changes) async {
-    final data = await patch('/api/bookings/$id', {'patch': changes});
+      String id, Map<String, dynamic> changes, {String? completionOtp}) async {
+    final data = await patch('/api/bookings/$id', {
+      if (completionOtp != null) 'completionOtp': completionOtp,
+      'patch': changes,
+    });
     return BookingItem.fromJson(
         (data['booking'] as Map<String, dynamic>?) ?? const {});
   }
@@ -192,9 +257,32 @@ class Api {
   /// First accept wins: the server answers 409 to a second Pro, stamps the
   /// profile / start OTP / ETA and withdraws the offer from everyone else.
   static Future<BookingItem> accept(BookingItem b, ProviderItem me) async {
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      throw ApiException('Job accept karne ke liye location permission zaroori hai.');
+    }
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      throw ApiException('GPS on karein, phir job accept karein.');
+    }
+
+    final position = await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 10),
+      ),
+    );
     return updateJob(b.id, {
       'status': 'accepted',
       'providerId': me.id,
+      'providerAcceptPoint': {
+        'lat': position.latitude,
+        'lng': position.longitude,
+        'accuracy': position.accuracy,
+      },
       'enrouteAt': DateTime.now().millisecondsSinceEpoch,
     });
   }

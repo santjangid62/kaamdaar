@@ -25,6 +25,7 @@ export type Collection =
   | "providers"
   | "services"
   | "categories"
+  | "subcategories"
   | "reviews"
   | "complaints"
   | "banners"
@@ -38,12 +39,13 @@ export type Collection =
   | "providerPayments"
   | "loginOtps"
   | "adminUsers"
+  | "auditLogs"
   | "settings";
 
 export const COLLECTIONS: Collection[] = [
-  "users", "addresses", "bookings", "providers", "services", "categories",
+  "users", "addresses", "bookings", "providers", "services", "categories", "subcategories",
   "reviews", "complaints", "banners", "faqs", "pages", "campaigns", "notifications",
-  "payouts", "wallets", "walletTxns", "providerPayments", "loginOtps", "adminUsers", "settings",
+  "payouts", "wallets", "walletTxns", "providerPayments", "loginOtps", "adminUsers", "auditLogs", "settings",
 ];
 
 export type Store = Partial<Record<Collection, Record<string, Doc>>> & { seeded?: boolean };
@@ -208,14 +210,15 @@ const mongoEngine = {
     const meta = db.collection(META_COLLECTION);
     const flag = await meta.findOne({ _id: "seeded" } as Document);
     if (flag) {
-      const [services, admins, settings] = await Promise.all([
+      const [services, admins, settings, catalogueVersionCount] = await Promise.all([
         db.collection("services").countDocuments(),
         db.collection("adminUsers").countDocuments(),
         db.collection("settings").countDocuments({ _id: { $in: REQUIRED_SITE_SETTINGS } } as Document),
+        db.collection("settings").countDocuments({ _id: "catalog_schema_version" } as Document),
       ]);
       // Same rule as the file store: a data set that predates a collection is
       // re-seeded, an existing-but-empty collection is the admin's own state.
-      if (services > 0 && admins > 0 && settings === REQUIRED_SITE_SETTINGS.length) return;
+      if (services > 0 && admins > 0 && settings === REQUIRED_SITE_SETTINGS.length && catalogueVersionCount > 0) return;
     }
 
     await import("./seed");
@@ -387,11 +390,12 @@ const fileEngine = {
   async seed(): Promise<void> {
     const store = await readStore();
     const hasSiteSettings = REQUIRED_SITE_SETTINGS.every((id) => Boolean(store.settings?.[id]));
+    const hasCatalogueVersion = Boolean(store.settings?.catalog_schema_version);
     // Seeders are idempotent. The flag alone is not enough: an older data file
     // can predate a collection (e.g. `services`), so run them again until the
     // core collections exist. An existing-but-empty collection is left alone —
     // that is the Admin panel's own state, not a missing seed.
-    if (store.seeded && store.services && hasSiteSettings && store.adminUsers) return;
+    if (store.seeded && store.services && hasSiteSettings && hasCatalogueVersion && store.adminUsers) return;
     // dynamic import: registering side effects must run after this module is
     // fully evaluated (the seeder module imports `registerSeeder` from here)
     await import("./seed");
@@ -464,6 +468,79 @@ export async function count(col: Collection): Promise<number> {
 
 export async function resetCollection(col: Collection): Promise<void> {
   return engine.reset(col);
+}
+
+/**
+ * Atomically reserve a live dispatch for exactly one notified professional.
+ * MongoDB provides the production compare-and-set; the file engine serializes
+ * competing claims through the same write queue used by local development.
+ */
+export async function claimDispatchedBooking(
+  id: string,
+  providerId: string,
+  now: number,
+): Promise<boolean> {
+  if (MONGODB_URI) {
+    // Booking documents use string application IDs, not inferred ObjectIds.
+    const collection = (await mongoDb()).collection<Document>("bookings");
+    const filter = {
+      status: "dispatched",
+      providerId: "",
+      notifiedIds: providerId,
+      offerExpiresAt: { $gt: now },
+    } as Document;
+    const update = {
+      $set: {
+        status: "accepted",
+        providerId,
+        acceptedAt: now,
+        notifiedIds: [],
+        updatedAt: now,
+      },
+    };
+    const options = { returnDocument: "after" as const, includeResultMetadata: false };
+    // Booking ids are stored as string _id values by this repository; the
+    // MongoDB driver's default Document type otherwise assumes ObjectId.
+    const claimed = await collection.findOneAndUpdate({ ...filter, _id: id } as never, update, options)
+      ?? await collection.findOneAndUpdate({ ...filter, id } as never, update, options);
+    return Boolean(claimed);
+  }
+
+  let claimed = false;
+  const run = async () => {
+    const store = await readStore();
+    const current = store.bookings?.[id] as (Doc & {
+      status?: string;
+      providerId?: string;
+      notifiedIds?: string[];
+      offerExpiresAt?: number;
+    }) | undefined;
+    if (
+      !current ||
+      current.status !== "dispatched" ||
+      (current.providerId ?? "") !== "" ||
+      !(current.notifiedIds ?? []).includes(providerId) ||
+      typeof current.offerExpiresAt !== "number" ||
+      current.offerExpiresAt <= now
+    ) return;
+    store.bookings ??= {};
+    store.bookings[id] = {
+      ...current,
+      status: "accepted",
+      providerId,
+      acceptedAt: now,
+      notifiedIds: [],
+      updatedAt: now,
+    };
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    const tmp = `${DB_FILE}.${process.pid}.claim.tmp`;
+    await fs.writeFile(tmp, JSON.stringify(store, null, 2), "utf8");
+    await replaceFile(tmp, DB_FILE);
+    claimed = true;
+  };
+  queue = queue.then(run, run);
+  await queue;
+  return claimed;
 }
 
 /* ── seeding ────────────────────────────────────────────────────── */

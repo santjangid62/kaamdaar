@@ -11,6 +11,7 @@
 import { NextResponse } from "next/server";
 import { all, insert, patch, ready } from "../../../../server/db";
 import type { Provider } from "../../../../lib/types";
+import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
 
 /** Last 10 digits — tolerates +91, spaces and dashes. */
 function digits(phone: string): string {
@@ -32,8 +33,10 @@ async function findByPhone(phone: string): Promise<Provider | null> {
 
 export async function GET(req: Request) {
   await ready();
-  const phone = new URL(req.url).searchParams.get("phone") ?? "";
-  if (!validPhone(phone)) {
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  const phone = new URL(req.url).searchParams.get("phone") ?? identity.phone;
+  if (normalizeIndianPhone(phone) !== identity.phone || !validPhone(phone)) {
     return NextResponse.json({ error: "Valid Indian mobile is required" }, { status: 422 });
   }
   const provider = await findByPhone(phone);
@@ -42,6 +45,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   await ready();
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
   let body: Partial<Provider> & { phone?: string };
   try {
     body = (await req.json()) as typeof body;
@@ -49,8 +54,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const phone = body.phone ?? "";
-  if (!validPhone(phone)) {
+  const phone = identity.phone;
+  if ((body.phone && normalizeIndianPhone(body.phone) !== identity.phone) || !validPhone(phone)) {
     return NextResponse.json({ error: "Valid Indian mobile is required" }, { status: 422 });
   }
 
@@ -72,6 +77,9 @@ export async function POST(req: Request) {
 
   const lat = Number(body.lat);
   const lng = Number(body.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    return NextResponse.json({ error: "A valid current location is required" }, { status: 422 });
+  }
   const experience = Number(body.experience ?? 0);
 
   const existing = await findByPhone(phone);
@@ -80,9 +88,9 @@ export async function POST(req: Request) {
     phone,
     services,
     city,
-    lat: Number.isFinite(lat) ? lat : 26.9124,
-    lng: Number.isFinite(lng) ? lng : 75.7873,
-    experience: Number.isFinite(experience) ? experience : 0,
+    lat,
+    lng,
+    experience: Number.isFinite(experience) ? Math.max(0, experience) : 0,
   };
 
   if (existing) {

@@ -1,6 +1,7 @@
 /** PATCH /api/users/:id — profile update with the same validation as the UI. */
 import { NextResponse } from "next/server";
-import { patch, ready } from "../../../../server/db";
+import { all, patch, ready } from "../../../../server/db";
+import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
 
 const NAME = /^[\p{L}][\p{L}\s'.-]*$/u;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -8,6 +9,13 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   await ready();
   const { id } = await ctx.params;
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  const users = await all<{ id: string; phone?: string }>("users");
+  const owner = users.find((u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
+  if (!owner || owner.id !== id) {
+    return NextResponse.json({ error: "You can only update your own profile" }, { status: 403 });
+  }
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;

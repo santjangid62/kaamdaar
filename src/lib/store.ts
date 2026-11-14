@@ -9,11 +9,21 @@
  */
 
 import type { Address, Booking, User } from "./types";
+import { getFirebaseAuth, isFirebaseConfigured } from "./firebase";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  let authorization: Record<string, string> = {};
+  if (isFirebaseConfigured) {
+    try {
+      const token = await getFirebaseAuth().currentUser?.getIdToken();
+      if (token) authorization = { Authorization: `Bearer ${token}` };
+    } catch {
+      // Public catalogue and pre-auth requests remain usable without a token.
+    }
+  }
   const res = await fetch(path, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: { "Content-Type": "application/json", ...authorization, ...(init?.headers ?? {}) },
   });
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
@@ -148,11 +158,12 @@ export async function updateBooking(
   userId: string,
   id: string,
   patch: Partial<Booking>,
+  completionOtp?: string,
 ): Promise<Booking | null> {
   try {
     const data = await api<{ booking: Booking | null }>(
       `/api/bookings/${encodeURIComponent(id)}`,
-      { method: "PATCH", body: JSON.stringify({ userId, patch }) },
+      { method: "PATCH", body: JSON.stringify({ userId, patch, ...(completionOtp ? { completionOtp } : {}) }) },
     );
     return data.booking;
   } catch {

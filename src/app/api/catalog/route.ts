@@ -26,9 +26,10 @@ export async function GET(req: Request) {
   const hasPoint =
     latRaw !== null && lngRaw !== null && Number.isFinite(lat) && Number.isFinite(lng);
 
-  const [live, categories, settings, providers] = await Promise.all([
+  const [live, categories, subcategories, settings, providers] = await Promise.all([
     getServices(),
-    all<{ id: string; name: string; active: boolean; order: number }>("categories"),
+    all<{ id: string; name: string; nameHi?: string; icon?: string; active: boolean; order: number }>("categories"),
+    all<{ id: string; name: string; nameHi?: string; categoryId: string; categoryName?: string; icon?: string; active?: boolean; order?: number }>("subcategories"),
     all<{ id: string; key: string; value: string; scope: string }>("settings"),
     hasPoint ? all<Provider>("providers") : Promise.resolve<Provider[]>([]),
   ]);
@@ -60,6 +61,8 @@ export async function GET(req: Request) {
   return NextResponse.json({
     services,
     categories: [...catNames],
+    categoryRecords: categories.filter((c) => c.active),
+    subcategories: subcategories.filter((s) => s.active !== false),
     settings: Object.fromEntries(settings.map((s) => [s.id, s.value])),
     areaRadiusKm,
   });
