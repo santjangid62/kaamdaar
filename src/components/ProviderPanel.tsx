@@ -329,7 +329,7 @@ export default function ProviderPanel({
     );
   }
 
-  if (booking && ["accepted", "enroute", "arrived"].includes(status ?? "")) {
+  if (booking && ["accepted", "scheduled", "enroute", "arrived"].includes(status ?? "")) {
     requestBody = <>{requestBody}
       <button type="button" onClick={() => void cancelAssignedJob()} disabled={busy}
         className="mt-3 w-full rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 disabled:opacity-50">
