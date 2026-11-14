@@ -120,15 +120,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       return NextResponse.json({ error: "Invalid provider booking status" }, { status: 403 });
     }
     if (changes.status === "cancelled") {
-      if (!["accepted", "enroute", "arrived"].includes(booking.status)) {
+      if (!["accepted", "scheduled", "enroute", "arrived"].includes(booking.status)) {
         return NextResponse.json({ error: "Provider can cancel only an accepted job before work starts" }, { status: 409 });
       }
       changes.cancelledAt = Date.now();
       changes.cancelledBy = "provider";
       changes.cancellationReason = String((body.patch as Record<string, unknown>)?.cancellationReason ?? "Cancelled by provider").slice(0, 300);
-      changes.providerId = "";
-      changes.providerName = "";
-      changes.providerProfile = undefined;
+      // Keep the assigned provider snapshot on the cancelled booking for Admin audit/history.
     }
     if (changes.status === "enroute" && booking.status !== "accepted") {
       return NextResponse.json({ error: "Navigation can start only after accepting the job" }, { status: 409 });
