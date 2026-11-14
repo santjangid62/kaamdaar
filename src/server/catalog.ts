@@ -1,5 +1,6 @@
 /** Server-side catalogue reads (used by pages and the assistant API). */
-import { all, ready } from "./db";
+import { all, patch, ready } from "./db";
+import { categoryIconKey } from "../lib/service-icons";
 import type { PriceUnit, Service } from "../lib/types";
 
 export type ServiceRow = Service & { active?: boolean; order?: number; parent?: string };
@@ -39,9 +40,18 @@ export async function getServices(includeHidden = false): Promise<ServiceRow[]> 
   await ready();
   const [rows, categories] = await Promise.all([all<ServiceRow>("services"), all<{ id: string; name: string; active?: boolean }>("categories")]);
   const categoryIdByName = new Map(categories.map((category) => [category.name.trim().toLowerCase(), category.id]));
+  // Persist a category-matched icon on legacy/imported rows once. Admin-selected
+  // icons are never overwritten; homepage and catalogue now share this DB value.
+  const missingIcons = rows.filter((s) => !s.icon);
+  await Promise.all(missingIcons.map((s) =>
+    patch("services", s.id, { icon: categoryIconKey(s.name ?? s.id, s.category ?? "") }),
+  ));
   return rows
     .map((s) => {
-      const normalized = normalizeService(s);
+      const normalized = normalizeService({
+        ...s,
+        icon: s.icon || categoryIconKey(s.name ?? s.id, s.category ?? ""),
+      });
       return { ...normalized, categoryId: normalized.categoryId || categoryIdByName.get(normalized.category.toLowerCase()) };
     })
     .filter((s) => includeHidden || s.active !== false)

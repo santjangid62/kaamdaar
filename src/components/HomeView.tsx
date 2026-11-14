@@ -299,19 +299,19 @@ export default function HomeView() {
           </Link>
         </div>
 
-        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-4 xl:gap-6">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
           {tiles.map((t) => {
             // tile map first (extra ids), then admin-chosen / id-based icon
             const Icon =
-              TILE_ICONS[t.id] ??
               (t.icon ? ICONS[t.icon] : undefined) ??
+              TILE_ICONS[t.id] ??
               SERVICE_ICONS[t.id] ??
               FALLBACK_ICON;
             return (
               <Link
                 key={t.id}
                 href={`/services/${t.id}`}
-                className="card group flex min-h-[204px] flex-col items-center justify-start gap-4 rounded-2xl p-5 text-center transition duration-200 hover:-translate-y-1 hover:border-blue-300 hover:shadow-xl sm:min-h-[220px] sm:p-6"
+                className="card group relative flex min-h-[148px] flex-col items-center justify-start gap-2.5 overflow-hidden rounded-2xl p-3.5 text-center transition duration-200 hover:-translate-y-1 hover:border-blue-300 hover:shadow-xl sm:min-h-[156px] sm:p-4"
               >
                 {t.image ? (
                   <Image
@@ -320,15 +320,15 @@ export default function HomeView() {
                     width={48}
                     height={48}
                     unoptimized
-                    className="h-14 w-14 rounded-2xl object-cover transition group-hover:scale-105 sm:h-16 sm:w-16"
+                    className="h-11 w-11 rounded-xl object-cover transition group-hover:scale-105 sm:h-12 sm:w-12"
                   />
                 ) : (
-                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-600 shadow-sm transition group-hover:bg-flame group-hover:text-white sm:h-16 sm:w-16">
-                    <Icon className="h-7 w-7 sm:h-8 sm:w-8" />
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-blue-50 to-sky-100 text-blue-700 shadow-sm ring-1 ring-blue-100 transition group-hover:scale-105 group-hover:from-orange-50 group-hover:to-orange-100 group-hover:text-orange-600 sm:h-12 sm:w-12">
+                    <Icon className="h-5 w-5 sm:h-[22px] sm:w-[22px]" />
                   </span>
                 )}
                 <span title={t.name}
-                  className="line-clamp-4 text-sm font-semibold leading-5 text-slate-800 sm:text-[15px] sm:leading-[1.35rem]">
+                  className="line-clamp-3 text-[12px] font-semibold leading-[1.1rem] text-slate-800 sm:text-[13px] sm:leading-5">
                   {tileLabel(t.id, t.name)}
                 </span>
               </Link>
@@ -336,10 +336,10 @@ export default function HomeView() {
           })}
           <Link
             href="/services"
-            className="card group flex min-h-[204px] flex-col items-center justify-center gap-4 rounded-2xl p-5 text-center transition hover:-translate-y-1 hover:border-flame-400 hover:shadow-xl sm:min-h-[220px] sm:p-6"
+            className="card group flex min-h-[148px] flex-col items-center justify-center gap-2.5 rounded-2xl p-3.5 text-center transition hover:-translate-y-1 hover:border-flame-400 hover:shadow-xl sm:min-h-[156px] sm:p-4"
           >
-            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-flame-50 text-flame-600 transition group-hover:bg-flame group-hover:text-white sm:h-16 sm:w-16">
-              <LayoutGrid className="h-6 w-6" />
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-flame-50 text-flame-600 transition group-hover:bg-flame group-hover:text-white sm:h-12 sm:w-12">
+              <LayoutGrid className="h-5 w-5" />
             </span>
             <span className="text-sm font-semibold leading-5 text-slate-800 sm:text-[15px]">
               {lang === "hi" ? "और सेवाएं" : "More Services"}
