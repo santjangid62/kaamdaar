@@ -169,6 +169,8 @@ export interface Booking {
   completedAt?: number;
   paidAt?: number;
   paymentMethod?: PaymentMethod;
+  /** Transient provider PATCH flag; the API consumes it and does not persist it. */
+  paymentReported?: boolean;
   paymentStatus?: "unpaid" | "reported" | "verified" | "disputed";
   paymentReportedAt?: number;
   paymentReportedBy?: string;
