@@ -582,7 +582,7 @@ function ProvidersFlow() {
             ? {
                 id: candidates[0].provider.id,
                 name: candidates[0].provider.name,
-                service: labels(service).name,
+                service: [labels(service).name, ...selectedAddOns.map((item) => item.name)].join(" + "),
                 distanceKm: candidates[0].distanceKm,
               }
             : null
