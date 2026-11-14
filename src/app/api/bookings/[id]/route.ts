@@ -1,6 +1,6 @@
 /** PATCH /api/bookings/:id — dispatch lifecycle updates (owner-checked). */
 import { NextResponse } from "next/server";
-import { all, claimDispatchedBooking, get, patch, ready } from "../../../../server/db";
+import { all, claimDispatchedBooking, get, insert, patch, ready, uid } from "../../../../server/db";
 import { minWallet } from "../../../../server/settings";
 import { debitCommission, type WalletTxn } from "../../../../server/wallet";
 import { etaMinutes, generateOtp, toProfile } from "../../../../lib/dispatch";
@@ -363,6 +363,21 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
   const updated = await patch<Booking>("bookings", id, changes);
   if (!updated) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  if (changes.paymentReportedAt && actorRole === "provider") {
+    await insert("notifications", {
+      id: uid("ntf"),
+      type: "booking_payment_report",
+      title: "Provider reported a booking payment",
+      message: `${booking.providerName} reported ${String(changes.paymentMethod).toUpperCase()} collection of ₹${booking.amount} for booking ${booking.id}. Admin verification is pending.`,
+      userId: booking.userId,
+      userName: booking.providerName || "Provider",
+      phone: "",
+      platform: "Booking payment",
+      bookingId: booking.id,
+      readAt: null,
+      createdAt: Date.now(),
+    });
+  }
   if (changes.paidAt && !booking.paidAt && booking.providerId) {
     const txns = await all<WalletTxn>("walletTxns");
     const alreadyDebited = txns.some((txn) => txn.bookingId === booking.id && txn.kind === "commission");
