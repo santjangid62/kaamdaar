@@ -218,6 +218,40 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
   }
 
+  Future<void> _cancelJob() async {
+    final b = _booking;
+    if (b == null) return;
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel this job?'),
+        content: TextField(controller: controller, maxLines: 3, decoration: const InputDecoration(labelText: 'Cancellation reason (required)')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Keep job')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: PColors.red),
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Confirm cancellation'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (reason == null || reason.trim().length < 3) return;
+    await _patch({'status': 'cancelled', 'cancellationReason': reason.trim()});
+    await _refresh();
+  }
+
+  Widget _cancelAction(BookingItem b) {
+    return OutlinedButton.icon(
+      onPressed: _busy ? null : _cancelJob,
+      icon: const Icon(Icons.cancel_outlined, color: PColors.red),
+      label: const Text('Cancel job (reason required)', style: TextStyle(color: PColors.red)),
+      style: OutlinedButton.styleFrom(side: const BorderSide(color: PColors.red)),
+    );
+  }
+
   Future<void> _takePayment() async {
     final b = _booking;
     final me = _me;
@@ -327,6 +361,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       ],
                       const SizedBox(height: 16),
                       _primaryAction(b),
+                      if (['accepted', 'enroute', 'arrived'].contains(b.status)) ...[
+                        const SizedBox(height: 8),
+                        _cancelAction(b),
+                      ],
                       const SizedBox(height: 24),
                     ],
                   ),
