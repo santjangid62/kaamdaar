@@ -94,9 +94,12 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       return NextResponse.json({ error: "Customers cannot edit provider or dispatch fields" }, { status: 403 });
     }
     if (changes.status === "cancelled") {
-      if (booking.status === "completed" || booking.status === "cancelled") {
-        return NextResponse.json({ error: "This booking can no longer be cancelled" }, { status: 409 });
+      if (["completed", "cancelled", "in_progress", "pending_confirm"].includes(booking.status)) {
+        return NextResponse.json({ error: "This booking can no longer be cancelled at this stage. Contact support." }, { status: 409 });
       }
+      changes.cancelledAt = Date.now();
+      changes.cancelledBy = "customer";
+      changes.cancellationReason = "Cancelled by customer";
     } else if (changes.status !== undefined) {
       return NextResponse.json({ error: "Customers can only cancel an active booking" }, { status: 403 });
     }
