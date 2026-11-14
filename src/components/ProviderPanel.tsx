@@ -67,6 +67,8 @@ export default function ProviderPanel({
   const [otp, setOtp] = useState("");
   const [error, setError] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi">("cash");
+  const [paymentReference, setPaymentReference] = useState("");
 
   const proId = booking?.providerId || candidate?.id || null;
   const proName = booking?.providerProfile?.name || candidate?.name || "—";
@@ -150,10 +152,10 @@ export default function ProviderPanel({
     setBusy(true);
     try {
       await updateBooking(booking.userId, booking.id, {
-        paidAt: Date.now(),
-        paymentMethod: "cash",
-      });
-      setWalletState(await getWallet(booking.providerId));
+        paymentReported: true,
+        paymentMethod,
+        paymentReference: paymentMethod === "upi" ? paymentReference.trim() : "",
+      } as Partial<Booking>);
       onChanged?.();
     } finally {
       setBusy(false);
@@ -286,25 +288,30 @@ export default function ProviderPanel({
   } else if (booking && status === "completed") {
     requestBody = (
       <div className="space-y-3">
-        <div className="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-          {booking.paidAt
-            ? fill(d.paidNote, {
-                amt: booking.amount,
-                method: booking.paymentMethod === "upi" ? d.payUpi : d.payCash,
-                comm: commissionOf(booking.amount),
-              })
-            : "Customer se payment receive hone ke baad mark karein."}
+        <div className={`rounded-2xl border p-4 text-sm ${booking.paymentStatus === "verified" || booking.paidAt ? "border-green-200 bg-green-50 text-green-800" : booking.paymentStatus === "reported" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+          {booking.paymentStatus === "verified" || booking.paidAt
+            ? "Payment Admin dwara verify ho chuka hai."
+            : booking.paymentStatus === "reported"
+              ? "Payment report Admin ko bhej di gayi hai. Verification pending hai."
+              : booking.paymentStatus === "disputed"
+                ? "Payment report par Admin ne clarification maangi hai. Support se sampark karein."
+                : "Customer se payment receive hone ke baad method select karke report karein. Admin verification ke baad hi payment final hogi."}
         </div>
-        {!booking.paidAt && (
-          <button type="button" onClick={() => void collectPayment()} disabled={busy} className="btn-primary w-full justify-center">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            Payment Received (Cash)
-          </button>
+        {!booking.paidAt && booking.paymentStatus !== "reported" && (
+          <div className="space-y-2">
+            <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as "cash" | "upi")} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm">
+              <option value="cash">Cash received</option><option value="upi">UPI received</option>
+            </select>
+            {paymentMethod === "upi" && <input value={paymentReference} onChange={e => setPaymentReference(e.target.value)} placeholder="UPI transaction/reference ID" className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"/>}
+            <button type="button" onClick={() => void collectPayment()} disabled={busy || (paymentMethod === "upi" && paymentReference.trim().length < 6)} className="btn-primary w-full justify-center">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Report Payment to Admin
+            </button>
+          </div>
         )}
-        {booking.paidAt && wallet && (
+        {(booking.paymentStatus === "verified" || booking.paidAt) && wallet && (
           <p className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200">
-            {d.balance}
-            <span className="font-extrabold text-navy">₹{wallet.balance}</span>
+            {d.balance}<span className="font-extrabold text-navy">₹{wallet.balance}</span>
           </p>
         )}
       </div>
