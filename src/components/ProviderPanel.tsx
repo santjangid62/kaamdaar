@@ -308,7 +308,7 @@ export default function ProviderPanel({
                 ? "Payment report par Admin ne clarification maangi hai. Support se sampark karein."
                 : "Customer se payment receive hone ke baad method select karke report karein. Admin verification ke baad hi payment final hogi."}
         </div>
-        {!booking.paidAt && booking.paymentStatus !== "reported" && (
+        {!booking.paidAt && !booking.paymentReportedAt && booking.paymentStatus !== "reported" && (
           <div className="space-y-2">
             <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as "cash" | "upi")} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm">
               <option value="cash">Cash received</option><option value="upi">UPI received</option>
