@@ -103,13 +103,13 @@ export async function POST(req: Request) {
   const selectedRows = [parentService, ...selectedSubs.filter(Boolean) as Service[]];
   const amount = selectedRows.reduce((sum, s) => sum + Math.max(0, Number(s.price) || 0), 0);
   const durationMinutes = selectedRows.reduce((sum, s) => sum + Math.max(0, Number((s as Service & { durationMinutes?: number }).durationMinutes) || (() => {
-    const matches = String(s.duration ?? "").match(/\\d+/g) ?? [];
+    const matches = String(s.duration ?? "").match(/\d+/g) ?? [];
     return matches.length ? Math.round(matches.map(Number).reduce((a,b)=>a+b,0) / matches.length) : 0;
   })()), 0);
   const serviceItems = selectedRows.map((s) => ({
     id: s.id, name: s.name, price: Number(s.price) || 0,
     durationMinutes: Math.max(0, Number((s as Service & { durationMinutes?: number }).durationMinutes) || (() => {
-      const matches = String(s.duration ?? "").match(/\\d+/g) ?? [];
+      const matches = String(s.duration ?? "").match(/\d+/g) ?? [];
       return matches.length ? Math.round(matches.map(Number).reduce((a,b)=>a+b,0) / matches.length) : 0;
     })()),
   }));
