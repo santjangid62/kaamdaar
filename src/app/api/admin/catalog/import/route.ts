@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   const missing = required.filter((name) => index(name) < 0);
   if (missing.length) return NextResponse.json({ error: `Missing columns: ${missing.join(", ")}` }, { status: 400 });
 
-  const categories = new Map<string, { id: string; name: string; active: boolean; order: number }>();
+  const categories = new Map<string, { id: string; name: string; nameHi?: string; active: boolean; order: number }>();
   const subcategories: Array<Record<string, unknown>> = [];
   const services: Array<Record<string, unknown>> = [];
   const seen = new Set<string>();
