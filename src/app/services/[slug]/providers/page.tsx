@@ -147,7 +147,7 @@ function ProvidersFlow() {
   const minutesFor = (item: Service) => {
     const explicit = Number((item as Service & { durationMinutes?: number }).durationMinutes);
     if (explicit > 0) return explicit;
-    const nums = item.duration.match(/\\d+/g)?.map(Number) ?? [];
+    const nums = item.duration.match(/\d+/g)?.map(Number) ?? [];
     return nums.length ? Math.round(nums.reduce((a,b)=>a+b,0) / nums.length) : 0;
   };
   const bookingDuration = service ? minutesFor(service) + selectedAddOns.reduce((sum,item)=>sum+minutesFor(item),0) : 0;
