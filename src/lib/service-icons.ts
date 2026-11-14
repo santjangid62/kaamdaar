@@ -22,6 +22,15 @@ import {
   Wrench,
   PaintRoller,
   AirVent,
+  Baby,
+  Camera,
+  FileText,
+  Flower2,
+  Gem,
+  GraduationCap,
+  Music2,
+  Scissors,
+  Tv,
   Utensils,
   Wind,
   LayoutGrid,
@@ -50,6 +59,17 @@ export const SERVICE_ICONS: Record<string, LucideIcon> = {
   "after-party-express-clean": Broom,
   "packing-unpacking": Package,
   "plant-care": Sprout,
+  "hair-styling": Scissors,
+  "beauty-services": Sparkles,
+  "baby-care": Baby,
+  "child-care": Baby,
+  "tutoring": GraduationCap,
+  "document-services": FileText,
+  "tv-repair": Tv,
+  "cctv-installation": Camera,
+  "puja-services": Flower2,
+  "jewellery-repair": Gem,
+  "music-classes": Music2,
 };
 
 /**
@@ -73,6 +93,15 @@ export const ICONS: Record<string, LucideIcon> = {
   broom: Broom,
   grid: AppWindow,
   star: Sparkles,
+  scissors: Scissors,
+  baby: Baby,
+  camera: Camera,
+  tv: Tv,
+  file: FileText,
+  flower: Flower2,
+  gem: Gem,
+  graduation: GraduationCap,
+  music: Music2,
 };
 
 /** Values shown in the Admin “Icon” dropdown. */
@@ -103,4 +132,32 @@ export function serviceTone(category: string): string {
       // Flexible Help and anything new
       return "from-flame-400 to-flame-600";
   }
+}
+
+/** Pick a stable Lucide icon key from the service name/category for imported catalogue rows. */
+export function categoryIconKey(name: string, category = ""): string {
+  const value = `${category} ${name}`.toLowerCase();
+  if (/hair|salon|beaut|makeup|spa|mehndi|bridal|groom/.test(value)) return "scissors";
+  if (/cook|chef|kitchen|food|utensil|tiffin/.test(value)) return "chefhat";
+  if (/water|ro |purifier|filter|plumb|bathroom|tap/.test(value)) return "droplets";
+  if (/electric|wiring|fan|ac |air condition|appliance/.test(value)) return "plug";
+  if (/tv|television|led|electronics|refrigerator|fridge/.test(value)) return "tv";
+  if (/car|vehicle|bike|auto|rickshaw|mechanic/.test(value)) return "car";
+  if (/clean|sweep|mop|dust|pest|sanit/.test(value)) return "broom";
+  if (/laundry|iron|cloth|wash|dry clean/.test(value)) return "shirt";
+  if (/paint|painter|wall/.test(value)) return "paint";
+  if (/carpent|furniture|wood|welder|weld|fabricat/.test(value)) return "hammer";
+  if (/baby|nanny|child|caregiver/.test(value)) return "baby";
+  if (/tutor|teacher|education|coach|class|training/.test(value)) return "graduation";
+  if (/csc|online form|document|form filling|cyber|computer/.test(value)) return "file";
+  if (/puja|ritual|priest|flower|decoration/.test(value)) return "flower";
+  if (/cctv|camera|security|surveillance|lock/.test(value)) return "camera";
+  if (/jewel|goldsmith|gold|silver|ornament/.test(value)) return "gem";
+  if (/dance|music|sing|dj|instrument/.test(value)) return "music";
+  if (/plant|garden|lawn|gardener/.test(value)) return "sprout";
+  if (/pack|move|shift|delivery/.test(value)) return "package";
+  if (/kitchen/.test(category.toLowerCase())) return "chefhat";
+  if (/laundry/.test(category.toLowerCase())) return "shirt";
+  if (/clean/.test(category.toLowerCase())) return "broom";
+  return "wrench";
 }
