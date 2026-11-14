@@ -100,6 +100,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       changes.cancelledAt = Date.now();
       changes.cancelledBy = "customer";
       changes.cancellationReason = "Cancelled by customer";
+      changes.notifiedIds = [];
     } else if (changes.status !== undefined) {
       return NextResponse.json({ error: "Customers can only cancel an active booking" }, { status: 403 });
     }
@@ -346,7 +347,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
         detail:
           changes.status === "accepted" && changes.providerName
             ? `${String(changes.providerName)} accepted · ETA ${Number(changes.etaMinutes ?? 0)} min`
-            : undefined,
+            : changes.status === "cancelled" ? String(changes.cancellationReason ?? "Booking cancelled") : undefined,
       }),
     );
   }
