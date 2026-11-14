@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { UploadCloud, CheckCircle2, AlertCircle, FileSpreadsheet } from "lucide-react";
 
-type Result = { categories: number; subcategories: number; services: number };
+type Result = { categories: number; services: number; subServices: number; skipped: number };
 
 export default function CatalogImportClient() {
   const [file, setFile] = useState<File | null>(null);
@@ -14,7 +14,7 @@ export default function CatalogImportClient() {
   function downloadTemplate() {
     const headers = ["category_id","category_name_en","category_name_hi","category_order","service_id","service_name_en","service_name_hi","service_price","service_duration_minutes","service_unit","service_tagline","service_description_en","service_description_hi","service_order","sub_service_id","sub_service_name_en","sub_service_name_hi","sub_service_price","sub_service_duration_minutes","sub_service_unit","sub_service_tagline","sub_service_description_en"];
     const sample = ["hair-beauty","Hair & Beauty","हेयर और ब्यूटी","1","haircut","Hair Cutting","हेयर कटिंग","299","45","per task","Professional haircut","Hair cutting service","बाल काटने की सेवा","1","kids-haircut","Kids Haircut","बच्चों के बाल कटिंग","149","20","per task","Gentle haircut for kids","Haircut add-on for children"];
-    const csv = [headers, sample].map(row => row.map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\\r\\n");
+    const csv = [headers, sample].map(row => row.map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a"); a.href = url; a.download = "kaamdaar-catalogue-template.csv"; a.click(); URL.revokeObjectURL(url);
   }
@@ -64,7 +64,7 @@ export default function CatalogImportClient() {
       <div className="mt-4 grid grid-cols-3 gap-3 text-center">
         {Object.entries(result).map(([label,count])=><div key={label} className="rounded-lg bg-white p-3"><div className="text-2xl font-extrabold text-slate-900">{count}</div><div className="text-xs capitalize text-slate-500">{label}</div></div>)}
       </div>
-      <p className="mt-4 text-xs text-emerald-800">Demo prices, durations and descriptions are placeholders. Review every service before enabling real customer bookings.</p>
+      <p className="mt-4 text-xs text-emerald-800">Imported service prices and durations are taken from your CSV. Review the catalogue before activating customer bookings.</p>
     </div>}
     <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
       <strong>CSV format:</strong> category_id + category_name_en/hi, service_id + service_name_en/hi + price + duration_minutes. Optional sub_service_id/name/price/duration columns create selectable add-ons under that parent service. Repeat the same category/service IDs on rows that belong together. Use unique IDs (letters, numbers, hyphens). Duration is entered in minutes.
