@@ -15,11 +15,11 @@ type DashboardData = {
 };
 const money=(v:number)=>"₹"+Math.round(v).toLocaleString("en-IN");
 const num=(v:number)=>v.toLocaleString("en-IN");
-const sections=[
+const sections: {title:string;items:[string,string,typeof Users][]}[] = [
   {title:"Platform Operations",items:[["Bookings","/admin/all-bookings",ClipboardList],["Live Operations","/admin/live-bookings",Activity],["Customers","/admin/customers",Users],["Providers","/admin/service-providers",BriefcaseBusiness],["Services Catalogue","/admin/services",BookOpen],["Pricing & Commission","/admin/pricing-commission",Banknote]]},
   {title:"Finance & Trust",items:[["Payments & Wallets","/admin/payments",Wallet],["Provider Payouts","/admin/provider-payouts",Banknote],["KYC Management","/admin/kyc-queue",ShieldCheck],["Reviews & Ratings","/admin/reviews",Star],["Complaints","/admin/customer-complaints",Headphones]]},
   {title:"Control Centre",items:[["Admin Users","/admin/admin-users",Users],["Roles & Permissions","/admin/roles-permissions",ShieldCheck],["Reports & Insights","/admin/reports",FileBarChart],["Notifications","/admin/notifications",Bell],["System Settings","/admin/system-settings",Settings],["Activity Logs","/admin/activity-log",Activity]]},
-] as const;
+];
 function Metric({label,value,sub,icon:Icon,tone="blue"}:{label:string;value:string;sub:string;icon:typeof Users;tone?:string}) {
  const tones:Record<string,string>={blue:"bg-blue-600",green:"bg-emerald-500",orange:"bg-orange-500",purple:"bg-violet-500",red:"bg-rose-500",gold:"bg-amber-500"};
  return <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-2 text-2xl font-extrabold tracking-tight text-[#102a56]">{value}</p><p className="mt-1 text-[11px] text-slate-500">{sub}</p></div><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white ${tones[tone]??tones.blue}`}><Icon size={19}/></span></div></div>;
