@@ -310,8 +310,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       });
       await _refresh();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Payment report Admin ko bhej di gayi hai. Verification pending hai.')));
+      if (_booking?.paymentStatus == 'reported') {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Payment report Admin ko bhej di gayi hai. Verification pending hai.')));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
