@@ -347,7 +347,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
   int _minutes(ServiceItem item) {
     if (item.durationMinutes > 0) return item.durationMinutes;
-    final values = RegExp(r'\\d+').allMatches(item.duration).map((m) => int.tryParse(m.group(0) ?? '') ?? 0).where((n) => n > 0).toList();
+    final values = RegExp(r'\d+').allMatches(item.duration).map((m) => int.tryParse(m.group(0) ?? '') ?? 0).where((n) => n > 0).toList();
     return values.isEmpty ? 0 : (values.reduce((a, b) => a + b) / values.length).round();
   }
 
