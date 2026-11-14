@@ -21,7 +21,7 @@ const ALLOWED = new Set([
   // NB: notifiedIds is deliberately absent — the notify list is server-owned,
   // so no client can dispatch a request or mask an offer from another Pro.
   "status", "providerId",
-  "paymentMethod", "date", "slot", "duration",
+  "paymentMethod", "paymentReported", "paymentReference", "date", "slot", "duration",
 ]);
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -111,9 +111,20 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     } else if (booking.providerId !== authenticatedProviderId && !body.patch?.withdrawNotify) {
       return NextResponse.json({ error: "Only the assigned provider can update this job" }, { status: 403 });
     }
-    const providerStatuses = new Set(["accepted", "enroute", "arrived", "in_progress", "pending_confirm", "completed"]);
+    const providerStatuses = new Set(["accepted", "enroute", "arrived", "in_progress", "pending_confirm", "completed", "cancelled"]);
     if (typeof changes.status === "string" && !providerStatuses.has(changes.status)) {
       return NextResponse.json({ error: "Invalid provider booking status" }, { status: 403 });
+    }
+    if (changes.status === "cancelled") {
+      if (!["accepted", "enroute", "arrived"].includes(booking.status)) {
+        return NextResponse.json({ error: "Provider can cancel only an accepted job before work starts" }, { status: 409 });
+      }
+      changes.cancelledAt = Date.now();
+      changes.cancelledBy = "provider";
+      changes.cancellationReason = String((body.patch as Record<string, unknown>)?.cancellationReason ?? "Cancelled by provider").slice(0, 300);
+      changes.providerId = "";
+      changes.providerName = "";
+      changes.providerProfile = undefined;
     }
     if (changes.status === "enroute" && booking.status !== "accepted") {
       return NextResponse.json({ error: "Navigation can start only after accepting the job" }, { status: 409 });
@@ -148,16 +159,22 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       }
       changes.completedAt = Date.now();
     }
-    if (body.patch?.paidAt !== undefined || body.patch?.paymentMethod !== undefined) {
-      if (booking.status !== "completed" || booking.paidAt) {
-        return NextResponse.json({ error: "Payment can be recorded once, after customer completion verification" }, { status: 409 });
+    if (body.patch?.paymentReported === true) {
+      if (booking.status !== "completed" || booking.paymentStatus === "verified" || booking.paymentReportedAt) {
+        return NextResponse.json({ error: "Payment can be reported once, after customer completion verification" }, { status: 409 });
       }
       const method = String(body.patch?.paymentMethod ?? "");
-      if (!new Set(["cash", "upi"]).has(method)) {
-        return NextResponse.json({ error: "Select cash or UPI payment" }, { status: 422 });
-      }
-      changes.paidAt = Date.now();
+      if (!new Set(["cash", "upi"]).has(method)) return NextResponse.json({ error: "Select cash or UPI payment" }, { status: 422 });
+      const reference = String(body.patch?.paymentReference ?? "").trim().slice(0, 100);
+      if (method === "upi" && reference.length < 6) return NextResponse.json({ error: "UPI transaction/reference ID is required for Admin verification" }, { status: 422 });
+      changes.paymentStatus = "reported";
+      changes.paymentReportedAt = Date.now();
+      changes.paymentReportedBy = authenticatedProviderId;
       changes.paymentMethod = method;
+      changes.paymentReference = reference;
+    }
+    if (body.patch?.paidAt !== undefined) {
+      return NextResponse.json({ error: "Only Admin can verify and finalize a reported payment" }, { status: 403 });
     }
   }
 
@@ -336,7 +353,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (changes.navigationStartedAt) {
     added.push(newEvent("provider", "navigation", "Pro started navigation to the customer"));
   }
-  if (changes.paidAt) added.push(newEvent("provider", "paid", "Provider confirmed payment received"));
+  if (changes.paymentReportedAt) added.push(newEvent("provider", "payment_reported", `Provider reported ${String(changes.paymentMethod).toUpperCase()} payment; awaiting Admin verification`));
   if (pinged && !booking.livePoint) {
     added.push(newEvent("provider", "ping", "Live GPS tracking started"));
   }
