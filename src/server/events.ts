@@ -22,7 +22,9 @@ export const EVENT_TITLE: Record<string, string> = {
   pending_confirm: "Work marked complete — waiting for the customer OTP",
   completed: "Customer verified — job completed",
   cancelled: "Booking cancelled",
-  paid: "Payment collected",
+  paid: "Payment collected and Admin verified",
+  payment_reported: "Provider reported payment — Admin verification pending",
+  payment_disputed: "Payment report disputed by Admin",
   rescheduled: "Booking details updated",
 };
 
