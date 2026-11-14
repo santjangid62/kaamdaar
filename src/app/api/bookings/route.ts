@@ -108,7 +108,10 @@ export async function POST(req: Request) {
   })()), 0);
   const serviceItems = selectedRows.map((s) => ({
     id: s.id, name: s.name, price: Number(s.price) || 0,
-    durationMinutes: Math.max(0, Number((s as Service & { durationMinutes?: number }).durationMinutes) || 0),
+    durationMinutes: Math.max(0, Number((s as Service & { durationMinutes?: number }).durationMinutes) || (() => {
+      const matches = String(s.duration ?? "").match(/\\d+/g) ?? [];
+      return matches.length ? Math.round(matches.map(Number).reduce((a,b)=>a+b,0) / matches.length) : 0;
+    })()),
   }));
   const combinedServiceName = selectedRows.map((s) => s.name).join(" + ");
 
