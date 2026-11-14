@@ -345,9 +345,15 @@ class _BookingScreenState extends State<BookingScreen> {
       .where((item) => _selectedSubServiceIds.contains(item.id))
       .fold<int>(0, (sum, item) => sum + item.price);
 
-  int get _totalDuration => widget.service.durationMinutes + _subServices
+  int _minutes(ServiceItem item) {
+    if (item.durationMinutes > 0) return item.durationMinutes;
+    final values = RegExp(r'\\d+').allMatches(item.duration).map((m) => int.tryParse(m.group(0) ?? '') ?? 0).where((n) => n > 0).toList();
+    return values.isEmpty ? 0 : (values.reduce((a, b) => a + b) / values.length).round();
+  }
+
+  int get _totalDuration => _minutes(widget.service) + _subServices
       .where((item) => _selectedSubServiceIds.contains(item.id))
-      .fold<int>(0, (sum, item) => sum + (item.durationMinutes > 0 ? item.durationMinutes : 0));
+      .fold<int>(0, (sum, item) => sum + _minutes(item));
 
   Future<void> _confirm() async {
     final user = _user;
