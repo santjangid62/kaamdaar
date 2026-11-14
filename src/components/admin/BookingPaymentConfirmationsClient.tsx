@@ -65,7 +65,7 @@ export default function BookingPaymentConfirmationsClient() {
             <input value={note[row.id] ?? ""} onChange={e=>setNote(s=>({...s,[row.id]:e.target.value}))} placeholder="Dispute note (if needed)" className="w-full rounded-lg border px-2 py-2 text-xs"/>
             <div className="flex gap-2"><button onClick={()=>void act(row,"verify")} disabled={!!busy} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><CheckCircle2 className="h-3.5 w-3.5"/> Verify</button>
             <button onClick={()=>void act(row,"dispute")} disabled={!!busy} className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 disabled:opacity-50"><ShieldAlert className="h-3.5 w-3.5"/> Dispute</button></div>
-          </div> : <span className="text-xs text-slate-500">Needs follow-up</span>}</td>
+          </div> : row.paymentStatus === "disputed" ? <button onClick={()=>void act(row,"verify")} disabled={!!busy} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><CheckCircle2 className="h-3.5 w-3.5"/> Verify after review</button> : <span className="text-xs text-slate-500">Needs follow-up</span>}</td>
         </tr>)}</tbody>
       </table>
       {!loading && rows.length === 0 && <p className="p-10 text-center text-sm text-slate-400">No provider payment reports pending.</p>}
