@@ -162,6 +162,17 @@ export default function ProviderPanel({
     }
   }
 
+  async function cancelAssignedJob() {
+    if (!booking) return;
+    const reason = window.prompt("Cancellation reason (required):");
+    if (!reason?.trim()) return;
+    setBusy(true);
+    try {
+      await updateBooking(booking.userId, booking.id, { status: "cancelled", cancellationReason: reason.trim() } as Partial<Booking>);
+      onChanged?.();
+    } finally { setBusy(false); }
+  }
+
   async function doRecharge() {
     if (!proId) return;
     setBusy(true);
@@ -316,6 +327,15 @@ export default function ProviderPanel({
         )}
       </div>
     );
+  }
+
+  if (booking && ["accepted", "enroute", "arrived"].includes(status ?? "")) {
+    requestBody = <>{requestBody}
+      <button type="button" onClick={() => void cancelAssignedJob()} disabled={busy}
+        className="mt-3 w-full rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 disabled:opacity-50">
+        Cancel job (reason required)
+      </button>
+    </>;
   }
 
   return (
