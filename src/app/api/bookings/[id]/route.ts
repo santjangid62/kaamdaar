@@ -21,7 +21,7 @@ const ALLOWED = new Set([
   // NB: notifiedIds is deliberately absent — the notify list is server-owned,
   // so no client can dispatch a request or mask an offer from another Pro.
   "status", "providerId",
-  "paymentMethod", "paymentReported", "paymentReference", "date", "slot", "duration",
+  "paymentMethod", "date", "slot", "duration",
 ]);
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
