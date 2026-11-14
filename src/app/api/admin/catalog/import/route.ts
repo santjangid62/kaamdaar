@@ -13,8 +13,7 @@ function parseCsv(input: string): string[][] {
       else cell += ch;
     } else if (ch === '"') quoted = true;
     else if (ch === ",") { row.push(cell); cell = ""; }
-    else if (ch === "
-") { row.push(cell.replace(/\r$/, "")); rows.push(row); row = []; cell = ""; }
+    else if (ch === "\n") { row.push(cell.replace(/\r$/, "")); rows.push(row); row = []; cell = ""; }
     else cell += ch;
   }
   if (cell.length || row.length) { row.push(cell.replace(/\r$/, "")); rows.push(row); }
