@@ -102,6 +102,8 @@ export const ICONS: Record<string, LucideIcon> = {
   gem: Gem,
   graduation: GraduationCap,
   music: Music2,
+  chefhat: ChefHat,
+  droplets: Droplets,
 };
 
 /** Values shown in the Admin “Icon” dropdown. */
