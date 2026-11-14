@@ -7,7 +7,7 @@
 import { NextResponse } from "next/server";
 import { all, insert, patch, ready } from "../../../server/db";
 import { commissionRate, minWallet } from "../../../server/settings";
-import type { Booking, GeoPoint, Provider } from "../../../lib/types";
+import type { Booking, GeoPoint, Provider, Service } from "../../../lib/types";
 import { matchProviders } from "../../../lib/match";
 import { newEvent } from "../../../server/events";
 import { sendProviderJobOffer } from "../../../server/fcm";
@@ -90,9 +90,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Customer account not available" }, { status: 403 });
   }
   const userId = user.id;
-  if (!body.serviceId || !body.address || !body.amount || typeof body.amount !== "number") {
-    return NextResponse.json({ error: "serviceId, address and amount are required" }, { status: 422 });
+  if (!body.serviceId || !body.address) {
+    return NextResponse.json({ error: "serviceId and address are required" }, { status: 422 });
   }
+
+  const catalogue = await all<Service & { parent?: string; active?: boolean; durationMinutes?: number }>("services");
+  const parentService = catalogue.find((s) => s.id === body.serviceId && !s.parent && s.active !== false);
+  if (!parentService) return NextResponse.json({ error: "Selected main service is unavailable" }, { status: 422 });
+  const requestedIds = Array.isArray(body.selectedSubServiceIds) ? [...new Set(body.selectedSubServiceIds)] : [];
+  const selectedSubs = requestedIds.map((sid) => catalogue.find((s) => s.id === sid && s.parent === parentService.id && s.active !== false));
+  if (selectedSubs.some((s) => !s)) return NextResponse.json({ error: "One or more selected add-on services are invalid" }, { status: 422 });
+  const selectedRows = [parentService, ...selectedSubs.filter(Boolean) as Service[]];
+  const amount = selectedRows.reduce((sum, s) => sum + Math.max(0, Number(s.price) || 0), 0);
+  const durationMinutes = selectedRows.reduce((sum, s) => sum + Math.max(0, Number((s as Service & { durationMinutes?: number }).durationMinutes) || (() => {
+    const matches = String(s.duration ?? "").match(/\\d+/g) ?? [];
+    return matches.length ? Math.round(matches.map(Number).reduce((a,b)=>a+b,0) / matches.length) : 0;
+  })()), 0);
+  const serviceItems = selectedRows.map((s) => ({
+    id: s.id, name: s.name, price: Number(s.price) || 0,
+    durationMinutes: Math.max(0, Number((s as Service & { durationMinutes?: number }).durationMinutes) || 0),
+  }));
+  const combinedServiceName = selectedRows.map((s) => s.name).join(" + ");
 
   // The customer never picks a Pro and never supplies the notify list: the
   // server finds everyone who serves this service near the address (3 km,
@@ -115,7 +133,6 @@ export async function POST(req: Request) {
   );
   const match = matchProviders(eligibleProviders, body.serviceId, origin);
   const rate = await commissionRate();
-  const amount = Math.max(0, Math.round(body.amount));
   const now = Date.now();
 
   const booking = await insert("bookings", {
@@ -128,7 +145,13 @@ export async function POST(req: Request) {
     providerProfile: undefined,
     providerPoint: undefined,
     phone: (user as { phone?: string }).phone ?? body.phone ?? "",
-    amount,
+    serviceName: combinedServiceName,
+    selectedSubServiceIds: requestedIds,
+    serviceItems,
+    durationMinutes,
+    duration: durationMinutes ? `${durationMinutes} min` : body.duration,
+    amount: Math.round(amount),
+    paymentStatus: "unpaid",
     commission: Math.round((amount * rate) / 100),
     status: "dispatched",
     createdAt: now,
