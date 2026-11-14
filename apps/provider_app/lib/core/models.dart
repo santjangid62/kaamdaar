@@ -283,6 +283,11 @@ class BookingItem {
   final int? completedAt;
   final int? paidAt;
   final String? paymentMethod;
+  final String? paymentStatus;
+  final int? paymentReportedAt;
+  final String? paymentReference;
+  final String? cancelledBy;
+  final String? cancellationReason;
   final int commission;
   final int etaMinutes;
   final ProviderProfile? providerProfile;
@@ -320,6 +325,11 @@ class BookingItem {
         completedAt: _optInt(j["completedAt"]),
         paidAt: _optInt(j["paidAt"]),
         paymentMethod: j["paymentMethod"]?.toString(),
+        paymentStatus: j["paymentStatus"]?.toString(),
+        paymentReportedAt: _optInt(j["paymentReportedAt"]),
+        paymentReference: j["paymentReference"]?.toString(),
+        cancelledBy: j["cancelledBy"]?.toString(),
+        cancellationReason: j["cancellationReason"]?.toString(),
         commission: _int(j["commission"]),
         etaMinutes: _int(j["etaMinutes"]),
         providerProfile: j["providerProfile"] is Map<String, dynamic>
@@ -361,6 +371,11 @@ class BookingItem {
     this.completedAt,
     this.paidAt,
     this.paymentMethod,
+    this.paymentStatus,
+    this.paymentReportedAt,
+    this.paymentReference,
+    this.cancelledBy,
+    this.cancellationReason,
     this.commission = 0,
     this.etaMinutes = 0,
     this.providerProfile,

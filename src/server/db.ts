@@ -555,5 +555,28 @@ export function registerSeeder(fn: Seeder): void {
 
 /** Every API route calls this first — cheap once the flag exists. */
 export async function ready(): Promise<void> {
+  if (process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build" && !MONGODB_URI) {
+    throw new Error("[db] MONGODB_URI is required in production; refusing ephemeral file storage.");
+  }
   await engine.seed();
+}
+
+/** Read-only connection probe used by the deployment readiness endpoint. */
+export async function healthCheck(): Promise<{
+  ok: boolean;
+  engine: "mongodb" | "file";
+  database: string;
+  latencyMs?: number;
+}> {
+  const started = Date.now();
+  if (!MONGODB_URI) {
+    const ok = process.env.NODE_ENV !== "production";
+    return { ok, engine: "file", database: "local-json", latencyMs: Date.now() - started };
+  }
+  try {
+    await (await mongoDb()).command({ ping: 1 });
+    return { ok: true, engine: "mongodb", database: MONGODB_DB, latencyMs: Date.now() - started };
+  } catch {
+    return { ok: false, engine: "mongodb", database: MONGODB_DB, latencyMs: Date.now() - started };
+  }
 }

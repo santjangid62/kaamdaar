@@ -291,6 +291,8 @@ class BookingScreen extends StatefulWidget {
 
 class _BookingScreenState extends State<BookingScreen> {
   List<AddressItem> _addresses = [];
+  List<ServiceItem> _subServices = [];
+  final Set<String> _selectedSubServiceIds = {};
   AddressItem? _picked;
   SessionUser? _user;
   final _notes = TextEditingController();
@@ -316,10 +318,13 @@ class _BookingScreenState extends State<BookingScreen> {
         return;
       }
       final addrs = await Api.addresses(user.id);
+      final catalogue = await Api.catalog();
+      final subServices = catalogue.where((item) => item.parent == widget.service.id).toList();
       if (!mounted) return;
       setState(() {
         _user = user;
         _addresses = addrs;
+        _subServices = subServices;
         _picked = addrs.cast<AddressItem?>().firstWhere(
               (a) => a!.isDefault,
               orElse: () => addrs.isEmpty ? null : addrs.first,
@@ -335,6 +340,20 @@ class _BookingScreenState extends State<BookingScreen> {
       }
     }
   }
+
+  int get _totalAmount => widget.service.price + _subServices
+      .where((item) => _selectedSubServiceIds.contains(item.id))
+      .fold<int>(0, (sum, item) => sum + item.price);
+
+  int _minutes(ServiceItem item) {
+    if (item.durationMinutes > 0) return item.durationMinutes;
+    final values = RegExp(r'\d+').allMatches(item.duration).map((m) => int.tryParse(m.group(0) ?? '') ?? 0).where((n) => n > 0).toList();
+    return values.isEmpty ? 0 : (values.reduce((a, b) => a + b) / values.length).round();
+  }
+
+  int get _totalDuration => _minutes(widget.service) + _subServices
+      .where((item) => _selectedSubServiceIds.contains(item.id))
+      .fold<int>(0, (sum, item) => sum + _minutes(item));
 
   Future<void> _confirm() async {
     final user = _user;
@@ -376,7 +395,8 @@ class _BookingScreenState extends State<BookingScreen> {
         'mode': _slot == 'ASAP' ? 'instant' : 'scheduled',
         'date': DateTime.now().toIso8601String().split('T').first,
         'slot': _slot,
-        'amount': widget.service.price,
+        'amount': _totalAmount,
+        'selectedSubServiceIds': _selectedSubServiceIds.toList(),
         'status': 'dispatched',
         'createdAt': DateTime.now().millisecondsSinceEpoch,
         'dispatchedAt': DateTime.now().millisecondsSinceEpoch,
@@ -497,6 +517,38 @@ class _BookingScreenState extends State<BookingScreen> {
                     ],
                   ),
                 ),
+                if (_subServices.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  CardBox(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Add related services to this booking',
+                            style: TextStyle(fontWeight: FontWeight.w800, color: KColors.navy)),
+                        const SizedBox(height: 8),
+                        ..._subServices.map((item) => CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          value: _selectedSubServiceIds.contains(item.id),
+                          onChanged: (checked) => setState(() {
+                            if (checked == true) { _selectedSubServiceIds.add(item.id); }
+                            else { _selectedSubServiceIds.remove(item.id); }
+                          }),
+                          title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                          subtitle: Text(item.duration.isEmpty ? 'Additional service' : item.duration, style: const TextStyle(fontSize: 11)),
+                          secondary: Text('+ ${rupees(item.price)}', style: const TextStyle(fontWeight: FontWeight.w800, color: KColors.flame)),
+                        )),
+                        const Divider(height: 18),
+                        Row(children: [
+                          const Text('Estimated time', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                          const Spacer(),
+                          Text(_totalDuration > 0 ? '$_totalDuration min' : widget.service.duration,
+                              style: const TextStyle(fontWeight: FontWeight.w800)),
+                        ]),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 const Text('Date & Time',
                     style: TextStyle(fontWeight: FontWeight.w800, color: KColors.navy)),
@@ -575,7 +627,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       const Text('Total Amount',
                           style: TextStyle(fontWeight: FontWeight.w800)),
                       const Spacer(),
-                      Text(rupees(s.price),
+                      Text(rupees(_totalAmount),
                           style: const TextStyle(
                               fontWeight: FontWeight.w900,
                               fontSize: 18,

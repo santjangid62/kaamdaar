@@ -132,6 +132,7 @@ export default function SectionClient({ def }: { def: SectionDef }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const refreshCustomers = async () => {
     if (!def.collection) return;
@@ -272,6 +273,31 @@ export default function SectionClient({ def }: { def: SectionDef }) {
     }
   }
 
+  const bulkScope =
+    def.title === "Categories" ? "categories" :
+    def.title === "Services" ? "services" :
+    def.title === "Sub Services" ? "sub-services" : null;
+
+  async function bulkDeleteCatalogue() {
+    if (!bulkScope) return;
+    const typed = window.prompt(`This will permanently delete all ${def.title.toLowerCase()} from the catalogue. Type DELETE to continue.`);
+    if (typed !== "DELETE") return;
+    setBulkBusy(true); setError(null); setNotice(null);
+    try {
+      const res = await fetch("/api/admin/catalog/bulk-delete", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: bulkScope, confirm: "DELETE CATALOGUE" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Bulk delete failed");
+      setNotice(`Removed ${data.deleted.categories} categories and ${data.deleted.services} services/sub-services. Booking history was preserved.`);
+      await refreshCustomers();
+      if (def.collection === "categories" || def.collection === "services") await refreshCatalog();
+      router.refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : "Bulk delete failed"); }
+    finally { setBulkBusy(false); }
+  }
+
   const actionCol: import("../../lib/admin/types").Column = { key: "__actions", label: "" };
 
   return (
@@ -307,6 +333,12 @@ export default function SectionClient({ def }: { def: SectionDef }) {
               className="flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700"
             >
               <Plus className="h-3.5 w-3.5" /> Add
+            </button>
+          )}
+          {bulkScope && (
+            <button type="button" onClick={() => void bulkDeleteCatalogue()} disabled={bulkBusy || liveRows.length === 0}
+              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50">
+              <Trash2 className="h-3.5 w-3.5" /> {bulkBusy ? "Removing…" : `Delete all ${def.title}`}
             </button>
           )}
         </div>

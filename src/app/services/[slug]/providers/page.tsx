@@ -35,6 +35,7 @@ import type {
   GeoPoint,
   Provider,
   ProviderProfile,
+  Service,
 } from "../../../../lib/types";
 
 type Phase = "idle" | "searching" | "found";
@@ -91,6 +92,7 @@ function ProvidersFlow() {
   const [matchLoading, setMatchLoading] = useState(false);
   const [dispatchRadiusKm, setDispatchRadiusKm] = useState<number>(WIDE_RING_KM);
   const [accepted, setAccepted] = useState<NearbyProvider | null>(null);
+  const [selectedSubServiceIds, setSelectedSubServiceIds] = useState<string[]>([]);
 
   const center = useMemo<GeoPoint | null>(
     () => (location ? { lat: location.lat, lng: location.lng } : null),
@@ -138,6 +140,17 @@ function ProvidersFlow() {
       cancelled = true;
     };
   }, [service, center]);
+
+  const addOnServices = services.filter((item) => (item as Service & { parent?: string }).parent === service?.id);
+  const selectedAddOns = addOnServices.filter((item) => selectedSubServiceIds.includes(item.id));
+  const bookingTotal = (service?.price ?? 0) + selectedAddOns.reduce((sum, item) => sum + item.price, 0);
+  const minutesFor = (item: Service) => {
+    const explicit = Number((item as Service & { durationMinutes?: number }).durationMinutes);
+    if (explicit > 0) return explicit;
+    const nums = item.duration.match(/\d+/g)?.map(Number) ?? [];
+    return nums.length ? Math.round(nums.reduce((a,b)=>a+b,0) / nums.length) : 0;
+  };
+  const bookingDuration = service ? minutesFor(service) + selectedAddOns.reduce((sum,item)=>sum+minutesFor(item),0) : 0;
 
   // already ranked by the server — the page never re-orders the ring
   const candidates = results;
@@ -244,7 +257,8 @@ function ProvidersFlow() {
         mode: scheduled ? "scheduled" : "instant",
         date: dateParam ?? todayIso(),
         slot: timeParam ?? "ASAP",
-        amount: service.price,
+        amount: bookingTotal,
+        selectedSubServiceIds,
         status: "dispatched",
         createdAt: Date.now(),
         dispatchedAt: Date.now(),
@@ -260,7 +274,7 @@ function ProvidersFlow() {
     } finally {
       setBusy(false);
     }
-  }, [service, center, user, results, location, dateParam, timeParam, labels]);
+  }, [service, center, user, results, location, dateParam, timeParam, labels, bookingTotal, selectedSubServiceIds]);
 
   const handleUserAccept = useCallback(async () => {
     if (!user || !bookingId) return;
@@ -371,6 +385,31 @@ function ProvidersFlow() {
 
       {/* --------------------------- bottom sheet --------------------------- */}
       <div className="card mt-4 p-5">
+        {phase === "idle" && addOnServices.length > 0 && (
+          <div className="mb-5 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div><h2 className="font-bold text-slate-900">Customize your service</h2>
+                <p className="text-xs text-slate-500">Add related services to the same booking.</p></div>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-blue-700">{selectedAddOns.length} add-ons</span>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {addOnServices.map(item => (
+                <label key={item.id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-white bg-white p-3 shadow-sm">
+                  <input type="checkbox" checked={selectedSubServiceIds.includes(item.id)}
+                    onChange={e => setSelectedSubServiceIds(current => e.target.checked ? [...current,item.id] : current.filter(id=>id!==item.id))}
+                    className="h-4 w-4 accent-blue-600"/>
+                  <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-slate-800">{item.name}</span>
+                    <span className="text-xs text-slate-500">{minutesFor(item) || "—"} min</span></span>
+                  <span className="text-sm font-extrabold text-slate-900">+₹{item.price}</span>
+                </label>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap justify-between gap-2 border-t border-blue-100 pt-3 text-sm">
+              <span className="text-slate-600">Estimated total: <b className="text-slate-900">₹{bookingTotal}</b></span>
+              <span className="text-slate-600">Estimated time: <b className="text-slate-900">{bookingDuration ? `${bookingDuration} min` : service.duration}</b></span>
+            </div>
+          </div>
+        )}
         {center && results.length === 0 && !matchLoading && (
           <div className="text-center">
             <p className="font-bold text-slate-900">
@@ -543,7 +582,7 @@ function ProvidersFlow() {
             ? {
                 id: candidates[0].provider.id,
                 name: candidates[0].provider.name,
-                service: labels(service).name,
+                service: [labels(service).name, ...selectedAddOns.map((item) => item.name)].join(" + "),
                 distanceKm: candidates[0].distanceKm,
               }
             : null

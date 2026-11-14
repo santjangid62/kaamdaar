@@ -110,8 +110,8 @@ class _HomeTabState extends State<_HomeTab> {
       if (!mounted) return;
       setState(() {
         _user = user;
-        _services = services;
-        _categories = services.map((s) => s.category).toSet().toList();
+        _services = services.where((s) => s.parent.isEmpty).toList();
+        _categories = services.where((s) => s.parent.isEmpty).map((s) => s.category).toSet().toList();
         _recent = recent;
         _error = null;
       });

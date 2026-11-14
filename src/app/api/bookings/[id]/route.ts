@@ -1,6 +1,6 @@
 /** PATCH /api/bookings/:id — dispatch lifecycle updates (owner-checked). */
 import { NextResponse } from "next/server";
-import { all, claimDispatchedBooking, get, patch, ready } from "../../../../server/db";
+import { all, claimDispatchedBooking, get, insert, patch, ready, uid } from "../../../../server/db";
 import { minWallet } from "../../../../server/settings";
 import { debitCommission, type WalletTxn } from "../../../../server/wallet";
 import { etaMinutes, generateOtp, toProfile } from "../../../../lib/dispatch";
@@ -89,14 +89,18 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   // Customers may cancel their own active booking; provider lifecycle changes are server-verified.
   if (actorRole === "customer") {
     const keys = Object.keys(body.patch ?? {});
-    const customerFields = new Set(["status"]);
+    const customerFields = new Set(["status", "cancellationReason"]);
     if (keys.some((key) => !customerFields.has(key))) {
       return NextResponse.json({ error: "Customers cannot edit provider or dispatch fields" }, { status: 403 });
     }
     if (changes.status === "cancelled") {
-      if (booking.status === "completed" || booking.status === "cancelled") {
-        return NextResponse.json({ error: "This booking can no longer be cancelled" }, { status: 409 });
+      if (["completed", "cancelled", "in_progress", "pending_confirm"].includes(booking.status)) {
+        return NextResponse.json({ error: "This booking can no longer be cancelled at this stage. Contact support." }, { status: 409 });
       }
+      changes.cancelledAt = Date.now();
+      changes.cancelledBy = "customer";
+      changes.cancellationReason = String((body.patch as Record<string, unknown>)?.cancellationReason ?? "Cancelled by customer").slice(0, 300);
+      changes.notifiedIds = [];
     } else if (changes.status !== undefined) {
       return NextResponse.json({ error: "Customers can only cancel an active booking" }, { status: 403 });
     }
@@ -111,9 +115,18 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     } else if (booking.providerId !== authenticatedProviderId && !body.patch?.withdrawNotify) {
       return NextResponse.json({ error: "Only the assigned provider can update this job" }, { status: 403 });
     }
-    const providerStatuses = new Set(["accepted", "enroute", "arrived", "in_progress", "pending_confirm", "completed"]);
+    const providerStatuses = new Set(["accepted", "enroute", "arrived", "in_progress", "pending_confirm", "completed", "cancelled"]);
     if (typeof changes.status === "string" && !providerStatuses.has(changes.status)) {
       return NextResponse.json({ error: "Invalid provider booking status" }, { status: 403 });
+    }
+    if (changes.status === "cancelled") {
+      if (!["accepted", "scheduled", "enroute", "arrived"].includes(booking.status)) {
+        return NextResponse.json({ error: "Provider can cancel only an accepted job before work starts" }, { status: 409 });
+      }
+      changes.cancelledAt = Date.now();
+      changes.cancelledBy = "provider";
+      changes.cancellationReason = String((body.patch as Record<string, unknown>)?.cancellationReason ?? "Cancelled by provider").slice(0, 300);
+      // Keep the assigned provider snapshot on the cancelled booking for Admin audit/history.
     }
     if (changes.status === "enroute" && booking.status !== "accepted") {
       return NextResponse.json({ error: "Navigation can start only after accepting the job" }, { status: 409 });
@@ -148,16 +161,22 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       }
       changes.completedAt = Date.now();
     }
-    if (body.patch?.paidAt !== undefined || body.patch?.paymentMethod !== undefined) {
-      if (booking.status !== "completed" || booking.paidAt) {
-        return NextResponse.json({ error: "Payment can be recorded once, after customer completion verification" }, { status: 409 });
+    if (body.patch?.paymentReported === true) {
+      if (booking.status !== "completed" || booking.paymentStatus === "verified" || booking.paymentReportedAt) {
+        return NextResponse.json({ error: "Payment can be reported once, after customer completion verification" }, { status: 409 });
       }
       const method = String(body.patch?.paymentMethod ?? "");
-      if (!new Set(["cash", "upi"]).has(method)) {
-        return NextResponse.json({ error: "Select cash or UPI payment" }, { status: 422 });
-      }
-      changes.paidAt = Date.now();
+      if (!new Set(["cash", "upi"]).has(method)) return NextResponse.json({ error: "Select cash or UPI payment" }, { status: 422 });
+      const reference = String(body.patch?.paymentReference ?? "").trim().slice(0, 100);
+      if (method === "upi" && reference.length < 6) return NextResponse.json({ error: "UPI transaction/reference ID is required for Admin verification" }, { status: 422 });
+      changes.paymentStatus = "reported";
+      changes.paymentReportedAt = Date.now();
+      changes.paymentReportedBy = authenticatedProviderId;
       changes.paymentMethod = method;
+      changes.paymentReference = reference;
+    }
+    if (body.patch?.paidAt !== undefined) {
+      return NextResponse.json({ error: "Only Admin can verify and finalize a reported payment" }, { status: 403 });
     }
   }
 
@@ -326,7 +345,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
         detail:
           changes.status === "accepted" && changes.providerName
             ? `${String(changes.providerName)} accepted · ETA ${Number(changes.etaMinutes ?? 0)} min`
-            : undefined,
+            : changes.status === "cancelled" ? String(changes.cancellationReason ?? "Booking cancelled") : undefined,
       }),
     );
   }
@@ -336,7 +355,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (changes.navigationStartedAt) {
     added.push(newEvent("provider", "navigation", "Pro started navigation to the customer"));
   }
-  if (changes.paidAt) added.push(newEvent("provider", "paid", "Provider confirmed payment received"));
+  if (changes.paymentReportedAt) added.push(newEvent("provider", "payment_reported", `Provider reported ${String(changes.paymentMethod).toUpperCase()} payment; awaiting Admin verification`));
   if (pinged && !booking.livePoint) {
     added.push(newEvent("provider", "ping", "Live GPS tracking started"));
   }
@@ -344,6 +363,21 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
   const updated = await patch<Booking>("bookings", id, changes);
   if (!updated) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  if (changes.paymentReportedAt && actorRole === "provider") {
+    await insert("notifications", {
+      id: uid("ntf"),
+      type: "booking_payment_report",
+      title: "Provider reported a booking payment",
+      message: `${booking.providerName} reported ${String(changes.paymentMethod).toUpperCase()} collection of ₹${booking.amount} for booking ${booking.id}. Admin verification is pending.`,
+      userId: booking.userId,
+      userName: booking.providerName || "Provider",
+      phone: "",
+      platform: "Booking payment",
+      bookingId: booking.id,
+      readAt: null,
+      createdAt: Date.now(),
+    });
+  }
   if (changes.paidAt && !booking.paidAt && booking.providerId) {
     const txns = await all<WalletTxn>("walletTxns");
     const alreadyDebited = txns.some((txn) => txn.bookingId === booking.id && txn.kind === "commission");
