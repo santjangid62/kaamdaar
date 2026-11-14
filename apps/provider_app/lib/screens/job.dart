@@ -361,7 +361,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       ],
                       const SizedBox(height: 16),
                       _primaryAction(b),
-                      if (['accepted', 'enroute', 'arrived'].contains(b.status)) ...[
+                      if (['accepted', 'scheduled', 'enroute', 'arrived'].contains(b.status)) ...[
                         const SizedBox(height: 8),
                         _cancelAction(b),
                       ],
