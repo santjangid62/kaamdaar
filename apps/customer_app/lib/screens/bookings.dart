@@ -50,6 +50,36 @@ class _BookingsScreenState extends State<BookingsScreen> {
     }
   }
 
+  Future<void> _cancelBooking(BookingItem booking) async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel booking?'),
+        content: TextField(controller: controller, maxLines: 3, decoration: const InputDecoration(labelText: 'Reason (optional)')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Keep booking')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: KColors.red),
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Cancel booking'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (reason == null) return;
+    try {
+      await Api.updateBooking(booking.userId, booking.id, {
+        'status': 'cancelled',
+        'cancellationReason': reason.isEmpty ? 'Cancelled by customer' : reason,
+      });
+      await _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
   List<BookingItem> get _view {
     if (_tab == 1) return _all.where((b) => b.isLive).toList();
     if (_tab == 2) return _all.where((b) => !b.isLive).toList();
@@ -178,6 +208,11 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                                 children: [
                                                   StatusChip(status: b.status),
                                                   const Spacer(),
+                                                  if (['dispatched', 'accepted', 'scheduled', 'enroute', 'arrived'].contains(b.status))
+                                                    TextButton(
+                                                      onPressed: () => _cancelBooking(b),
+                                                      child: const Text('Cancel', style: TextStyle(color: KColors.red, fontSize: 12)),
+                                                    ),
                                                   const Text('View details',
                                                       style: TextStyle(
                                                           color: KColors.blue,
