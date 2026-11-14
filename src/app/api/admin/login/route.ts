@@ -4,6 +4,7 @@ import {
   checkCredentials,
   createSessionToken,
   isAuthed,
+  isAdminAuthConfigured,
 } from "../../../../lib/admin/auth";
 
 /** GET — quick session check used by the login screen to skip a re-login. */
@@ -12,6 +13,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (!isAdminAuthConfigured()) {
+    return NextResponse.json({ error: "Super Admin credentials are not configured on the server" }, { status: 503 });
+  }
   let body: { email?: string; password?: string };
   try {
     body = (await req.json()) as { email?: string; password?: string };
