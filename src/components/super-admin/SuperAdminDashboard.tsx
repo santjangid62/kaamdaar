@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import LocationButton from "../LocationButton";
 import Link from "next/link";
 import { Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Banknote, Bell, BookOpen, BriefcaseBusiness, CalendarDays, CheckCircle2, ChevronDown, ClipboardList, Download, FileBarChart, Globe2, Headphones, LayoutDashboard, MapPin, Printer, RefreshCw, Search, Settings, Share2, ShieldCheck, Star, Users, Wallet } from "lucide-react";
 
@@ -53,7 +54,7 @@ export default function SuperAdminDashboard(){
  return <div className="space-y-5">
   <header className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-blue-100 bg-gradient-to-r from-white to-blue-50 p-5 shadow-sm">
    <div><div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-orange-600"><ShieldCheck size={15}/> Global control centre</div><h1 className="text-2xl font-black tracking-tight text-[#102a56]">Super Admin Dashboard</h1><p className="mt-1 text-sm text-slate-500">Complete overview and control of Kaamdaar platform operations</p></div>
-   <div className="flex flex-wrap gap-2"><button onClick={()=>void load()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600"><RefreshCw size={14}/> Refresh</button><button onClick={exportReport} disabled={!data} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><Download size={14}/> Export CSV</button><button onClick={()=>void share()} disabled={!data} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600"><Share2 size={14}/> Share</button><button onClick={()=>window.print()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600"><Printer size={14}/> Print</button></div>
+   <div className="flex flex-wrap items-center gap-2"><LocationButton variant="inline" className="flex max-w-[16rem] rounded-lg border border-blue-200 bg-white px-3 py-2" /><button onClick={()=>void load()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600"><RefreshCw size={14}/> Refresh</button><button onClick={exportReport} disabled={!data} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><Download size={14}/> Export CSV</button><button onClick={()=>void share()} disabled={!data} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600"><Share2 size={14}/> Share</button><button onClick={()=>window.print()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600"><Printer size={14}/> Print</button></div>
   </header>
   {error&&<div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error} <Link href="/admin/login" className="font-bold underline">Admin sign in</Link></div>}
   {loading&&!data&&<div className="rounded-xl border bg-white p-10 text-center text-sm text-slate-500">Loading live platform data…</div>}
