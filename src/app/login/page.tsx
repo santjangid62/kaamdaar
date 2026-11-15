@@ -59,8 +59,8 @@ function LoginFlow() {
       setCode("");
       otpAttempted.current = "";
       setStep("otp");
-    } catch {
-      setError(s.login.sendFail);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : s.login.sendFail);
     } finally {
       setBusy(false);
     }
