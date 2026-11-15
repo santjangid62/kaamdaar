@@ -4,6 +4,9 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 import '../core/api.dart';
 import '../core/job_alerts.dart';
@@ -105,6 +108,7 @@ class _DashboardTabState extends State<DashboardTab> {
   bool _available = true;
   bool _loading = true;
   String? _error;
+  String _locationLabel = 'Detecting your location…';
   Timer? _ticker;
   Timer? _poll;
 
@@ -112,6 +116,7 @@ class _DashboardTabState extends State<DashboardTab> {
   void initState() {
     super.initState();
     _load();
+    _detectProviderLocation();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && _offers.isNotEmpty) setState(() {});
     });
@@ -123,6 +128,41 @@ class _DashboardTabState extends State<DashboardTab> {
     _ticker?.cancel();
     _poll?.cancel();
     super.dispose();
+  }
+
+  Future<void> _detectProviderLocation() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        if (mounted) setState(() => _locationLabel = 'Enable location to share your service area');
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, timeLimit: Duration(seconds: 15)),
+      );
+      var label = 'Current location';
+      try {
+        final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
+          'format': 'jsonv2', 'lat': '${position.latitude}', 'lon': '${position.longitude}',
+          'zoom': '18', 'addressdetails': '1', 'accept-language': 'en',
+        });
+        final response = await http.get(uri, headers: {'User-Agent': 'Kaamdaar/1.0 (location lookup)'});
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final a = (data['address'] as Map?)?.cast<String, dynamic>() ?? {};
+          final street = [a['house_number'], a['road']].where((v) => v != null && '$v'.isNotEmpty).join(' ');
+          final locality = a['suburb'] ?? a['neighbourhood'] ?? a['quarter'] ?? a['village'] ?? a['town'] ?? a['city_district'] ?? a['city'] ?? '';
+          final city = a['city'] ?? a['town'] ?? a['village'] ?? a['state_district'] ?? '';
+          final pin = a['postcode'] ?? '';
+          label = [street, locality, city, pin].where((v) => '$v'.isNotEmpty).toSet().join(', ');
+          if (label.isEmpty) label = (data['display_name'] ?? 'Current location').toString();
+        }
+      } catch (_) {}
+      if (mounted) setState(() => _locationLabel = label);
+    } catch (_) {
+      if (mounted) setState(() => _locationLabel = 'Could not detect location');
+    }
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -266,8 +306,12 @@ class _DashboardTabState extends State<DashboardTab> {
                           style: const TextStyle(
                               fontSize: 17, fontWeight: FontWeight.w900, color: PColors.ink)),
                       const SizedBox(height: 2),
-                      Text(me.city.isEmpty ? 'Jaipur, Rajasthan' : me.city,
+                      InkWell(
+                        onTap: _detectProviderLocation,
+                        child: Text(_locationLabel == 'Detecting your location…' && me.city.isNotEmpty ? me.city : _locationLabel,
+                          maxLines: 2, overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 12, color: Colors.black45)),
+                      ),
                     ],
                   ),
                 ),

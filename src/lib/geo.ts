@@ -79,7 +79,7 @@ export async function browserLocation(timeoutMs = 10000): Promise<GeoPoint> {
 /** Reverse geocode to a readable label. Falls back gracefully when offline/blocked. */
 export async function reverseGeocode(point: GeoPoint): Promise<GeoResult> {
   try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${point.lat}&lon=${point.lng}&zoom=14&accept-language=en`;
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${point.lat}&lon=${point.lng}&zoom=18&addressdetails=1&accept-language=en`;
     const res = await fetch(url, { headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error(`geocode ${res.status}`);
     const data = (await res.json()) as {
@@ -88,19 +88,11 @@ export async function reverseGeocode(point: GeoPoint): Promise<GeoResult> {
       display_name?: string;
     };
     const a = data.address ?? {};
-    const locality =
-      a.suburb ||
-      a.neighbourhood ||
-      a.quarter ||
-      a.village ||
-      a.town ||
-      a.city_district ||
-      a.city ||
-      data.name ||
-      "";
+    const locality = a.suburb || a.neighbourhood || a.quarter || a.residential || a.village || a.town || a.city_district || a.city || data.name || "";
     const city = a.city || a.town || a.village || a.state_district || a.state || "";
     const pincode = a.postcode || "";
-    const label = [locality, city].filter(Boolean).join(", ") || data.display_name || "Current location";
+    const street = [a.house_number, a.road].filter(Boolean).join(" ");
+    const label = [...new Set([street, locality, city, pincode].filter(Boolean))].join(", ") || data.display_name || "Current location";
     return { ...point, label, city, pincode };
   } catch {
     return { ...point, label: "Current location", city: "" };
