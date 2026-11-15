@@ -145,7 +145,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </label>
 
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
-            <LocationButton variant="inline" className="hidden xl:flex" />
+            <LocationButton variant="inline" className="flex max-w-[13rem]" />
             <button
               type="button"
               className="hidden items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 lg:flex"
