@@ -2,6 +2,9 @@
 library;
 /// home screen — location header, search, banner, categories, recent bookings.
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 import '../core/api.dart';
 import '../core/models.dart';
@@ -87,11 +90,54 @@ class _HomeTabState extends State<_HomeTab> {
   SessionUser? _user;
   bool _loading = true;
   String? _error;
+  String _locationLabel = 'Detecting your location…';
+  double? _latitude;
+  double? _longitude;
 
   @override
   void initState() {
     super.initState();
+    _detectLocation();
     _load();
+  }
+
+  Future<void> _detectLocation() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        if (mounted) setState(() => _locationLabel = 'Enable location to find nearby services');
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, timeLimit: Duration(seconds: 15)),
+      );
+      var label = 'Current location';
+      try {
+        final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
+          'format': 'jsonv2', 'lat': '${position.latitude}', 'lon': '${position.longitude}',
+          'zoom': '18', 'addressdetails': '1', 'accept-language': 'en',
+        });
+        final response = await http.get(uri, headers: {'User-Agent': 'Kaamdaar/1.0 (location lookup)'});
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final a = (data['address'] as Map?)?.cast<String, dynamic>() ?? {};
+          final street = [a['house_number'], a['road']].where((v) => v != null && '$v'.isNotEmpty).join(' ');
+          final locality = a['suburb'] ?? a['neighbourhood'] ?? a['quarter'] ?? a['village'] ?? a['town'] ?? a['city_district'] ?? a['city'] ?? '';
+          final city = a['city'] ?? a['town'] ?? a['village'] ?? a['state_district'] ?? '';
+          final pin = a['postcode'] ?? '';
+          label = [street, locality, city, pin].where((v) => '$v'.isNotEmpty).toSet().join(', ');
+          if (label.isEmpty) label = (data['display_name'] ?? 'Current location').toString();
+        }
+      } catch (_) {}
+      if (mounted) setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+        _locationLabel = label;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _locationLabel = 'Could not detect location — tap to retry');
+    }
   }
 
   Future<void> _load() async {
@@ -100,7 +146,7 @@ class _HomeTabState extends State<_HomeTab> {
       final user = await Api.restoreSession();
       // area-aware catalogue: services covered by a Pro near the customer are
       // listed first, every other service still follows in the same list
-      final services = await Api.catalog(lat: 26.975, lng: 75.762);
+      final services = await Api.catalog(lat: _latitude, lng: _longitude);
       List<BookingItem> recent = [];
       if (user != null) {
         final all = await Api.userBookings(user.id);
@@ -153,9 +199,12 @@ class _HomeTabState extends State<_HomeTab> {
               children: [
                 const Icon(Icons.location_on, color: KColors.flame, size: 20),
                 const SizedBox(width: 6),
-                const Expanded(
-                  child: Text('Jaipur, Rajasthan',
-                      style: TextStyle(fontWeight: FontWeight.w800, color: KColors.navy, fontSize: 15)),
+                Expanded(
+                  child: InkWell(
+                    onTap: _detectLocation,
+                    child: Text(_locationLabel, maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800, color: KColors.navy, fontSize: 13)),
+                  ),
                 ),
                 IconButton(
                   onPressed: () {},
