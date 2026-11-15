@@ -60,6 +60,8 @@ class ServiceItem {
   final bool popular;
   final String icon;
   final String image;
+  final String parent;
+  final int durationMinutes;
 
   factory ServiceItem.fromJson(Map<String, dynamic> j) => ServiceItem(
         id: (j["id"] ?? "").toString(),
@@ -75,6 +77,8 @@ class ServiceItem {
         popular: j["popular"] == true,
         icon: (j["icon"] ?? "").toString(),
         image: (j["image"] ?? "").toString(),
+        parent: (j["parent"] ?? "").toString(),
+        durationMinutes: _int(j["durationMinutes"]),
       );
 
   const ServiceItem({
@@ -91,6 +95,8 @@ class ServiceItem {
     this.popular = false,
     this.icon = "",
     this.image = "",
+    this.parent = "",
+    this.durationMinutes = 0,
   });
 }
 

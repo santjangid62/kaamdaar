@@ -69,6 +69,7 @@ export const NAV: NavGroup[] = [
     items: [
       { slug: "invoices", label: "Invoices", icon: "FileText" },
       { slug: "payments", label: "Payments", icon: "CreditCard" },
+      { slug: "payment-confirmations", label: "Booking Payment Checks", icon: "ShieldCheck" },
       { slug: "wallet-transactions", label: "Wallet Transactions", icon: "Wallet" },
       { slug: "commission-revenue", label: "Commission & Revenue", icon: "ChartPie" },
     ],

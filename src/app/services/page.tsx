@@ -36,7 +36,7 @@ export default async function ServicesPage({
       <ServicesExplorer
         initialQuery={q}
         initialCategory={category}
-        services={services}
+        services={services.filter((service) => !(service as typeof service & { parent?: string }).parent)}
       />
       </div>
     </>

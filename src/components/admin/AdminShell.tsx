@@ -15,6 +15,7 @@ import {
   LogOut,
   Menu,
   Search,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { NAV } from "../../lib/admin/sections";
@@ -173,6 +174,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
                   <div className="absolute right-0 z-20 mt-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                    <Link
+                      href="/super-admin"
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <ShieldCheck className="h-4 w-4" /> Super Admin Centre
+                    </Link>
                     <Link
                       href="/"
                       className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50"

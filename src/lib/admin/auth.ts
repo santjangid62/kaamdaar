@@ -17,8 +17,21 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@kaamdaar.com";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "Kaamdaar@123";
 const SECRET = process.env.ADMIN_SESSION_SECRET ?? DEV_SECRET;
 
+const HAS_PRODUCTION_ADMIN_CONFIG = Boolean(
+  process.env.ADMIN_EMAIL?.trim() &&
+  process.env.ADMIN_PASSWORD &&
+  process.env.ADMIN_SESSION_SECRET &&
+  process.env.ADMIN_SESSION_SECRET.length >= 32,
+);
+
 export const isDevCredentials =
-  ADMIN_EMAIL === "admin@kaamdaar.com" && process.env.ADMIN_SESSION_SECRET === undefined;
+  process.env.NODE_ENV !== "production" &&
+  ADMIN_EMAIL === "admin@kaamdaar.com" &&
+  process.env.ADMIN_SESSION_SECRET === undefined;
+
+export function isAdminAuthConfigured(): boolean {
+  return process.env.NODE_ENV !== "production" || HAS_PRODUCTION_ADMIN_CONFIG;
+}
 
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
 
@@ -27,6 +40,7 @@ function hmac(payload: string): string {
 }
 
 export function checkCredentials(email: string, password: string): boolean {
+  if (!isAdminAuthConfigured()) return false;
   const a = Buffer.from(email.trim().toLowerCase());
   const b = Buffer.from(ADMIN_EMAIL.toLowerCase());
   const c = Buffer.from(password);
@@ -36,6 +50,7 @@ export function checkCredentials(email: string, password: string): boolean {
 
 /** Create a signed session token valid for 12 hours. */
 export function createSessionToken(): string {
+  if (!isAdminAuthConfigured()) throw new Error("Admin auth is not configured for production");
   const exp = Date.now() + SESSION_TTL_MS;
   const payload = Buffer.from(JSON.stringify({ exp })).toString("base64url");
   return `${payload}.${hmac(payload)}`;

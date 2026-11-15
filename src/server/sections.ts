@@ -85,6 +85,8 @@ function bookingRows(bookings: Booking[], users: User[]) {
       amount: inr(b.amount),
       status: b.status === "dispatched" ? "Searching" : b.status === "pending_confirm" ? "Awaiting OTP" : b.status[0].toUpperCase() + b.status.slice(1),
       tone: tone(b.status),
+      payment: b.paymentStatus === "verified" || b.paidAt ? "Verified" : b.paymentStatus === "reported" ? "Reported — pending Admin" : b.paymentStatus === "disputed" ? "Disputed" : "Unpaid",
+      cancellation: b.status === "cancelled" ? `${b.cancelledBy ?? "unknown"}: ${b.cancellationReason ?? "No reason recorded"}` : "—",
       time: dateFmt(b.dispatchedAt ?? b.createdAt),
       _bookingId: b.id,
     }));
@@ -115,6 +117,8 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
     { key: "location", label: "Location" },
     { key: "amount", label: "Amount", align: "right" },
     { key: "status", label: "Status" },
+    { key: "payment", label: "Payment" },
+    { key: "cancellation", label: "Cancellation details" },
     { key: "time", label: "Time" },
   ];
 

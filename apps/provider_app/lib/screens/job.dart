@@ -218,6 +218,40 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
   }
 
+  Future<void> _cancelJob() async {
+    final b = _booking;
+    if (b == null) return;
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel this job?'),
+        content: TextField(controller: controller, maxLines: 3, decoration: const InputDecoration(labelText: 'Cancellation reason (required)')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Keep job')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: PColors.red),
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Confirm cancellation'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (reason == null || reason.trim().length < 3) return;
+    await _patch({'status': 'cancelled', 'cancellationReason': reason.trim()});
+    await _refresh();
+  }
+
+  Widget _cancelAction(BookingItem b) {
+    return OutlinedButton.icon(
+      onPressed: _busy ? null : _cancelJob,
+      icon: const Icon(Icons.cancel_outlined, color: PColors.red),
+      label: const Text('Cancel job (reason required)', style: TextStyle(color: PColors.red)),
+      style: OutlinedButton.styleFrom(side: const BorderSide(color: PColors.red)),
+    );
+  }
+
   Future<void> _takePayment() async {
     final b = _booking;
     final me = _me;
@@ -249,15 +283,37 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       ),
     );
     if (method == null) return;
+    String reference = '';
+    if (method == 'upi') {
+      final controller = TextEditingController();
+      final entered = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('UPI transaction reference'),
+          content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(labelText: 'UTR / Transaction ID')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Continue')),
+          ],
+        ),
+      );
+      controller.dispose();
+      if (entered == null || entered.length < 6) return;
+      reference = entered;
+    }
     setState(() => _busy = true);
     try {
       await _patch({
-        'paidAt': DateTime.now().millisecondsSinceEpoch,
+        'paymentReported': true,
         'paymentMethod': method,
+        'paymentReference': reference,
       });
+      await _refresh();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Payment recorded — ${rupees(commissionOf(b.amount))} commission debited')));
+      if (_booking?.paymentStatus == 'reported') {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Payment report Admin ko bhej di gayi hai. Verification pending hai.')));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -307,6 +363,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       ],
                       const SizedBox(height: 16),
                       _primaryAction(b),
+                      if (['accepted', 'scheduled', 'enroute', 'arrived'].contains(b.status)) ...[
+                        const SizedBox(height: 8),
+                        _cancelAction(b),
+                      ],
                       const SizedBox(height: 24),
                     ],
                   ),
@@ -497,7 +557,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Widget _invoiceCard(BookingItem b) {
-    final paid = b.paidAt != null;
+    final paid = b.paymentStatus == 'verified' || b.paidAt != null;
+    final reported = b.paymentStatus == 'reported';
     return CardBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -507,11 +568,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               const Text('Invoice',
                   style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5)),
               const Spacer(),
-              Text(paid ? 'PENDING PAYMENT' : 'PAID',
+              Text(paid ? 'VERIFIED' : reported ? 'ADMIN REVIEW' : b.paymentStatus == 'disputed' ? 'DISPUTED' : 'PENDING PAYMENT',
                   style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w800,
-                      color: paid ? PColors.blue : PColors.green)),
+                      color: paid ? PColors.green : PColors.blue)),
             ],
           ),
           const Divider(height: 20),
@@ -592,7 +653,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       case 'pending_confirm':
         return const SizedBox.shrink();
       case 'completed':
-        if (b.paidAt != null) {
+        if (b.paymentStatus == 'reported') {
+          return const CardBox(child: Text('Payment report sent. Admin verification is pending.', style: TextStyle(color: PColors.blue, fontSize: 12.5)));
+        }
+        if (b.paymentStatus == 'disputed') {
+          return const CardBox(child: Text('Payment report is disputed. Please contact Admin.', style: TextStyle(color: PColors.red, fontSize: 12.5)));
+        }
+        if (b.paidAt != null || b.paymentStatus == 'verified') {
           return Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -626,8 +693,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             color: PColors.red.withValues(alpha: .08),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: const Text('This booking was cancelled by the customer.',
-              style: TextStyle(fontSize: 12.5, color: PColors.red)),
+          child: Text('This booking was cancelled by ${b.cancelledBy ?? "customer"}. ${b.cancellationReason ?? ""}',
+              style: const TextStyle(fontSize: 12.5, color: PColors.red)),
         );
       default:
         return const SizedBox.shrink();

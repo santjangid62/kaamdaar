@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Bell, UserRoundPlus, ChevronRight } from "lucide-react";
+import { Bell, UserRoundPlus, CreditCard, ChevronRight } from "lucide-react";
 
 type Notice = {
-  id: string; title: string; userId: string; userName: string; phone: string;
-  platform: string; readAt?: number | null; createdAt: number;
+  id: string; type: string; title: string; userId: string; userName: string; phone: string;
+  platform: string; bookingId?: string; message?: string; readAt?: number | null; createdAt: number;
 };
 
 function timeAgo(value: number) {
@@ -66,12 +66,12 @@ export default function AdminNotificationsBell() {
           </header>
           <div className="max-h-[min(65vh,26rem)] overflow-y-auto">
             {items.length ? items.slice(0, 8).map((item) => (
-              <Link key={item.id} href="/admin/customers" onClick={() => setOpen(false)} className="flex gap-3 border-b border-slate-50 px-4 py-3.5 transition hover:bg-slate-50">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-600"><UserRoundPlus className="h-4 w-4" /></span>
+              <Link key={item.id} href={item.type === "booking_payment_report" ? "/admin/payment-confirmations" : "/admin/customers"} onClick={() => setOpen(false)} className="flex gap-3 border-b border-slate-50 px-4 py-3.5 transition hover:bg-slate-50">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-600">{item.type === "booking_payment_report" ? <CreditCard className="h-4 w-4" /> : <UserRoundPlus className="h-4 w-4" />}</span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-start justify-between gap-2"><span className="text-xs font-bold text-navy">{item.title}</span><span className="shrink-0 text-[10px] text-slate-400">{timeAgo(item.createdAt)}</span></span>
-                  <span className="mt-1 block text-[11px] leading-5 text-slate-500">{item.userName} · {item.phone}</span>
-                  <span className="mt-1 block text-[10px] font-semibold text-blue-600">{item.platform} · View customers</span>
+                  <span className="mt-1 block text-[11px] leading-5 text-slate-500">{item.type === "booking_payment_report" ? (item.message ?? item.userName) : `${item.userName} · ${item.phone}`}</span>
+                  <span className="mt-1 block text-[10px] font-semibold text-blue-600">{item.type === "booking_payment_report" ? "Open payment verification" : `${item.platform} · View customers`}</span>
                 </span>
               </Link>
             )) : <div className="px-5 py-10 text-center"><Bell className="mx-auto h-7 w-7 text-slate-300" /><p className="mt-2 text-xs font-semibold text-slate-500">You&apos;re all caught up</p><p className="mt-1 text-[11px] text-slate-400">New registrations will appear here.</p></div>}

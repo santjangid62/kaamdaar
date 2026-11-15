@@ -146,6 +146,10 @@ export interface Booking {
   slot: string; // human readable time slot
   duration?: string;
   amount: number;
+  /** Immutable price/time snapshot of the parent service and selected add-ons. */
+  selectedSubServiceIds?: string[];
+  serviceItems?: Array<{ id: string; name: string; price: number; durationMinutes: number }>;
+  durationMinutes?: number;
   status: BookingStatus;
   createdAt: number;
 
@@ -165,6 +169,17 @@ export interface Booking {
   completedAt?: number;
   paidAt?: number;
   paymentMethod?: PaymentMethod;
+  /** Transient provider PATCH flag; the API consumes it and does not persist it. */
+  paymentReported?: boolean;
+  paymentStatus?: "unpaid" | "reported" | "verified" | "disputed";
+  paymentReportedAt?: number;
+  paymentReportedBy?: string;
+  paymentReference?: string;
+  paymentVerifiedAt?: number;
+  paymentVerifiedBy?: string;
+  cancelledAt?: number;
+  cancelledBy?: "customer" | "provider" | "admin" | "system";
+  cancellationReason?: string;
   /** 10% company commission deducted from the Pro's wallet on payment. */
   commission?: number;
   /** Estimated minutes to reach the user, shown while enroute. */

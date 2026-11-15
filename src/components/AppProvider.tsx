@@ -163,11 +163,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
       const list = data.services ?? [];
       setSettings(data.settings ?? {});
-      if (list.length > 0) {
-        setServices(list);
-        setCategories(data.categories ?? []);
-        setCatalog(list);
-      }
+      // An intentionally emptied catalogue (Admin bulk delete) is a valid
+      // successful response too; never keep stale services in client state.
+      setServices(list);
+      setCategories(data.categories ?? []);
+      setCatalog(list);
     } catch {
       /* keep the last successful catalog */
     }
