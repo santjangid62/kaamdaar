@@ -23,8 +23,18 @@ export async function sendOtp(phone: string): Promise<SendOtpResult> {
   if (isFirebaseConfigured) {
     const auth = getFirebaseAuth();
     if (!recaptcha) recaptcha = new RecaptchaVerifier(auth, "kaamdaar-recaptcha", { size: "invisible" });
-    confirmation = await signInWithPhoneNumber(auth, phone, recaptcha);
-    return {};
+    try {
+      confirmation = await signInWithPhoneNumber(auth, phone, recaptcha);
+      return {};
+    } catch (error) {
+      confirmation = null;
+      try { recaptcha.clear(); } catch { /* verifier may already be cleared */ }
+      recaptcha = null;
+      const code = error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code ?? "unknown")
+        : "unknown";
+      throw new Error(`Firebase OTP request failed (${code})`);
+    }
   }
   if (process.env.NODE_ENV === "production") {
     throw new Error("Firebase Phone Auth is not configured. Please contact support.");
