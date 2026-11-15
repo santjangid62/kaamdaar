@@ -135,6 +135,7 @@ class _HomeTabState extends State<_HomeTab> {
         _longitude = position.longitude;
         _locationLabel = label;
       });
+      await _load();
     } catch (_) {
       if (mounted) setState(() => _locationLabel = 'Could not detect location — tap to retry');
     }
