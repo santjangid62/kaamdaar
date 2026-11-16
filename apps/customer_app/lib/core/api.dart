@@ -149,6 +149,22 @@ class Api {
     _phoneVerificationId = null;
     return (user: user, isNew: data['isNew'] == true);
   }
+  /// Fetch the latest customer profile from the shared backend.
+  static Future<SessionUser> refreshProfile(String phone) async {
+    final data = await get('/api/users/resolve?phone=${Uri.encodeQueryComponent(e164(phone))}');
+    final user = SessionUser.fromJson((data['user'] as Map<String, dynamic>?) ?? const {});
+    await saveSession(user);
+    return user;
+  }
+
+  /// Update customer profile through the shared backend.
+  static Future<SessionUser> updateProfile(String id, Map<String, dynamic> body) async {
+    final data = await patch('/api/users/${Uri.encodeComponent(id)}', body);
+    final user = SessionUser.fromJson((data['user'] as Map<String, dynamic>?) ?? const {});
+    await saveSession(user);
+    return user;
+  }
+
   /* -------------------------- session --------------------------- */
 
   static const _kSession = 'kaamdaar.customer.session';
