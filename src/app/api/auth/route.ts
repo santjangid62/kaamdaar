@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 import { find, insert, ready } from "../../../server/db";
 import type { Provider, User } from "../../../lib/types";
 import { createUserRegisteredNotification } from "../../../server/notifications";
-import { normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/firebase-auth";
+import { createTestAuthSession, normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/firebase-auth";
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
@@ -102,6 +102,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "A valid Indian mobile number is required" }, { status: 400 });
   }
 
+  const accessToken = isTestPhone(phone) ? createTestAuthSession(phone) : undefined;
+
   if (body.role === "provider") {
     const found = await find<Provider & { id: string; phone?: string; status?: string }>(
       "providers",
@@ -117,7 +119,7 @@ export async function POST(req: Request) {
     if (provider.status === "blocked") {
       return NextResponse.json({ error: "This provider account is blocked. Contact support." }, { status: 403 });
     }
-    return NextResponse.json({ provider });
+    return NextResponse.json({ provider, ...(accessToken ? { accessToken, testSession: true } : {}) });
   }
 
   const existing = await find<User & { id: string; status?: string }>(
@@ -131,7 +133,7 @@ export async function POST(req: Request) {
     if (existing[0].status === "blocked") {
       return NextResponse.json({ error: "This account is blocked. Contact support." }, { status: 403 });
     }
-    return NextResponse.json({ user: existing[0], isNew: false });
+    return NextResponse.json({ user: existing[0], isNew: false, ...(accessToken ? { accessToken, testSession: true } : {}) });
   }
 
   const user = await insert<User & Record<string, unknown>>("users", {
@@ -147,5 +149,5 @@ export async function POST(req: Request) {
     registrationPlatform: body.platform === "web" ? "web" : "mobile_app",
   });
   await createUserRegisteredNotification(user);
-  return NextResponse.json({ user, isNew: true });
+  return NextResponse.json({ user, isNew: true, ...(accessToken ? { accessToken, testSession: true } : {}) });
 }
