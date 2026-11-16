@@ -32,6 +32,7 @@ export const NAV: NavGroup[] = [
     section: "System & Audit",
     items: [
       { slug: "system-logs", label: "System Logs", icon: "FileText" },
+      { slug: "test-login", label: "Test Login / OTP", icon: "ShieldCheck" },
     ],
   },
   {
