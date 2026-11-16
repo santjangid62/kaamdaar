@@ -13,13 +13,14 @@ import { cookies } from "next/headers";
 export const ADMIN_COOKIE = "kaamdaar_admin_session";
 const DEV_SECRET = "kaamdaar-dev-admin-secret-change-me";
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@kaamdaar.com";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "Kaamdaar@123";
+const TEST_ADMIN_MODE = process.env.TEST_AUTH_ENABLED === "true";
+const ADMIN_EMAIL = TEST_ADMIN_MODE ? "admin@kaamdaar.com" : (process.env.ADMIN_EMAIL ?? "admin@kaamdaar.com");
+const ADMIN_PASSWORD = TEST_ADMIN_MODE ? "Kaamdaar@123" : (process.env.ADMIN_PASSWORD ?? "");
 const SECRET = process.env.ADMIN_SESSION_SECRET ?? DEV_SECRET;
 
 const HAS_PRODUCTION_ADMIN_CONFIG = Boolean(
-  process.env.ADMIN_EMAIL?.trim() &&
-  process.env.ADMIN_PASSWORD &&
+  (TEST_ADMIN_MODE || process.env.ADMIN_EMAIL?.trim()) &&
+  (TEST_ADMIN_MODE || process.env.ADMIN_PASSWORD) &&
   process.env.ADMIN_SESSION_SECRET &&
   process.env.ADMIN_SESSION_SECRET.length >= 32,
 );

@@ -5,6 +5,7 @@ import type { User } from "./types";
 let confirmation: ConfirmationResult | null = null;
 let recaptcha: RecaptchaVerifier | null = null;
 let devCode: string | null = null;
+let testModePhone: string | null = null;
 
 export interface SendOtpResult { devCode?: string; }
 
@@ -20,6 +21,18 @@ async function authRequest(body: Record<string, unknown>) {
 }
 
 export async function sendOtp(phone: string): Promise<SendOtpResult> {
+  {
+    try {
+      const data = await authRequest({ action: "send", phone });
+      if (data.testMode === true) {
+        testModePhone = phone;
+        devCode = String(data.devCode ?? "123456");
+        return { devCode };
+      }
+    } catch {
+      // Not an allowlisted test number; continue with real Firebase auth.
+    }
+  }
   if (isFirebaseConfigured) {
     const auth = getFirebaseAuth();
     if (!recaptcha) recaptcha = new RecaptchaVerifier(auth, "kaamdaar-recaptcha", { size: "invisible" });
@@ -50,7 +63,10 @@ export async function verifyOtp(
   code: string,
 ): Promise<{ user: User; isNew: boolean }> {
   let idToken: string | undefined;
-  if (isFirebaseConfigured) {
+  if (testModePhone === phone && devCode === code.trim()) {
+    testModePhone = null;
+    devCode = null;
+  } else if (isFirebaseConfigured) {
     if (!confirmation) throw new Error("OTP session expired. Request a new code.");
     const credential = await confirmation.confirm(code);
     confirmation = null;
@@ -72,6 +88,7 @@ export async function verifyOtp(
 export function resetOtpFlow() {
   confirmation = null;
   devCode = null;
+  testModePhone = null;
   recaptcha?.clear();
   recaptcha = null;
 }

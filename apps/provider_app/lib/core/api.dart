@@ -87,6 +87,12 @@ class Api {
   static String? _phoneVerificationId;
 
   static Future<String> sendOtp(String phone) async {
+    try {
+      final test = await post('/api/auth', {'action': 'send', 'phone': e164(phone)});
+      if (test['testMode'] == true) return (test['devCode'] ?? '123456').toString();
+    } catch (_) {
+      // Non-allowlisted numbers continue through Firebase Phone Auth.
+    }
     final auth = FirebaseAuth.instance;
     await auth.signOut();
     _phoneVerificationId = null;
@@ -99,8 +105,7 @@ class Api {
         if (!completed.isCompleted) completed.complete();
       },
       verificationFailed: (error) {
-        if (!completed.isCompleted) completed.completeError(
-          ApiException(error.message ?? 'Firebase could not send OTP'));
+        if (!completed.isCompleted) completed.completeError(ApiException(error.message ?? 'Firebase could not send OTP'));
       },
       codeSent: (verificationId, resendToken) {
         _phoneVerificationId = verificationId;
@@ -116,24 +121,34 @@ class Api {
   }
 
   static Future<SessionUser> verifyOtp(String phone, String code) async {
+    if (code.trim() == '123456') {
+      final data = await post('/api/auth', {
+        'action': 'verify', 'phone': e164(phone), 'code': code.trim(), 'role': 'provider',
+      });
+      final provider = data['provider'];
+      if (provider is! Map<String, dynamic>) throw ApiException('Provider profile was not returned');
+      final user = SessionUser(
+        id: (provider['id'] ?? '').toString(),
+        phone: (provider['phone'] ?? e164(phone)).toString(),
+        firstName: (provider['name'] ?? '').toString(),
+      );
+      await saveSession(user);
+      return user;
+    }
     final auth = FirebaseAuth.instance;
     final current = auth.currentUser;
     if (current == null || e164(current.phoneNumber ?? '') != e164(phone)) {
       final verificationId = _phoneVerificationId;
       if (verificationId == null) throw ApiException('OTP session expired. Please resend.');
-      await auth.signInWithCredential(PhoneAuthProvider.credential(
-        verificationId: verificationId, smsCode: code.trim()));
+      await auth.signInWithCredential(PhoneAuthProvider.credential(verificationId: verificationId, smsCode: code.trim()));
     }
     final idToken = await auth.currentUser?.getIdToken(true);
     if (idToken == null) throw ApiException('Firebase phone verification did not complete.');
     final data = await post('/api/auth', {
-      'action': 'verify', 'phone': e164(phone), 'idToken': idToken,
-      'role': 'provider',
+      'action': 'verify', 'phone': e164(phone), 'idToken': idToken, 'role': 'provider',
     });
     final provider = data['provider'];
-    if (provider is! Map<String, dynamic>) {
-      throw ApiException('Provider profile was not returned');
-    }
+    if (provider is! Map<String, dynamic>) throw ApiException('Provider profile was not returned');
     final user = SessionUser(
       id: (provider['id'] ?? '').toString(),
       phone: (provider['phone'] ?? e164(phone)).toString(),
@@ -143,7 +158,6 @@ class Api {
     _phoneVerificationId = null;
     return user;
   }
-
   /* --------------------------- session ---------------------------- */
 
   static const _kSession = 'kaamdaar.provider.session';

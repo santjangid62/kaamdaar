@@ -11,6 +11,14 @@ import { normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
+function testPhones(): Set<string> {
+  return new Set((process.env.TEST_AUTH_PHONES ?? "").split(",").map((v) => normalizeIndianPhone(v.trim())).filter((v) => PHONE_RE.test(v)));
+}
+function isTestPhone(phone: string): boolean {
+  return process.env.TEST_AUTH_ENABLED === "true" && testPhones().has(phone);
+}
+function testOtp(): string { return process.env.TEST_AUTH_OTP || "123456"; }
+
 function referralCode(phone: string): string {
   return `KDM${phone.replace(/\D/g, "").slice(-4)}`;
 }
@@ -36,6 +44,9 @@ export async function POST(req: Request) {
   // Development-only OTP path. Never expose or accept server-generated OTPs
   // in production; production identity is established by Firebase ID tokens.
   if (body.action === "send") {
+    if (isTestPhone(phone)) {
+      return NextResponse.json({ testMode: true, devCode: testOtp(), expiresIn: 3600 });
+    }
     if (process.env.NODE_ENV === "production") {
       return NextResponse.json({ error: "Use Firebase Phone Authentication" }, { status: 410 });
     }
@@ -52,7 +63,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "action must be verify" }, { status: 422 });
   }
 
-  if (body.idToken) {
+  if (isTestPhone(phone)) {
+    if ((body.code ?? "").trim() !== testOtp()) {
+      return NextResponse.json({ error: "Incorrect test OTP" }, { status: 401 });
+    }
+  } else if (body.idToken) {
     try {
       const { phone: verifiedPhone } = await verifyFirebasePhoneToken(body.idToken);
       if (phone && phone !== verifiedPhone) {
