@@ -11,6 +11,14 @@ import { normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
+function testPhones(): Set<string> {
+  return new Set((process.env.TEST_AUTH_PHONES ?? "").split(",").map((v) => normalizeIndianPhone(v.trim())).filter((v) => PHONE_RE.test(v)));
+}
+function isTestPhone(phone: string): boolean {
+  return process.env.TEST_AUTH_ENABLED === "true" && testPhones().has(phone);
+}
+function testOtp(): string { return process.env.TEST_AUTH_OTP || "123456"; }
+
 function referralCode(phone: string): string {
   return `KDM${phone.replace(/\D/g, "").slice(-4)}`;
 }
