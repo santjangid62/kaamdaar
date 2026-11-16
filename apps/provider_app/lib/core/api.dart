@@ -95,7 +95,10 @@ class Api {
   static Future<String> sendOtp(String phone) async {
     try {
       final test = await post('/api/auth', {'action': 'send', 'phone': e164(phone)});
-      if (test['testMode'] == true) return (test['devCode'] ?? '123456').toString();
+      if (test['testMode'] == true) {
+        await FirebaseAuth.instance.signOut();
+        return (test['devCode'] ?? '123456').toString();
+      }
     } catch (_) {
       // Non-allowlisted numbers continue through Firebase Phone Auth.
     }
