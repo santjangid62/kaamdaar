@@ -46,6 +46,10 @@ export interface Provider {
   hourlyRate?: number; // ₹/hr shown to the user after accept
   reviewCount?: number;
   reviews?: ProviderReview[];
+  /** Server-owned single-job lock shared by web, mobile and admin surfaces. */
+  activeBookingId?: string;
+  availabilityStatus?: "available" | "busy";
+  availabilityUpdatedAt?: number;
   synthetic?: boolean; // dev-mode filler, never persisted
 }
 
