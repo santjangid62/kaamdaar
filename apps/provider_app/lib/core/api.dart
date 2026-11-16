@@ -28,8 +28,14 @@ class Api {
     defaultValue: 'https://kaamdaar-seven.vercel.app',
   );
 
+  static const _kAuthToken = 'kaamdaar.api.auth_token';
+
   static Future<Map<String, String>> _headers() async {
-    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    final firebaseToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+    final prefs = await SharedPreferences.getInstance();
+    final token = (firebaseToken != null && firebaseToken.isNotEmpty)
+        ? firebaseToken
+        : prefs.getString(_kAuthToken);
     return {
       'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
@@ -125,6 +131,11 @@ class Api {
       final data = await post('/api/auth', {
         'action': 'verify', 'phone': e164(phone), 'code': code.trim(), 'role': 'provider',
       });
+      final apiToken = data['accessToken']?.toString();
+      if (apiToken != null && apiToken.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_kAuthToken, apiToken);
+      }
       final provider = data['provider'];
       if (provider is! Map<String, dynamic>) throw ApiException('Provider profile was not returned');
       final user = SessionUser(
@@ -185,6 +196,7 @@ class Api {
     cached = null;
     final p = await SharedPreferences.getInstance();
     await p.remove(_kSession);
+    await p.remove(_kAuthToken);
   }
 
   static Future<bool> get onboarded async {
