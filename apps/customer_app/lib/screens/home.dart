@@ -135,6 +135,16 @@ class _HomeTabState extends State<_HomeTab> {
         _longitude = position.longitude;
         _locationLabel = label;
       });
+      try {
+        await Api.post('/api/location', {
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'accuracy': position.accuracy,
+          'address': label,
+        });
+      } catch (_) {
+        // Location remains available locally; server sync retries on next detection.
+      }
       await _load();
     } catch (_) {
       if (mounted) setState(() => _locationLabel = 'Could not detect location — tap to retry');
