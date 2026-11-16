@@ -211,22 +211,22 @@ class Api {
 
   /// Register an FCM token only when Firebase proves the provider's phone.
   static Future<void> registerDeviceToken(String providerId, String token) async {
+    final session = await restoreSession();
+    if (session == null || session.id != providerId) {
+      throw ApiException('Please sign in again to enable job notifications.');
+    }
     final firebaseUser = FirebaseAuth.instance.currentUser;
     final rawFirebasePhone = firebaseUser?.phoneNumber ?? '';
     final firebasePhone = rawFirebasePhone.isEmpty ? '' : e164(rawFirebasePhone);
     final idToken = await firebaseUser?.getIdToken(true);
-    if (idToken == null || firebasePhone.isEmpty) {
-      throw ApiException('Please sign in again to enable job notifications.');
-    }
-    final session = await restoreSession();
-    if (session == null || session.id != providerId || e164(session.phone) != firebasePhone) {
-      throw ApiException('Provider account does not match the verified Firebase number.');
+    if (idToken != null && firebasePhone != e164(session.phone)) {
+      throw ApiException('Provider account does not match the verified phone number.');
     }
     await post('/api/providers/device-token', {
       'providerId': providerId,
       'token': token,
       'platform': 'android',
-      'idToken': idToken,
+      if (idToken != null) 'idToken': idToken,
     });
   }
 
