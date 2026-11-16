@@ -160,6 +160,16 @@ class _DashboardTabState extends State<DashboardTab> {
         }
       } catch (_) {}
       if (mounted) setState(() => _locationLabel = label);
+      try {
+        await Api.post('/api/location', {
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'accuracy': position.accuracy,
+          'address': label,
+        });
+      } catch (_) {
+        // Keep the local GPS fix; next dashboard refresh can sync it again.
+      }
     } catch (_) {
       if (mounted) setState(() => _locationLabel = 'Could not detect location');
     }
