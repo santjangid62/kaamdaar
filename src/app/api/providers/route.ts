@@ -31,8 +31,17 @@ export async function GET(req: Request) {
   const lng = Number(lngRaw);
   const radiusRaw = Number(url.searchParams.get("radiusKm") ?? "");
 
-  const providers = (await all<Provider & { kycStatus?: string }>("providers"))
-    .filter((provider) => isInsideJaipur(provider));
+  const [providerRows, bookingRows] = await Promise.all([
+    all<Provider & { kycStatus?: string; activeBookingId?: string }>("providers"),
+    all<{ providerId: string; status: string }>("bookings"),
+  ]);
+  const busyIds = new Set(bookingRows
+    .filter((booking) => ["accepted", "enroute", "arrived", "in_progress"].includes(booking.status))
+    .map((booking) => booking.providerId)
+    .filter(Boolean));
+  const providers = providerRows
+    .filter((provider) => isInsideJaipur(provider))
+    .filter((provider) => !provider.activeBookingId && !busyIds.has(provider.id));
   // NB: Number(null) === 0 — an absent param must not be mistaken for (0, 0)
   const hasPoint =
     latRaw !== null && lngRaw !== null && Number.isFinite(lat) && Number.isFinite(lng);
