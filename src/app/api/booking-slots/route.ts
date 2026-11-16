@@ -8,7 +8,6 @@ import { all, ready } from "../../../server/db";
 import { haversineKm } from "../../../lib/geo";
 import { isInsideJaipur } from "../../../lib/areas";
 import type { Booking, Provider, Service } from "../../../lib/types";
-import { firebaseIdentityFromRequest } from "../../../server/firebase-auth";
 
 const DAY_START_MIN = 8 * 60;
 const DAY_END_MIN = 20 * 60;
@@ -27,7 +26,7 @@ function slotStartMinutes(value: string): number | null {
   const match = value.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
   if (!match) return null;
   let hour = Number(match[1]);
-  const minute = Number(match[2]);
+  const minute = Number(match[2] ?? 0);
   const meridiem = match[3]?.toUpperCase();
   if (minute > 59 || hour > 23 || (meridiem && (hour < 1 || hour > 12))) return null;
   if (meridiem === "AM" && hour === 12) hour = 0;
@@ -41,9 +40,6 @@ function overlaps(start: number, end: number, otherStart: number, otherEnd: numb
 
 export async function GET(req: Request) {
   await ready();
-  if (!(await firebaseIdentityFromRequest(req))) {
-    return NextResponse.json({ error: "A signed-in customer session is required" }, { status: 401 });
-  }
   const url = new URL(req.url);
   const serviceId = url.searchParams.get("serviceId") ?? "";
   const date = url.searchParams.get("date") ?? "";
@@ -51,6 +47,10 @@ export async function GET(req: Request) {
   const lng = Number(url.searchParams.get("lng"));
   if (!serviceId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(lat) || !Number.isFinite(lng)) {
     return NextResponse.json({ error: "serviceId, date, lat and lng are required" }, { status: 422 });
+  }
+  const parsedDate = new Date(`${date}T00:00:00+05:30`);
+  if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
+    return NextResponse.json({ error: "A valid Jaipur booking date is required" }, { status: 422 });
   }
   const origin = { lat, lng };
   if (!isInsideJaipur(origin)) {
