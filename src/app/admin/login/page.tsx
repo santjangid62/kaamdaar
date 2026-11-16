@@ -142,9 +142,8 @@ export default function AdminLoginPage() {
 
           <p className="mt-4 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-[11px] leading-4 text-slate-500">
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-            Dev credentials: <b className="text-slate-700">admin@kaamdaar.com</b> /{" "}
-            <b className="text-slate-700">Kaamdaar@123</b> — override with ADMIN_EMAIL,
-            ADMIN_PASSWORD and ADMIN_SESSION_SECRET in .env.local before going live.
+            Use the administrator credentials configured securely by the platform owner.
+            For access issues, contact your Kaamdaar system administrator.
           </p>
         </form>
 

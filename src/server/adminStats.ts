@@ -4,6 +4,7 @@
  * derived from users / providers / bookings / reviews in the database.
  * Used by the dashboard page directly and by /api/admin/overview (auth-wrapped).
  */
+import { connection } from "next/server";
 import { all, count, ready } from "./db";
 import { bookingCode } from "./sections";
 import { haversineKm } from "../lib/geo";
@@ -49,6 +50,7 @@ function pct(now: number, before: number): { delta: string; deltaUp: boolean } {
 }
 
 export async function getOverview() {
+  await connection();
   await ready();
 
   const [users, providers, bookings] = await Promise.all([

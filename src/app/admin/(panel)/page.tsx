@@ -4,6 +4,7 @@
  * honest empty states instead of placeholder numbers.
  */
 import Link from "next/link";
+import { connection } from "next/server";
 import { Calendar, Download } from "lucide-react";
 import { getOverview } from "../../../server/adminStats";
 import { BarChart, ChartLegend, LineChart } from "../../../components/admin/charts";
@@ -117,6 +118,7 @@ const UPCOMING_COLUMNS = [
 ];
 
 export default async function AdminDashboardPage() {
+  await connection();
   const data = await getOverview();
   const topServices = data.topServices.map((s) => ({ ...s, rating: 0 }));
 
