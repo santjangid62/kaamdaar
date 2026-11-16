@@ -161,7 +161,7 @@ export default function LocationButton({ variant = "pill", className = "" }: Pro
                   }
                 >
                   {area.name}
-                  {location && location.label === c.name && <MapPin className="h-3.5 w-3.5" />}
+                  {location && location.label === `${area.name}, Jaipur` && <MapPin className="h-3.5 w-3.5" />}
                 </button>
               </li>
             ))}
