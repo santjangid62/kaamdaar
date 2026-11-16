@@ -25,8 +25,8 @@ const ALLOWED = new Set([
 ]);
 
 function scheduledStartAt(booking: Booking): number | null {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(booking.date ?? "")) return null;
-  const match = String(booking.slot ?? "").match(/(\\d{1,2})(?::(\\d{2}))?\\s*(AM|PM)?/i);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(booking.date ?? "")) return null;
+  const match = String(booking.slot ?? "").match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
   if (!match) return null;
   let hour = Number(match[1]);
   const minute = Number(match[2] ?? 0);
