@@ -21,7 +21,7 @@ async function authRequest(body: Record<string, unknown>) {
 }
 
 export async function sendOtp(phone: string): Promise<SendOtpResult> {
-  if (process.env.NEXT_PUBLIC_TEST_AUTH_ENABLED === "true") {
+  {
     try {
       const data = await authRequest({ action: "send", phone });
       if (data.testMode === true) {
