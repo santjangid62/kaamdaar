@@ -1,6 +1,6 @@
 /** PATCH /api/bookings/:id — dispatch lifecycle updates (owner-checked). */
 import { NextResponse } from "next/server";
-import { all, claimDispatchedBooking, get, insert, patch, ready, uid } from "../../../../server/db";
+import { all, claimDispatchedBooking, claimProviderBooking, get, insert, patch, ready, releaseProviderBooking, uid } from "../../../../server/db";
 import { minWallet } from "../../../../server/settings";
 import { debitCommission, type WalletTxn } from "../../../../server/wallet";
 import { etaMinutes, generateOtp, toProfile } from "../../../../lib/dispatch";
@@ -321,11 +321,19 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     changes.acceptedAt =
       typeof changes.acceptedAt === "number" ? changes.acceptedAt : Date.now();
 
-    // Compare-and-set in the database prevents two Pros from accepting the
-    // same request concurrently, even when their requests hit different
-    // serverless instances.
+    // Reserve the professional as well as the booking. This prevents two
+    // different customers from concurrently assigning separate jobs to one Pro.
+    const providerLocked = await claimProviderBooking(acceptingId, id);
+    if (!providerLocked) {
+      return NextResponse.json(
+        { error: "You are already busy with another job. Mark that work completed before accepting a new request." },
+        { status: 409 },
+      );
+    }
+    // Compare-and-set prevents two Pros accepting the same dispatch.
     const claimed = await claimDispatchedBooking(id, acceptingId, Date.now());
     if (!claimed) {
+      await releaseProviderBooking(acceptingId, id);
       return NextResponse.json(
         { error: "Request already accepted or this 40-second offer has expired" },
         { status: 409 },
@@ -362,7 +370,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (added.length) changes.events = appendEvents(booking.events, added);
 
   const updated = await patch<Booking>("bookings", id, changes);
-  if (!updated) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  if (!updated) {
+    if (actorRole === "provider" && changes.status === "accepted" && authenticatedProviderId) {
+      await releaseProviderBooking(authenticatedProviderId, id);
+    }
+    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  }
+  // The Pro becomes available immediately after tapping Work Completed
+  // (pending_confirm), not after the customer enters the completion OTP.
+  if (booking.providerId && ["pending_confirm", "completed", "cancelled"].includes(String(changes.status ?? ""))) {
+    await releaseProviderBooking(booking.providerId, id);
+  }
   if (changes.paymentReportedAt && actorRole === "provider") {
     await insert("notifications", {
       id: uid("ntf"),
