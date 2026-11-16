@@ -68,8 +68,15 @@ export async function GET(req: Request) {
     .filter((b) => b.status !== "dispatched" || !b.offerExpiresAt || b.offerExpiresAt > Date.now())
     .sort((a, b) => b.createdAt - a.createdAt);
 
+  const providerBusy = Boolean(
+    professional && (professional as Provider & { activeBookingId?: string }).activeBookingId
+  ) || (providerId && rows.some((b) =>
+    b.providerId === providerId && ["accepted", "enroute", "arrived", "in_progress"].includes(b.status)
+  ));
   const visibleRows = providerId
-    ? rows.map(({ startOtp: _startOtp, completeOtp: _completeOtp, ...safe }) => safe)
+    ? rows
+        .filter((b) => !(providerBusy && b.status === "dispatched"))
+        .map(({ startOtp: _startOtp, completeOtp: _completeOtp, ...safe }) => safe)
     : rows;
   return NextResponse.json({ bookings: visibleRows });
 }
