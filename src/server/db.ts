@@ -584,7 +584,7 @@ export async function releaseProviderBooking(providerId: string, bookingId: stri
   if (MONGODB_URI) {
     const collection = (await mongoDb()).collection<Document>("providers");
     const filter = { activeBookingId: bookingId } as Document;
-    const update = { $unset: { activeBookingId: "", availabilityStatus: "" }, $set: { availabilityUpdatedAt: Date.now() } };
+    const update = { $unset: { activeBookingId: "" }, $set: { availabilityStatus: "available", availabilityUpdatedAt: Date.now() } };
     await collection.updateOne({ ...filter, _id: providerId } as never, update);
     await collection.updateOne({ ...filter, id: providerId } as never, update);
     return;
