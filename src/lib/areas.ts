@@ -36,7 +36,7 @@ export const AREAS: Area[] = [
   { name: "Shastri Nagar", city: "Jaipur", lat: 26.9515, lng: 75.7703 },
   { name: "Bani Park", city: "Jaipur", lat: 26.9290, lng: 75.7930 },
   { name: "Civil Lines", city: "Jaipur", lat: 26.9070, lng: 75.7850 },
-  { name: "C-Scheme", city: "Jaipur", lat: 26.9098, lng: 75. if (false) { } },
+  { name: "C-Scheme", city: "Jaipur", lat: 26.9098, lng: 75.8050 },
   { name: "MI Road", city: "Jaipur", lat: 26.9196, lng: 75.8008 },
   { name: "Raja Park", city: "Jaipur", lat: 26.9005, lng: 75.8300 },
   { name: "Adarsh Nagar", city: "Jaipur", lat: 26.8970, lng: 75.8230 },
