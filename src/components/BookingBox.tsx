@@ -46,13 +46,18 @@ export default function BookingBox({ service }: { service: Service }) {
 
   useEffect(() => {
     if (!location) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale options when the location is removed
       setSlots([]);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear the previous location's selection
       setTime("");
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- explain why slot lookup cannot run yet
       setSlotsError("Please select your Jaipur service location first.");
       return;
     }
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- show loading while the availability request runs
     setSlotsLoading(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clear the previous lookup error
     setSlotsError("");
     const query = new URLSearchParams({ serviceId: service.id, date, lat: String(location.lat), lng: String(location.lng) });
     void fetch(`/api/booking-slots?${query.toString()}`)
