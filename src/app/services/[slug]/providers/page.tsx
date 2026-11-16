@@ -90,7 +90,7 @@ function ProvidersFlow() {
     radiusKm: WIDE_RING_KM,
     ring: "none",
   });
-  const [matchLoading, setMatchLoading] = useState(false);
+  const [matchLoading, setMatchLoading] = useState(true);
   const [dispatchRadiusKm, setDispatchRadiusKm] = useState<number>(WIDE_RING_KM);
   const [accepted, setAccepted] = useState<NearbyProvider | null>(null);
   const [selectedSubServiceIds, setSelectedSubServiceIds] = useState<string[]>([]);
@@ -109,7 +109,6 @@ function ProvidersFlow() {
       return;
     }
     let cancelled = false;
-    setMatchLoading(true);
     void (async () => {
       try {
         const res = await fetch(
