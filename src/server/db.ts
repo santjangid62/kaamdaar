@@ -543,6 +543,63 @@ export async function claimDispatchedBooking(
   return claimed;
 }
 
+
+/**
+ * Atomically lock a provider to one active booking. This is separate from
+ * dispatch claiming: a provider may receive several offers, but only one
+ * booking can reserve their availability across concurrent requests.
+ */
+export async function claimProviderBooking(providerId: string, bookingId: string): Promise<boolean> {
+  if (MONGODB_URI) {
+    const collection = (await mongoDb()).collection<Document>("providers");
+    const filter = {
+      $or: [{ activeBookingId: { $exists: false } }, { activeBookingId: null }, { activeBookingId: "" }],
+    } as Document;
+    const update = { $set: { activeBookingId: bookingId, availabilityStatus: "busy", availabilityUpdatedAt: Date.now() } };
+    const options = { returnDocument: "after" as const, includeResultMetadata: false };
+    const claimed = await collection.findOneAndUpdate({ ...filter, _id: providerId } as never, update, options)
+      ?? await collection.findOneAndUpdate({ ...filter, id: providerId } as never, update, options);
+    return Boolean(claimed);
+  }
+  let claimed = false;
+  const run = async () => {
+    const store = await readStore();
+    const current = store.providers?.[providerId] as (Doc & { activeBookingId?: string }) | undefined;
+    if (!current || (current.activeBookingId && current.activeBookingId !== bookingId)) return;
+    store.providers ??= {};
+    store.providers[providerId] = { ...current, activeBookingId: bookingId, availabilityStatus: "busy", availabilityUpdatedAt: Date.now() };
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    const tmp = `${DB_FILE}.${process.pid}.provider-lock.tmp`;
+    await fs.writeFile(tmp, JSON.stringify(store, null, 2), "utf8");
+    await replaceFile(tmp, DB_FILE);
+    claimed = true;
+  };
+  queue = queue.then(run, run);
+  await queue;
+  return claimed;
+}
+
+/** Release only the lock owned by this booking; stale requests cannot unlock another job. */
+export async function releaseProviderBooking(providerId: string, bookingId: string): Promise<void> {
+  if (MONGODB_URI) {
+    const collection = (await mongoDb()).collection<Document>("providers");
+    const filter = { activeBookingId: bookingId } as Document;
+    const update = { $unset: { activeBookingId: "", availabilityStatus: "" }, $set: { availabilityUpdatedAt: Date.now() } };
+    await collection.updateOne({ ...filter, _id: providerId } as never, update);
+    await collection.updateOne({ ...filter, id: providerId } as never, update);
+    return;
+  }
+  const run = async () => {
+    const store = await readStore();
+    const current = store.providers?.[providerId] as (Doc & { activeBookingId?: string }) | undefined;
+    if (!current || current.activeBookingId !== bookingId) return;
+    store.providers![providerId] = { ...current, activeBookingId: "", availabilityStatus: "available", availabilityUpdatedAt: Date.now() };
+    await writeStore(store);
+  };
+  queue = queue.then(run, run);
+  await queue;
+}
+
 /* ── seeding ────────────────────────────────────────────────────── */
 
 type Seeder = (store: Store) => Promise<Store> | Store;
