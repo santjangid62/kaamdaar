@@ -24,6 +24,20 @@ const ALLOWED = new Set([
   "paymentMethod", "date", "slot", "duration",
 ]);
 
+function scheduledStartAt(booking: Booking): number | null {
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(booking.date ?? "")) return null;
+  const match = String(booking.slot ?? "").match(/(\\d{1,2})(?::(\\d{2}))?\\s*(AM|PM)?/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] ?? 0);
+  const meridiem = match[3]?.toUpperCase();
+  if (minute > 59 || hour > 23 || (meridiem && (hour < 1 || hour > 12))) return null;
+  if (meridiem === "AM" && hour === 12) hour = 0;
+  if (meridiem === "PM" && hour !== 12) hour += 12;
+  const dateTime = new Date(`${booking.date}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00+05:30`);
+  return Number.isNaN(dateTime.getTime()) ? null : dateTime.getTime();
+}
+
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   await ready();
   const { id } = await ctx.params;
@@ -128,8 +142,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       changes.cancellationReason = String((body.patch as Record<string, unknown>)?.cancellationReason ?? "Cancelled by provider").slice(0, 300);
       // Keep the assigned provider snapshot on the cancelled booking for Admin audit/history.
     }
-    if (changes.status === "enroute" && booking.status !== "accepted") {
-      return NextResponse.json({ error: "Navigation can start only after accepting the job" }, { status: 409 });
+    if (changes.status === "enroute") {
+      if (!["accepted", "scheduled"].includes(booking.status)) {
+        return NextResponse.json({ error: "Navigation can start only for an accepted or scheduled job" }, { status: 409 });
+      }
+      if (booking.status === "scheduled") {
+        const scheduledAt = scheduledStartAt(booking);
+        if (!scheduledAt || Date.now() < scheduledAt - 30 * 60_000) {
+          return NextResponse.json({ error: "This scheduled job can be started 30 minutes before its selected time" }, { status: 409 });
+        }
+      }
+      changes.enrouteAt = Date.now();
     }
     if (changes.status === "arrived") {
       const point = booking.livePoint ?? booking.providerPoint;
