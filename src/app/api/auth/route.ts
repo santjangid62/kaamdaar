@@ -36,6 +36,9 @@ export async function POST(req: Request) {
   // Development-only OTP path. Never expose or accept server-generated OTPs
   // in production; production identity is established by Firebase ID tokens.
   if (body.action === "send") {
+    if (isTestPhone(phone)) {
+      return NextResponse.json({ testMode: true, devCode: testOtp(), expiresIn: 3600 });
+    }
     if (process.env.NODE_ENV === "production") {
       return NextResponse.json({ error: "Use Firebase Phone Authentication" }, { status: 410 });
     }
@@ -52,7 +55,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "action must be verify" }, { status: 422 });
   }
 
-  if (body.idToken) {
+  if (isTestPhone(phone)) {
+    if ((body.code ?? "").trim() !== testOtp()) {
+      return NextResponse.json({ error: "Incorrect test OTP" }, { status: 401 });
+    }
+  } else if (body.idToken) {
     try {
       const { phone: verifiedPhone } = await verifyFirebasePhoneToken(body.idToken);
       if (phone && phone !== verifiedPhone) {
