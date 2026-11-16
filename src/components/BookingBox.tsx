@@ -24,7 +24,7 @@ export default function BookingBox({ service }: { service: Service }) {
       const d = new Date(now);
       d.setDate(now.getDate() + i);
       list.push({
-        value: d.toISOString().slice(0, 10),
+        value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` ,
         label:
           i === 0
             ? s.detail.today
