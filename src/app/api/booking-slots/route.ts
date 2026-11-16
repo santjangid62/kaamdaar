@@ -18,8 +18,11 @@ function durationOf(service?: Service & { durationMinutes?: number }): number {
   if (!service) return 60;
   const explicit = Number((service as Service & { durationMinutes?: number }).durationMinutes);
   if (Number.isFinite(explicit) && explicit > 0) return explicit;
-  const numbers = String(service.duration ?? "").match(/\d+/g)?.map(Number) ?? [];
-  return numbers.length ? Math.max(30, Math.round(numbers.reduce((a, b) => a + b, 0) / numbers.length)) : 60;
+  const durationText = String(service.duration ?? "").toLowerCase();
+  const numbers = durationText.match(/\d+/g)?.map(Number) ?? [];
+  if (!numbers.length) return 60;
+  const average = numbers.reduce((a, b) => a + b, 0) / numbers.length;
+  return Math.max(30, Math.round(average * (/hours?|hrs?/.test(durationText) ? 60 : 1)));
 }
 
 function slotStartMinutes(value: string): number | null {
@@ -48,8 +51,9 @@ export async function GET(req: Request) {
   if (!serviceId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(lat) || !Number.isFinite(lng)) {
     return NextResponse.json({ error: "serviceId, date, lat and lng are required" }, { status: 422 });
   }
-  const parsedDate = new Date(`${date}T00:00:00+05:30`);
-  if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
+  const [year, month, day] = date.split("-").map(Number);
+  const parsedDate = new Date(Date.UTC(year, month - 1, day));
+  if (parsedDate.getUTCFullYear() !== year || parsedDate.getUTCMonth() !== month - 1 || parsedDate.getUTCDate() !== day) {
     return NextResponse.json({ error: "A valid Jaipur booking date is required" }, { status: 422 });
   }
   const origin = { lat, lng };
