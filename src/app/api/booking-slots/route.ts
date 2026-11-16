@@ -23,7 +23,7 @@ function durationOf(service?: Service & { durationMinutes?: number }): number {
 }
 
 function slotStartMinutes(value: string): number | null {
-  const match = value.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  const match = value.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
   if (!match) return null;
   let hour = Number(match[1]);
   const minute = Number(match[2] ?? 0);
