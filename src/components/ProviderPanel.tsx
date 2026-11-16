@@ -132,6 +132,17 @@ export default function ProviderPanel({
     }
   }
 
+  async function startScheduledJob() {
+    if (!booking) return;
+    setBusy(true);
+    try {
+      await updateBooking(booking.userId, booking.id, { status: "enroute" });
+      onChanged?.();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function verifyCompletion() {
     if (!booking || otp.length !== 6) return;
     setBusy(true);
@@ -228,6 +239,18 @@ export default function ProviderPanel({
           {d.onTheWay} · {booking.address.label}
         </p>
         <p className="mt-2 text-xs text-blue-600">{d.sharedLocation}</p>
+      </div>
+    );
+  } else if (booking && status === "scheduled") {
+    requestBody = (
+      <div className="space-y-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+        <p className="text-sm font-bold text-blue-900">{booking.serviceName}</p>
+        <p className="text-sm text-blue-700">Scheduled for {booking.date} · {booking.slot}</p>
+        <p className="text-xs text-blue-700">You are reserved for this time. Start navigation up to 30 minutes before the scheduled slot.</p>
+        <button type="button" onClick={() => void startScheduledJob()} disabled={busy} className="btn-primary w-full justify-center">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
+          Start navigation
+        </button>
       </div>
     );
   } else if (booking && status === "arrived") {
