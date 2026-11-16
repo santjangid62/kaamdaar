@@ -122,22 +122,30 @@ export default function BookingBox({ service }: { service: Service }) {
 
       <div className="mt-4">
         <h3 className="text-sm font-bold text-slate-900">{s.detail.selectTime}</h3>
-        <div className="mt-2 grid grid-cols-3 gap-1.5">
-          {TIMES.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTime(t)}
-              className={`rounded-lg border px-1 py-2 text-xs font-semibold transition ${
-                time === t
-                  ? "border-flame bg-flame text-navy"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-flame-400"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+        {!location && <div className="mt-2"><LocationButton variant="inline" /></div>}
+        {slotsLoading ? (
+          <p className="mt-2 text-xs text-slate-500">Checking provider availability…</p>
+        ) : slotsError ? (
+          <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">{slotsError}</p>
+        ) : (
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            {slots.map((slot) => (
+              <button
+                key={slot.start}
+                type="button"
+                onClick={() => setTime(slot.start)}
+                className={`rounded-lg border px-1 py-2 text-xs font-semibold transition ${
+                  time === slot.start
+                    ? "border-flame bg-flame text-navy"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-flame-400"
+                }`}
+              >
+                <span className="block">{slot.start}</span>
+                <span className="block text-[9px] opacity-70">{slot.availableProviderCount} Pros</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <Link href={href} aria-disabled={!time || slotsLoading} className={`btn-accent mt-5 w-full py-3 text-base ${!time || slotsLoading ? "pointer-events-none opacity-50" : ""}`}>
