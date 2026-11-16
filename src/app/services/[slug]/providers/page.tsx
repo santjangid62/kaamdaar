@@ -106,7 +106,6 @@ function ProvidersFlow() {
   const [results, setResults] = useState<NearbyProvider[]>([]);
   useEffect(() => {
     if (!service || !center) {
-      setResults([]);
       return;
     }
     let cancelled = false;
