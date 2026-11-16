@@ -321,6 +321,18 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     changes.acceptedAt =
       typeof changes.acceptedAt === "number" ? changes.acceptedAt : Date.now();
 
+    // Re-check legacy/current jobs before acquiring the atomic provider lock.
+    const activeJobs = await all<Booking>("bookings");
+    const alreadyWorking = activeJobs.some((job) =>
+      job.id !== id && job.providerId === acceptingId &&
+      ["accepted", "enroute", "arrived", "in_progress"].includes(job.status)
+    );
+    if (alreadyWorking) {
+      return NextResponse.json(
+        { error: "You already have an active job. Mark it completed before accepting another request." },
+        { status: 409 },
+      );
+    }
     // Reserve the professional as well as the booking. This prevents two
     // different customers from concurrently assigning separate jobs to one Pro.
     const providerLocked = await claimProviderBooking(acceptingId, id);
