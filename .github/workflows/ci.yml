@@ -34,6 +34,10 @@ jobs:
           src/app/api/auth/route.ts
           'src/app/api/bookings/[id]/route.ts'
           src/app/api/bookings/route.ts
+          src/app/api/booking-slots/route.ts
+          'src/app/services/[slug]/providers/page.tsx'
+          src/components/BookingBox.tsx
+          src/components/ProviderPanel.tsx
           src/app/api/providers/device-token/route.ts
           src/app/login/page.tsx
           src/lib/auth-service.ts

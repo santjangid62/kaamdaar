@@ -9,6 +9,7 @@ import { all, insert, patch, ready } from "../../../server/db";
 import { commissionRate, minWallet } from "../../../server/settings";
 import type { Booking, GeoPoint, Provider, Service } from "../../../lib/types";
 import { matchProviders } from "../../../lib/match";
+import { isInsideJaipur } from "../../../lib/areas";
 import { newEvent } from "../../../server/events";
 import { sendProviderJobOffer } from "../../../server/fcm";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
@@ -67,8 +68,15 @@ export async function GET(req: Request) {
     .filter((b) => b.status !== "dispatched" || !b.offerExpiresAt || b.offerExpiresAt > Date.now())
     .sort((a, b) => b.createdAt - a.createdAt);
 
+  const providerBusy = Boolean(
+    professional && (professional as Provider & { activeBookingId?: string }).activeBookingId
+  ) || (providerId && rows.some((b) =>
+    b.providerId === providerId && ["accepted", "enroute", "arrived", "in_progress"].includes(b.status)
+  ));
   const visibleRows = providerId
-    ? rows.map(({ startOtp: _startOtp, completeOtp: _completeOtp, ...safe }) => safe)
+    ? rows
+        .filter((b) => !(providerBusy && b.status === "dispatched"))
+        .map(({ startOtp: _startOtp, completeOtp: _completeOtp, ...safe }) => safe)
     : rows;
   return NextResponse.json({ bookings: visibleRows });
 }
@@ -125,16 +133,39 @@ export async function POST(req: Request) {
       { status: 422 },
     );
   }
+  if (!isInsideJaipur(origin)) {
+    return NextResponse.json(
+      { error: "Kaamdaar is currently available in Jaipur only. Please choose a Jaipur service address." },
+      { status: 422 },
+    );
+  }
 
-  const [providers, wallets] = await Promise.all([
-    all<Provider>("providers"),
+  const [providers, wallets, existingBookings] = await Promise.all([
+    all<Provider & { activeBookingId?: string }>("providers"),
     all<{ providerId: string; balance: number }>("wallets"),
+    all<Booking>("bookings"),
   ]);
   const minimum = await minWallet();
+  // Never notify a professional who is already handling an active job.
+  // pending_confirm means the Pro has marked work complete, so availability
+  // is released at that point while customer completion OTP remains pending.
+  const busyProviderIds = new Set(existingBookings
+    .filter((b) => ["accepted", "enroute", "arrived", "in_progress"].includes(b.status))
+    .map((b) => b.providerId)
+    .filter(Boolean));
   const eligibleProviders = providers.filter((provider) =>
+    isInsideJaipur(provider) &&
+    !provider.activeBookingId &&
+    !busyProviderIds.has(provider.id) &&
     (wallets.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimum
   );
   const match = matchProviders(eligibleProviders, body.serviceId, origin);
+  if (match.matches.length === 0) {
+    return NextResponse.json(
+      { error: "No professional is available within 5 km of this Jaipur address yet. Please try another nearby area." },
+      { status: 409 },
+    );
+  }
   const rate = await commissionRate();
   const now = Date.now();
 
@@ -169,9 +200,7 @@ export async function POST(req: Request) {
       newEvent(
         "customer",
         "created",
-        match.ring === "all"
-          ? `${match.matches.length} Pros notified — nobody inside 5 km, so every Pro serving this service was pinged`
-          : `${match.matches.length} Pros notified within ${match.radiusKm} km`,
+        `${match.matches.length} Pros notified within ${match.radiusKm} km (${match.ring} ring)`,
         { status: "dispatched" },
       ),
     ],

@@ -1,4 +1,36 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
+
+function testSessionSecret(): string {
+  const secret = process.env.TEST_AUTH_SESSION_SECRET ?? process.env.ADMIN_SESSION_SECRET ?? "";
+  if (secret.length < 32) throw new Error("A 32-character TEST_AUTH_SESSION_SECRET is required for test sessions");
+  return secret;
+}
+function signTestPayload(payload: string): string {
+  return createHmac("sha256", testSessionSecret()).update(payload).digest("base64url");
+}
+export function createTestAuthSession(phone: string): string {
+  const normalized = normalizeIndianPhone(phone);
+  if (process.env.TEST_AUTH_ENABLED !== "true" || !normalized) throw new Error("Test authentication is disabled");
+  const payload = Buffer.from(JSON.stringify({ iss: "kaamdaar-test-auth", phone: normalized, uid: "test:" + normalized, exp: Date.now() + 12 * 60 * 60 * 1000 })).toString("base64url");
+  return "kdm_test." + payload + "." + signTestPayload(payload);
+}
+function verifyTestAuthSession(token: string): { phone: string; uid: string } | null {
+  if (process.env.TEST_AUTH_ENABLED !== "true") return null;
+  const parts = token.split(".");
+  if (parts.length !== 3 || parts[0] !== "kdm_test") return null;
+  try {
+    const expected = Buffer.from(signTestPayload(parts[1]));
+    const actual = Buffer.from(parts[2]);
+    if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
+    const data = JSON.parse(Buffer.from(parts[1], "base64url").toString()) as { iss?: string; phone?: string; uid?: string; exp?: number };
+    const phone = normalizeIndianPhone(data.phone ?? "");
+    const allowed = new Set((process.env.TEST_AUTH_PHONES ?? "").split(",").map(normalizeIndianPhone));
+    if (data.iss !== "kaamdaar-test-auth" || !phone || !allowed.has(phone) || data.uid !== "test:" + phone || !data.exp || data.exp <= Date.now()) return null;
+    return { phone, uid: data.uid };
+  } catch { return null; }
+}
 
 export function normalizeIndianPhone(value: string): string {
   const raw = (value ?? "").trim();
@@ -56,6 +88,8 @@ export async function firebaseIdentityFromRequest(
   const authorization = request.headers.get("authorization") ?? "";
   const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match?.[1]) return null;
+  const testIdentity = verifyTestAuthSession(match[1]);
+  if (testIdentity) return testIdentity;
   try {
     return await verifyFirebasePhoneToken(match[1]);
   } catch {

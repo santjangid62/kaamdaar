@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Loader2, MapPin, Navigation } from "lucide-react";
 import { useApp } from "./AppProvider";
-import { CITY_CLUSTERS, formatDistance } from "../lib/geo";
-import { nearbyAreas } from "../lib/areas";
+import { formatDistance } from "../lib/geo";
+import { AREAS, nearbyAreas } from "../lib/areas";
 
 interface Props {
   /** "pill" for the navbar, "inline" for in-page use. */
@@ -144,24 +144,24 @@ export default function LocationButton({ variant = "pill", className = "" }: Pro
               )}
             </div>
           )}
-          <p className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Or choose your city</p>
+          <p className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Choose Jaipur area</p>
           <ul className="max-h-64 overflow-y-auto pb-2">
-            {CITY_CLUSTERS.map((c) => (
-              <li key={c.name}>
+            {AREAS.map((area) => (
+              <li key={area.name}>
                 <button
                   type="button"
                   onClick={() => {
-                    setLocation({ lat: c.lat, lng: c.lng, label: c.name, city: c.name });
+                    setLocation({ lat: area.lat, lng: area.lng, label: `${area.name}, Jaipur`, city: "Jaipur" });
                     setOpen(false);
                   }}
                   className={
-                    location && location.label === c.name
+                    location && location.label === `${area.name}, Jaipur`
                       ? "flex w-full items-center justify-between px-4 py-2 text-left text-sm font-semibold text-blue-600 hover:bg-blue-50"
                       : "flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                   }
                 >
-                  {c.name}
-                  {location && location.label === c.name && <MapPin className="h-3.5 w-3.5" />}
+                  {area.name}
+                  {location && location.label === `${area.name}, Jaipur` && <MapPin className="h-3.5 w-3.5" />}
                 </button>
               </li>
             ))}

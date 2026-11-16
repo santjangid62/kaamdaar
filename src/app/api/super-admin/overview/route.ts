@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { all, ready } from "../../../../server/db";
-import { isAuthed } from "../../../../lib/admin/auth";
+import { isSuperAuthed } from "../../../../lib/super-admin/auth";
 
 type Row = Record<string, unknown>;
 const n = (v: unknown) => typeof v === "number" && Number.isFinite(v) ? v : 0;
 const dateOf = (v: unknown) => n(v) || (typeof v === "string" ? Date.parse(v) || 0 : 0);
 
 export async function GET() {
-  if (!(await isAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isSuperAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await ready();
   const names = ["users","providers","bookings","services","categories","adminUsers","reviews","complaints","payouts","wallets","walletTxns","providerPayments","notifications","auditLogs","banners","pages","faqs","campaigns"] as const;
   const values = await Promise.all(names.map((name) => all<Row>(name)));

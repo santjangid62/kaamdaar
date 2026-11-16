@@ -27,8 +27,14 @@ class Api {
     defaultValue: 'https://kaamdaar-seven.vercel.app',
   );
 
+  static const _kAuthToken = 'kaamdaar.api.auth_token';
+
   static Future<Map<String, String>> _headers() async {
-    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    final firebaseToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+    final prefs = await SharedPreferences.getInstance();
+    final token = (firebaseToken != null && firebaseToken.isNotEmpty)
+        ? firebaseToken
+        : prefs.getString(_kAuthToken);
     return {
       'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
@@ -88,14 +94,20 @@ class Api {
   }
 
   static String? _phoneVerificationId;
+  static bool _testModeActive = false;
 
   static Future<String> sendOtp(String phone) async {
     try {
       final test = await post('/api/auth', {'action': 'send', 'phone': e164(phone)});
-      if (test['testMode'] == true) return (test['devCode'] ?? '123456').toString();
+      if (test['testMode'] == true) {
+        _testModeActive = true;
+        await FirebaseAuth.instance.signOut();
+        return (test['devCode'] ?? '123456').toString();
+      }
     } catch (_) {
       // Non-allowlisted numbers continue through Firebase Phone Auth.
     }
+    _testModeActive = false;
     final auth = FirebaseAuth.instance;
     await auth.signOut();
     _phoneVerificationId = null;
@@ -124,10 +136,16 @@ class Api {
   }
 
   static Future<({SessionUser user, bool isNew})> verifyOtp(String phone, String code) async {
-    if (code.trim() == '123456') {
+    if (_testModeActive && code.trim() == '123456') {
+      _testModeActive = false;
       final data = await post('/api/auth', {
         'action': 'verify', 'phone': e164(phone), 'code': code.trim(), 'platform': 'mobile_app',
       });
+      final apiToken = data['accessToken']?.toString();
+      if (apiToken != null && apiToken.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_kAuthToken, apiToken);
+      }
       final user = SessionUser.fromJson((data['user'] as Map<String, dynamic>?) ?? const {});
       await saveSession(user);
       return (user: user, isNew: data['isNew'] == true);
@@ -192,6 +210,7 @@ class Api {
     cached = null;
     final p = await SharedPreferences.getInstance();
     await p.remove(_kSession);
+    await p.remove(_kAuthToken);
   }
 
   static Future<bool> get onboarded async {

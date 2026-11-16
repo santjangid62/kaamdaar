@@ -1,24 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, MapPin, ShieldCheck } from "lucide-react";
 import type { Service } from "../lib/types";
 import { PriceMeta } from "./ServiceTabs";
 import { useLang, useServiceLabels } from "../lib/i18n";
-
-const TIMES = [
-  "10:00 AM",
-  "12:00 PM",
-  "02:00 PM",
-  "04:00 PM",
-  "06:00 PM",
-  "08:00 PM",
-];
+import { useApp } from "./AppProvider";
+import LocationButton from "./LocationButton";
 
 /** Right rail of the service detail page — rate, date/time pick, Book Now. */
 export default function BookingBox({ service }: { service: Service }) {
   const { lang, s } = useLang();
+  const { location } = useApp();
   const locale = lang === "hi" ? "hi-IN" : "en-IN";
   const labels = useServiceLabels();
   const includes = labels(service).includes;
@@ -30,7 +24,7 @@ export default function BookingBox({ service }: { service: Service }) {
       const d = new Date(now);
       d.setDate(now.getDate() + i);
       list.push({
-        value: d.toISOString().slice(0, 10),
+        value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` ,
         label:
           i === 0
             ? s.detail.today
@@ -45,7 +39,49 @@ export default function BookingBox({ service }: { service: Service }) {
   }, [locale, s.detail.today]);
 
   const [date, setDate] = useState(dates[0].value);
-  const [time, setTime] = useState(TIMES[1]);
+  const [time, setTime] = useState("");
+  const [slots, setSlots] = useState<Array<{ start: string; end: string; availableProviderCount: number }>>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState("");
+
+  useEffect(() => {
+    if (!location) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale options when the location is removed
+      setSlots([]);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear the previous location's selection
+      setTime("");
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- explain why slot lookup cannot run yet
+      setSlotsError("Please select your Jaipur service location first.");
+      return;
+    }
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- show loading while the availability request runs
+    setSlotsLoading(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clear the previous lookup error
+    setSlotsError("");
+    const query = new URLSearchParams({ serviceId: service.id, date, lat: String(location.lat), lng: String(location.lng) });
+    void fetch(`/api/booking-slots?${query.toString()}`)
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error ?? "Unable to load available time slots");
+        return data as { slots?: Array<{ start: string; end: string; availableProviderCount: number }> };
+      })
+      .then((data) => {
+        if (cancelled) return;
+        const nextSlots = data.slots ?? [];
+        setSlots(nextSlots);
+        setTime((current) => nextSlots.some((slot) => slot.start === current) ? current : (nextSlots[0]?.start ?? ""));
+        if (!nextSlots.length) setSlotsError("No provider time slots are available for this date.");
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setSlots([]);
+        setTime("");
+        setSlotsError(error instanceof Error ? error.message : "Unable to load available slots");
+      })
+      .finally(() => { if (!cancelled) setSlotsLoading(false); });
+    return () => { cancelled = true; };
+  }, [service.id, date, location]);
 
   const href = `/services/${service.id}/providers?date=${encodeURIComponent(
     date,
@@ -91,25 +127,33 @@ export default function BookingBox({ service }: { service: Service }) {
 
       <div className="mt-4">
         <h3 className="text-sm font-bold text-slate-900">{s.detail.selectTime}</h3>
-        <div className="mt-2 grid grid-cols-3 gap-1.5">
-          {TIMES.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTime(t)}
-              className={`rounded-lg border px-1 py-2 text-xs font-semibold transition ${
-                time === t
-                  ? "border-flame bg-flame text-navy"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-flame-400"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+        {!location && <div className="mt-2"><LocationButton variant="inline" /></div>}
+        {slotsLoading ? (
+          <p className="mt-2 text-xs text-slate-500">Checking provider availability…</p>
+        ) : slotsError ? (
+          <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">{slotsError}</p>
+        ) : (
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            {slots.map((slot) => (
+              <button
+                key={slot.start}
+                type="button"
+                onClick={() => setTime(slot.start)}
+                className={`rounded-lg border px-1 py-2 text-xs font-semibold transition ${
+                  time === slot.start
+                    ? "border-flame bg-flame text-navy"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-flame-400"
+                }`}
+              >
+                <span className="block">{slot.start}</span>
+                <span className="block text-[9px] opacity-70">{slot.availableProviderCount} Pros</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <Link href={href} className="btn-accent mt-5 w-full py-3 text-base">
+      <Link href={href} aria-disabled={!time || slotsLoading} className={`btn-accent mt-5 w-full py-3 text-base ${!time || slotsLoading ? "pointer-events-none opacity-50" : ""}`}>
         {s.detail.bookNow}
       </Link>
 

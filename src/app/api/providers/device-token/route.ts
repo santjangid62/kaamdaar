@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { find, patch, ready } from "../../../../server/db";
 import type { Provider } from "../../../../lib/types";
-import { normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../../server/firebase-auth";
+import { firebaseIdentityFromRequest, normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../../server/firebase-auth";
 
 export async function POST(req: Request) {
   await ready();
@@ -17,15 +17,18 @@ export async function POST(req: Request) {
   if (!providerId || token.length < 40 || token.length > 4096) {
     return NextResponse.json({ error: "Valid providerId and FCM token are required" }, { status: 422 });
   }
-  if (!body.idToken) {
-    return NextResponse.json({ error: "Firebase sign-in is required to register a device" }, { status: 401 });
-  }
-
   let verifiedPhone: string;
-  try {
-    ({ phone: verifiedPhone } = await verifyFirebasePhoneToken(body.idToken));
-  } catch {
-    return NextResponse.json({ error: "Firebase phone verification failed" }, { status: 401 });
+  const requestIdentity = await firebaseIdentityFromRequest(req);
+  if (requestIdentity) {
+    verifiedPhone = requestIdentity.phone;
+  } else if (body.idToken) {
+    try {
+      ({ phone: verifiedPhone } = await verifyFirebasePhoneToken(body.idToken));
+    } catch {
+      return NextResponse.json({ error: "Sign-in session is invalid. Please sign in again." }, { status: 401 });
+    }
+  } else {
+    return NextResponse.json({ error: "A valid sign-in session is required to register a device" }, { status: 401 });
   }
 
   const matches = await find<Provider & { id: string; phone?: string; status?: string; fcmTokens?: string[] }>(

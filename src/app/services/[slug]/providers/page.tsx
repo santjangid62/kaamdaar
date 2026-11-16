@@ -64,7 +64,8 @@ function fromProfile(profile?: ProviderProfile): NearbyProvider | null {
 }
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 function ProvidersFlow() {
@@ -89,7 +90,7 @@ function ProvidersFlow() {
     radiusKm: WIDE_RING_KM,
     ring: "none",
   });
-  const [matchLoading, setMatchLoading] = useState(false);
+  const [matchLoading, setMatchLoading] = useState(true);
   const [dispatchRadiusKm, setDispatchRadiusKm] = useState<number>(WIDE_RING_KM);
   const [accepted, setAccepted] = useState<NearbyProvider | null>(null);
   const [selectedSubServiceIds, setSelectedSubServiceIds] = useState<string[]>([]);
@@ -105,11 +106,9 @@ function ProvidersFlow() {
   const [results, setResults] = useState<NearbyProvider[]>([]);
   useEffect(() => {
     if (!service || !center) {
-      setResults([]);
       return;
     }
     let cancelled = false;
-    setMatchLoading(true);
     void (async () => {
       try {
         const res = await fetch(
