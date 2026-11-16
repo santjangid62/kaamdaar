@@ -2,11 +2,10 @@
  * Provider matching — the company's dispatch rule, in one place.
  *
  * A request is first offered to every Pro who serves the service inside the
- * near ring (2–3 km) around the customer. Only when nobody qualifies there
- * does the search widen to the 3–5 km ring, and if that ring is empty too the
- * offer goes to every Pro who serves the service. The customer never picks a
- * Pro: the whole ring is notified and the first accept wins (enforced in
- * /api/bookings/[id]).
+ * near ring (3 km) around the customer. Only when nobody qualifies there
+ * does the search widen to the 5 km ring. If no Jaipur Pro is within 5 km,
+ * no booking is dispatched. The customer never picks a Pro: the whole ring
+ * is notified and the first accept wins (enforced in /api/bookings/[id]).
  *
  * The ring is ranked so a well-reviewed, experienced Pro slightly further
  * away can beat a bare-bones one next door — distance dominates, but not
@@ -20,7 +19,7 @@ export const NEAR_RING_KM = 3;
 /** Outer ring: the widened search when the inner ring is empty. */
 export const WIDE_RING_KM = 5;
 
-export type MatchRing = "near" | "wide" | "all" | "none";
+export type MatchRing = "near" | "wide" | "none";
 
 export interface RankedMatch {
   provider: Provider;
@@ -99,13 +98,8 @@ export function matchProviders(
     return rank(wide, wideKm, "wide");
   }
 
-  // Nobody inside the wide ring: a paid request must never die silently, so
-  // fall back to every Pro who serves the service (nearest first) and tell the
-  // caller that no radius was applied.
-  if (pool.length > 0) {
-    const widest = pool.reduce((max, m) => Math.max(max, m.distanceKm), 0);
-    return rank(pool, Number(widest.toFixed(1)), "all");
-  }
+  // Never notify Pros outside the local 5 km service radius.
+  // In particular, do not fall back to the full provider roster across cities.
 
   return { matches: [], radiusKm: wideKm, ring: "none" };
 }

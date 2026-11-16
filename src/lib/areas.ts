@@ -90,3 +90,19 @@ export function nearbyAreaNames(
 ): string[] {
   return nearbyAreas(point, radiusKm, providers).map((a) => a.name);
 }
+
+
+/**
+ * Kaamdaar Phase 1 is Jaipur-only. This coarse city boundary is a first
+ * server-side guard; actual dispatch still requires a Pro within 3–5 km.
+ */
+export function isInsideJaipur(point: GeoPoint): boolean {
+  return (
+    Number.isFinite(point.lat) &&
+    Number.isFinite(point.lng) &&
+    point.lat >= 26.72 &&
+    point.lat <= 27.06 &&
+    point.lng >= 75.62 &&
+    point.lng <= 76.02
+  );
+}

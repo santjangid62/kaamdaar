@@ -15,6 +15,7 @@ import { NextResponse } from "next/server";
 import { all, ready } from "../../../server/db";
 import { haversineKm } from "../../../lib/geo";
 import { matchProviders, NEAR_RING_KM, WIDE_RING_KM } from "../../../lib/match";
+import { isInsideJaipur } from "../../../lib/areas";
 import type { Provider } from "../../../lib/types";
 
 // live DB read — never part of the prerendered shell
@@ -30,13 +31,24 @@ export async function GET(req: Request) {
   const lng = Number(lngRaw);
   const radiusRaw = Number(url.searchParams.get("radiusKm") ?? "");
 
-  const providers = await all<Provider & { kycStatus?: string }>("providers");
+  const providers = (await all<Provider & { kycStatus?: string }>("providers"))
+    .filter((provider) => isInsideJaipur(provider));
   // NB: Number(null) === 0 — an absent param must not be mistaken for (0, 0)
   const hasPoint =
     latRaw !== null && lngRaw !== null && Number.isFinite(lat) && Number.isFinite(lng);
 
   if (!serviceId && !hasPoint) {
-    return NextResponse.json({ providers, radiusKm: null, ring: null });
+    return NextResponse.json({ providers, radiusKm: null, ring: null, serviceCity: "Jaipur" });
+  }
+
+  if (hasPoint && !isInsideJaipur({ lat, lng })) {
+    return NextResponse.json({
+      providers: [],
+      radiusKm: WIDE_RING_KM,
+      ring: "none",
+      serviceCity: "Jaipur",
+      error: "Kaamdaar is currently available in Jaipur only.",
+    });
   }
 
   if (!serviceId) {

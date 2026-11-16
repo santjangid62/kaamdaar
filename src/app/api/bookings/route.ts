@@ -9,6 +9,7 @@ import { all, insert, patch, ready } from "../../../server/db";
 import { commissionRate, minWallet } from "../../../server/settings";
 import type { Booking, GeoPoint, Provider, Service } from "../../../lib/types";
 import { matchProviders } from "../../../lib/match";
+import { isInsideJaipur } from "../../../lib/areas";
 import { newEvent } from "../../../server/events";
 import { sendProviderJobOffer } from "../../../server/fcm";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
@@ -125,6 +126,12 @@ export async function POST(req: Request) {
       { status: 422 },
     );
   }
+  if (!isInsideJaipur(origin)) {
+    return NextResponse.json(
+      { error: "Kaamdaar is currently available in Jaipur only. Please choose a Jaipur service address." },
+      { status: 422 },
+    );
+  }
 
   const [providers, wallets] = await Promise.all([
     all<Provider>("providers"),
@@ -132,9 +139,16 @@ export async function POST(req: Request) {
   ]);
   const minimum = await minWallet();
   const eligibleProviders = providers.filter((provider) =>
+    isInsideJaipur(provider) &&
     (wallets.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimum
   );
   const match = matchProviders(eligibleProviders, body.serviceId, origin);
+  if (match.matches.length === 0) {
+    return NextResponse.json(
+      { error: "No professional is available within 5 km of this Jaipur address yet. Please try another nearby area." },
+      { status: 409 },
+    );
+  }
   const rate = await commissionRate();
   const now = Date.now();
 
@@ -169,9 +183,7 @@ export async function POST(req: Request) {
       newEvent(
         "customer",
         "created",
-        match.ring === "all"
-          ? `${match.matches.length} Pros notified — nobody inside 5 km, so every Pro serving this service was pinged`
-          : `${match.matches.length} Pros notified within ${match.radiusKm} km`,
+        `${match.matches.length} Pros notified within ${match.radiusKm} km (${match.ring} ring)`,
         { status: "dispatched" },
       ),
     ],
