@@ -8,10 +8,10 @@ import type { Provider, User } from "../../../lib/types";
 import { createUserRegisteredNotification } from "../../../server/notifications";
 import { normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/firebase-auth";
 
-const PHONE_RE = /^\\+91[6-9]\\d{9}$/;
+const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
 function referralCode(phone: string): string {
-  return `KDM${phone.replace(/\\D/g, "").slice(-4)}`;
+  return `KDM${phone.replace(/\D/g, "").slice(-4)}`;
 }
 
 export async function POST(req: Request) {
