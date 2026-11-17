@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, qa/firebase-test-auth]
 
 # Keep only the newest CI run for this branch; push and PR events share a key.
 concurrency:
