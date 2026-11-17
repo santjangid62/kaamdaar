@@ -99,7 +99,11 @@ export default function LocationButton({ variant = "pill", className = "" }: Pro
           {location && (
             <div className="border-b border-slate-100 px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                {location.accuracy === undefined ? "Selected coordinates" : "Detected coordinates"}
+                {location.source === "manual"
+                  ? "Selected area"
+                  : location.accuracy === undefined
+                    ? "Saved coordinates"
+                    : "Device GPS location"}
               </p>
               <p className="mt-1 text-xs font-medium tabular-nums text-slate-700">
                 {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
