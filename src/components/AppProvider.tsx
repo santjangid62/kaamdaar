@@ -37,7 +37,7 @@ interface AppContextValue {
   dismissLocationPrompt: () => void;
   radiusKm: 3 | 5;
   setRadiusKm: (radius: 3 | 5) => void;
-  detectLocation: () => Promise<void>;
+  detectLocation: (force?: boolean) => Promise<void>;
   setLocation: (next: GeoResult, source?: "manual" | "device") => void;
   signIn: (user: User) => void;
   refreshUser: () => Promise<void>;
@@ -61,9 +61,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [radiusKm, setRadiusKmState] = useState<3 | 5>(5);
   /** Latest known point, read by refreshCatalog without re-creating it. */
   const locationRef = useRef<GeoResult | null>(null);
+  const manualLocationSelectedRef = useRef(false);
+  const locationRequestIdRef = useRef(0);
 
   const setLocation = useCallback((next: GeoResult, source: "manual" | "device" = "manual") => {
     const saved: GeoResult = { ...next, source };
+    if (source === "manual") {
+      manualLocationSelectedRef.current = true;
+      locationRequestIdRef.current += 1; // invalidate any pending GPS lookup
+    }
     locationRef.current = saved;
     setLoc(saved);
     setLocationError(null);
@@ -90,19 +96,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const detectLocation = useCallback(async () => {
+  const detectLocation = useCallback(async (force = false) => {
+    if (manualLocationSelectedRef.current && !force) return;
+    if (force) manualLocationSelectedRef.current = false;
+    const requestId = ++locationRequestIdRef.current;
+
     setLocating(true);
     setLocationError(null);
     setLocationPromptVisible(false);
     try {
       const point = await browserLocation();
       const geo = await reverseGeocode(point);
-      setLocation(geo, "device");
+      // If the user chose a locality while GPS/reverse-geocoding was pending,
+      // discard this older device result instead of moving the service radius.
+      if (requestId === locationRequestIdRef.current && !manualLocationSelectedRef.current) {
+        setLocation(geo, "device");
+      }
     } catch {
-      setLocationError("Location access denied");
-      setLocationPromptVisible(true);
+      if (requestId === locationRequestIdRef.current && !manualLocationSelectedRef.current) {
+        setLocationError("Location access denied");
+        setLocationPromptVisible(true);
+      }
     } finally {
-      setLocating(false);
+      if (requestId === locationRequestIdRef.current) setLocating(false);
     }
   }, [setLocation]);
 
@@ -238,7 +254,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         locationRef.current = saved;
         hasSavedLocation = true;
         hasManualLocation = saved.source === "manual";
-        if (hasManualLocation) setLocationPromptVisible(false);
+        if (hasManualLocation) {
+          manualLocationSelectedRef.current = true;
+          setLocationPromptVisible(false);
+        }
       }
       const cachedRadius = window.localStorage.getItem(RADIUS_KEY);
       if (cachedRadius === "3" || cachedRadius === "5") {
