@@ -90,7 +90,7 @@ export default function LocationButton({ variant = "pill", className = "" }: Pro
             type="button"
             onClick={() => {
               setOpen(false);
-              void detectLocation();
+              void detectLocation(true);
             }}
             className="flex w-full items-center gap-2 border-b border-slate-100 px-4 py-3 text-sm font-semibold text-blue-600 hover:bg-blue-50"
           >
