@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,6 +23,13 @@ class ApiException implements Exception {
 }
 
 class Api {
+  // Enabled only for explicitly-built QA debug APKs. Production release builds
+  // keep Firebase app verification enabled.
+  static const bool _firebasePhoneAuthTesting = bool.fromEnvironment(
+    'FIREBASE_PHONE_AUTH_TESTING',
+    defaultValue: false,
+  );
+
   static const String baseUrl = String.fromEnvironment(
     'API_BASE',
     defaultValue: 'https://kaamdaar-seven.vercel.app',
@@ -94,6 +102,9 @@ class Api {
     final auth = FirebaseAuth.instance;
     await auth.signOut();
     _phoneVerificationId = null;
+    if (kDebugMode && _firebasePhoneAuthTesting) {
+      await auth.setSettings(appVerificationDisabledForTesting: true);
+    }
     final completed = Completer<void>();
     await auth.verifyPhoneNumber(
       phoneNumber: e164(phone),
@@ -103,7 +114,14 @@ class Api {
         if (!completed.isCompleted) completed.complete();
       },
       verificationFailed: (error) {
-        if (!completed.isCompleted) completed.completeError(ApiException(error.message ?? 'Firebase could not send OTP'));
+        final message = switch (error.code) {
+          'billing-not-enabled' || 'auth/billing-not-enabled' =>
+            'Firebase billing is not enabled. For QA, use a fictional number configured in Firebase Console and install the QA debug APK.',
+          'invalid-phone-number' => 'Enter a valid Indian mobile number.',
+          'too-many-requests' => 'Firebase temporarily limited sign-in attempts. Please try again later.',
+          _ => 'Firebase verification failed (${error.code}): ${error.message ?? 'Please try again.'}',
+        };
+        if (!completed.isCompleted) completed.completeError(ApiException(message));
       },
       codeSent: (verificationId, resendToken) {
         _phoneVerificationId = verificationId;
