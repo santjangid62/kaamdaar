@@ -163,7 +163,7 @@ export default function AreasWeServe() {
                   <LocationButton variant="inline" />
                   <button
                     type="button"
-                    onClick={() => void detectLocation()}
+                    onClick={() => void detectLocation(true)}
                     disabled={locating}
                     className="btn-primary"
                   >
