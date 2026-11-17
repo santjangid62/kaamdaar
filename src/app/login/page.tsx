@@ -34,7 +34,6 @@ function LoginFlow() {
   const [step, setStep] = useState<Step>("phone");
   const [digits, setDigits] = useState("");
   const [code, setCode] = useState("");
-  const [devCode, setDevCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const otpAttempted = useRef("");
@@ -54,8 +53,7 @@ function LoginFlow() {
     }
     setBusy(true);
     try {
-      const res = await sendOtp(toE164Indian(raw));
-      setDevCode(res.devCode ?? null);
+      await sendOtp(toE164Indian(raw));
       setCode("");
       otpAttempted.current = "";
       setStep("otp");
@@ -242,13 +240,6 @@ function LoginFlow() {
               </div>
             </div>
 
-            {devCode && (
-              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                <span className="font-semibold">{s.login.devOtp}</span>{" "}
-                <span className="font-mono text-base font-bold tracking-widest">{devCode}</span>
-              </div>
-            )}
-
             {step === "phone" ? (
               <form onSubmit={handleSend} className="mt-8 space-y-5">
                 <label className="block">
@@ -352,7 +343,6 @@ function LoginFlow() {
                       setStep("phone");
                       setCode("");
                       setError(null);
-                      setDevCode(null);
                       otpAttempted.current = "";
                     }}
                     className="text-slate-500 hover:text-blue-600"
@@ -364,8 +354,7 @@ function LoginFlow() {
                     onClick={async () => {
                       setBusy(true);
                       try {
-                        const res = await sendOtp(phone);
-                        setDevCode(res.devCode ?? null);
+                        await sendOtp(phone);
                         setError(null);
                         otpAttempted.current = "";
                       } finally {
