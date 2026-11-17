@@ -77,6 +77,9 @@ jobs:
       - name: Analyze
         working-directory: apps/${{ matrix.app }}
         run: flutter analyze --no-fatal-infos
+      - name: Flutter tests
+        working-directory: apps/${{ matrix.app }}
+        run: flutter test --reporter expanded
       - name: Build Android debug APK
         working-directory: apps/${{ matrix.app }}
         run: flutter build apk --debug
