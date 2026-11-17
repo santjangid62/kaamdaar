@@ -25,7 +25,7 @@ class ApiException implements Exception {
 class Api {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE',
-    defaultValue: 'https://kaamdaar-4psk25f65-unique-it-team.vercel.app',
+    defaultValue: 'https://kaamdaar-git-qa-firebase-test-auth-unique-it-team.vercel.app',
   );
 
   static const _kAuthToken = 'kaamdaar.api.auth_token';
