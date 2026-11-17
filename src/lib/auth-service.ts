@@ -31,6 +31,22 @@ export async function sendOtp(phone: string): Promise<void> {
     const code = error && typeof error === "object" && "code" in error
       ? String((error as { code?: unknown }).code ?? "unknown")
       : "unknown";
+
+    if (code === "auth/billing-not-enabled") {
+      throw new Error(
+        "Firebase is blocking SMS OTP because Cloud Billing is not linked to this project. " +
+        "For real mobile numbers, the project owner must link a Cloud Billing account. " +
+        "For no-SMS testing, add a fictional number (not an existing subscriber number) " +
+        "under Firebase Console > Authentication > Phone numbers for testing, using its exact +91 format and test code. " +
+        "This is a Firebase project setting, not an app-code error.",
+      );
+    }
+    if (code === "auth/unauthorized-domain") {
+      throw new Error(
+        "This website domain is not authorized in Firebase Authentication. " +
+        "Add the current Kaamdaar domain under Firebase Console > Authentication > Settings > Authorized domains.",
+      );
+    }
     throw new Error(`Firebase OTP request failed (${code})`);
   }
 }
