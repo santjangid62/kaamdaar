@@ -24,7 +24,7 @@ class ApiException implements Exception {
 class Api {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE',
-    defaultValue: 'https://kaamdaar-git-qa-firebase-test-auth-unique-it-team.vercel.app',
+    defaultValue: 'https://kaamdaar-seven.vercel.app',
   );
 
   static Future<Map<String, String>> _headers() async {
