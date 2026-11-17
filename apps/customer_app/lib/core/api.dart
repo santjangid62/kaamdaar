@@ -27,17 +27,12 @@ class Api {
     defaultValue: 'https://kaamdaar-git-qa-firebase-test-auth-unique-it-team.vercel.app',
   );
 
-  static const _kAuthToken = 'kaamdaar.api.auth_token';
-
   static Future<Map<String, String>> _headers() async {
     final firebaseToken = await FirebaseAuth.instance.currentUser?.getIdToken();
-    final prefs = await SharedPreferences.getInstance();
-    final token = (firebaseToken != null && firebaseToken.isNotEmpty)
-        ? firebaseToken
-        : prefs.getString(_kAuthToken);
     return {
       'Content-Type': 'application/json',
-      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      if (firebaseToken != null && firebaseToken.isNotEmpty)
+        'Authorization': 'Bearer $firebaseToken',
     };
   }
 
@@ -184,7 +179,6 @@ class Api {
     cached = null;
     final p = await SharedPreferences.getInstance();
     await p.remove(_kSession);
-    await p.remove(_kAuthToken);
   }
 
   static Future<bool> get onboarded async {
