@@ -4,7 +4,6 @@ import type { User } from "./types";
 
 let confirmation: ConfirmationResult | null = null;
 let recaptcha: RecaptchaVerifier | null = null;
-export interface SendOtpResult {}
 
 async function authRequest(body: Record<string, unknown>) {
   const response = await fetch("/api/auth", {
@@ -17,7 +16,7 @@ async function authRequest(body: Record<string, unknown>) {
   return data;
 }
 
-export async function sendOtp(phone: string): Promise<SendOtpResult> {
+export async function sendOtp(phone: string): Promise<void> {
   if (!isFirebaseConfigured) {
     throw new Error("Firebase Phone Auth is not configured. Add the Firebase web app credentials first.");
   }
@@ -25,7 +24,6 @@ export async function sendOtp(phone: string): Promise<SendOtpResult> {
   if (!recaptcha) recaptcha = new RecaptchaVerifier(auth, "kaamdaar-recaptcha", { size: "invisible" });
   try {
     confirmation = await signInWithPhoneNumber(auth, phone, recaptcha);
-    return {};
   } catch (error) {
     confirmation = null;
     try { recaptcha.clear(); } catch { /* verifier may already be cleared */ }
