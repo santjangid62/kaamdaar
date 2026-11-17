@@ -22,10 +22,10 @@ jobs:
         include:
           - app: customer
             directory: apps/customer_app
-            apk: app-customer-debug.apk
+            apk: app-customer-qa-debug.apk
           - app: provider
             directory: apps/provider_app
-            apk: app-provider-debug.apk
+            apk: app-provider-qa-debug.apk
 
     steps:
       - name: Checkout
@@ -50,7 +50,10 @@ jobs:
 
       - name: Build debug APK
         working-directory: ${{ matrix.directory }}
-        run: flutter build apk --debug
+        run: >-
+          flutter build apk --debug
+          --dart-define=API_BASE=https://kaamdaar-git-qa-firebase-test-auth-unique-it-team.vercel.app
+          --dart-define=FIREBASE_PHONE_AUTH_TESTING=true
 
       - name: Rename APK
         run: cp "${{ matrix.directory }}/build/app/outputs/flutter-apk/app-debug.apk" "${{ matrix.apk }}"
@@ -58,7 +61,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: kaamdaar-${{ matrix.app }}-apk
+          name: kaamdaar-${{ matrix.app }}-qa-apk
           path: ${{ matrix.apk }}
           if-no-files-found: error
           retention-days: 14
