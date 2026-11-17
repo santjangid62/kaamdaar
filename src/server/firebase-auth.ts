@@ -1,8 +1,8 @@
-const PHONE_RE = /^\\+91[6-9]\\d{9}$/;
+const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
 export function normalizeIndianPhone(value: string): string {
   const raw = (value ?? "").trim();
-  const digits = raw.replace(/\\D/g, "");
+  const digits = raw.replace(/\D/g, "");
   let ten = "";
   if (digits.length === 10) {
     ten = digits;
@@ -51,7 +51,7 @@ export async function firebaseIdentityFromRequest(
   request: Request,
 ): Promise<{ phone: string; uid: string } | null> {
   const authorization = request.headers.get("authorization") ?? "";
-  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match?.[1]) return null;
   try {
     return await verifyFirebasePhoneToken(match[1]);
