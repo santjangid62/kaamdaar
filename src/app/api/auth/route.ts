@@ -1,26 +1,17 @@
 /**
  * Firebase Phone Auth verification and account resolution for web + Flutter.
- * Production requests must carry a Firebase ID token; OTP codes are accepted
- * only in non-production development mode.
+ * Firebase is the sole OTP authority; MongoDB stores application accounts.
  */
 import { NextResponse } from "next/server";
 import { find, insert, ready } from "../../../server/db";
 import type { Provider, User } from "../../../lib/types";
 import { createUserRegisteredNotification } from "../../../server/notifications";
-import { createTestAuthSession, normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/firebase-auth";
+import { normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/firebase-auth";
 
-const PHONE_RE = /^\+91[6-9]\d{9}$/;
-
-function testPhones(): Set<string> {
-  return new Set((process.env.TEST_AUTH_PHONES ?? "").split(",").map((v) => normalizeIndianPhone(v.trim())).filter((v) => PHONE_RE.test(v)));
-}
-function isTestPhone(phone: string): boolean {
-  return process.env.TEST_AUTH_ENABLED === "true" && testPhones().has(phone);
-}
-function testOtp(): string { return process.env.TEST_AUTH_OTP || "123456"; }
+const PHONE_RE = /^\\+91[6-9]\\d{9}$/;
 
 function referralCode(phone: string): string {
-  return `KDM${phone.replace(/\D/g, "").slice(-4)}`;
+  return `KDM${phone.replace(/\\D/g, "").slice(-4)}`;
 }
 
 export async function POST(req: Request) {
@@ -28,7 +19,6 @@ export async function POST(req: Request) {
   let body: {
     action?: string;
     phone?: string;
-    code?: string;
     idToken?: string;
     role?: string;
     platform?: "web" | "mobile_app";
@@ -39,70 +29,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  let phone = normalizeIndianPhone(body.phone ?? "");
-
-  // Development-only OTP path. Never expose or accept server-generated OTPs
-  // in production; production identity is established by Firebase ID tokens.
-  if (body.action === "send") {
-    if (isTestPhone(phone)) {
-      return NextResponse.json({ testMode: true, devCode: testOtp(), expiresIn: 3600 });
-    }
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Use Firebase Phone Authentication" }, { status: 410 });
-    }
-    if (!PHONE_RE.test(phone)) {
-      return NextResponse.json({ error: "A valid Indian mobile number is required" }, { status: 400 });
-    }
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    const { upsert } = await import("../../../server/db");
-    await upsert("loginOtps", phone, { code, at: Date.now() });
-    return NextResponse.json({ devCode: code, expiresIn: 300 });
-  }
-
   if (body.action !== "verify") {
-    return NextResponse.json({ error: "action must be verify" }, { status: 422 });
+    return NextResponse.json({ error: "OTP is handled by Firebase Phone Authentication" }, { status: 410 });
   }
 
-  if (isTestPhone(phone)) {
-    if ((body.code ?? "").trim() !== testOtp()) {
-      return NextResponse.json({ error: "Incorrect test OTP" }, { status: 401 });
-    }
-  } else if (body.idToken) {
-    try {
-      const { phone: verifiedPhone } = await verifyFirebasePhoneToken(body.idToken);
-      if (phone && phone !== verifiedPhone) {
-        return NextResponse.json({ error: "Verified mobile number does not match" }, { status: 401 });
-      }
-      phone = verifiedPhone;
-    } catch (error) {
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Phone verification failed" },
-        { status: 401 },
-      );
-    }
-  } else if (process.env.NODE_ENV !== "production") {
-    if (!PHONE_RE.test(phone)) {
-      return NextResponse.json({ error: "A valid Indian mobile number is required" }, { status: 400 });
-    }
-    const { get, remove } = await import("../../../server/db");
-    const entry = await get<{ id: string; code: string; at: number }>("loginOtps", phone);
-    if (!entry || Date.now() - entry.at > 5 * 60 * 1000) {
-      await remove("loginOtps", phone);
-      return NextResponse.json({ error: "OTP expired — request a new one" }, { status: 410 });
-    }
-    if (entry.code !== (body.code ?? "").trim()) {
-      return NextResponse.json({ error: "Incorrect OTP" }, { status: 401 });
-    }
-    await remove("loginOtps", phone);
-  } else {
+  let phone = normalizeIndianPhone(body.phone ?? "");
+  if (!body.idToken) {
     return NextResponse.json({ error: "A valid Firebase verification token is required" }, { status: 401 });
+  }
+  try {
+    const identity = await verifyFirebasePhoneToken(body.idToken);
+    if (phone && phone !== identity.phone) {
+      return NextResponse.json({ error: "Verified mobile number does not match" }, { status: 401 });
+    }
+    phone = identity.phone;
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Phone verification failed" },
+      { status: 401 },
+    );
   }
 
   if (!PHONE_RE.test(phone)) {
     return NextResponse.json({ error: "A valid Indian mobile number is required" }, { status: 400 });
   }
-
-  const accessToken = isTestPhone(phone) ? createTestAuthSession(phone) : undefined;
 
   if (body.role === "provider") {
     const found = await find<Provider & { id: string; phone?: string; status?: string }>(
@@ -119,7 +69,7 @@ export async function POST(req: Request) {
     if (provider.status === "blocked") {
       return NextResponse.json({ error: "This provider account is blocked. Contact support." }, { status: 403 });
     }
-    return NextResponse.json({ provider, ...(accessToken ? { accessToken, testSession: true } : {}) });
+    return NextResponse.json({ provider });
   }
 
   const existing = await find<User & { id: string; status?: string }>(
@@ -133,7 +83,7 @@ export async function POST(req: Request) {
     if (existing[0].status === "blocked") {
       return NextResponse.json({ error: "This account is blocked. Contact support." }, { status: 403 });
     }
-    return NextResponse.json({ user: existing[0], isNew: false, ...(accessToken ? { accessToken, testSession: true } : {}) });
+    return NextResponse.json({ user: existing[0], isNew: false });
   }
 
   const user = await insert<User & Record<string, unknown>>("users", {
@@ -149,5 +99,5 @@ export async function POST(req: Request) {
     registrationPlatform: body.platform === "web" ? "web" : "mobile_app",
   });
   await createUserRegisteredNotification(user);
-  return NextResponse.json({ user, isNew: true, ...(accessToken ? { accessToken, testSession: true } : {}) });
+  return NextResponse.json({ user, isNew: true });
 }
