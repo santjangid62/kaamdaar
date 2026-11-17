@@ -30,7 +30,7 @@ export default function LocationNotice() {
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => void detectLocation()}
+              onClick={() => void detectLocation(true)}
               disabled={locating}
               className="inline-flex items-center gap-2 rounded-md bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800 disabled:cursor-wait disabled:opacity-70"
             >
