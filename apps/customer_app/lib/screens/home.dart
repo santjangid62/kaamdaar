@@ -109,11 +109,24 @@ class _HomeTabState extends State<_HomeTab> {
         if (mounted) setState(() => _locationLabel = 'Enable location to find nearby services');
         return;
       }
-      final position = await Geolocator.getCurrentPosition(
+      var position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, timeLimit: Duration(seconds: 15)),
       );
-      var label = 'Current location';
-      try {
+      // A second GPS sample often improves the first fix on phones that have
+      // just enabled location or are moving from indoors to open sky.
+      if (position.accuracy > 60) {
+        try {
+          final retry = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, timeLimit: Duration(seconds: 12)),
+          );
+          if (retry.accuracy < position.accuracy) position = retry;
+        } catch (_) {}
+      }
+      final locationIsPrecise = position.accuracy <= 150;
+      var label = locationIsPrecise
+          ? 'Current location'
+          : 'GPS accuracy low (±${position.accuracy.round()} m) — tap to retry';
+      if (locationIsPrecise) try {
         final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
           'format': 'jsonv2', 'lat': '${position.latitude}', 'lon': '${position.longitude}',
           'zoom': '18', 'addressdetails': '1', 'accept-language': 'en',
@@ -131,19 +144,21 @@ class _HomeTabState extends State<_HomeTab> {
         }
       } catch (_) {}
       if (mounted) setState(() {
-        _latitude = position.latitude;
-        _longitude = position.longitude;
+        _latitude = locationIsPrecise ? position.latitude : null;
+        _longitude = locationIsPrecise ? position.longitude : null;
         _locationLabel = label;
       });
-      try {
-        await Api.post('/api/location', {
-          'latitude': position.latitude,
-          'longitude': position.longitude,
-          'accuracy': position.accuracy,
-          'address': label,
-        });
-      } catch (_) {
-        // Location remains available locally; server sync retries on next detection.
+      if (locationIsPrecise) {
+        try {
+          await Api.post('/api/location', {
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+            'accuracy': position.accuracy,
+            'address': label,
+          });
+        } catch (_) {
+          // Location remains available locally; server sync retries on next detection.
+        }
       }
       await _load();
     } catch (_) {
