@@ -38,7 +38,7 @@ interface AppContextValue {
   radiusKm: 3 | 5;
   setRadiusKm: (radius: 3 | 5) => void;
   detectLocation: () => Promise<void>;
-  setLocation: (next: GeoResult) => void;
+  setLocation: (next: GeoResult, source?: "manual" | "device") => void;
   signIn: (user: User) => void;
   refreshUser: () => Promise<void>;
   logout: () => void;
@@ -62,14 +62,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   /** Latest known point, read by refreshCatalog without re-creating it. */
   const locationRef = useRef<GeoResult | null>(null);
 
-  const setLocation = useCallback((next: GeoResult) => {
-    locationRef.current = next;
-    setLoc(next);
+  const setLocation = useCallback((next: GeoResult, source: "manual" | "device" = "manual") => {
+    const saved: GeoResult = { ...next, source };
+    locationRef.current = saved;
+    setLoc(saved);
     setLocationError(null);
     setLocationPromptVisible(false);
     if (typeof window !== "undefined") {
       try {
-        window.localStorage.setItem(LOC_KEY, JSON.stringify(next));
+        window.localStorage.setItem(LOC_KEY, JSON.stringify(saved));
       } catch {
         /* ignore */
       }
@@ -96,7 +97,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const point = await browserLocation();
       const geo = await reverseGeocode(point);
-      setLocation(geo);
+      setLocation(geo, "device");
     } catch {
       setLocationError("Location access denied");
       setLocationPromptVisible(true);
@@ -228,11 +229,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     let hasSavedLocation = false;
+    let hasManualLocation = false;
     try {
       const cached = window.localStorage.getItem(LOC_KEY);
       if (cached) {
-        setLoc(JSON.parse(cached) as GeoResult);
+        const saved = JSON.parse(cached) as GeoResult;
+        setLoc(saved);
+        locationRef.current = saved;
         hasSavedLocation = true;
+        hasManualLocation = saved.source === "manual";
+        if (hasManualLocation) setLocationPromptVisible(false);
       }
       const cachedRadius = window.localStorage.getItem(RADIUS_KEY);
       if (cachedRadius === "3" || cachedRadius === "5") {
@@ -244,6 +250,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setReady(true);
 
     void (async () => {
+      // A locality chosen from the Jaipur area list is an explicit user choice.
+      // Keep it as the anchor for Area We Serve instead of replacing it with a
+      // coarse desktop/browser geolocation result on every page load.
+      if (hasManualLocation) return;
+
       let permissionAvailable = false;
       if (navigator.permissions?.query) {
         try {
