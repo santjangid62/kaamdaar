@@ -78,6 +78,8 @@ export interface GeoResult extends GeoPoint {
   label: string; // "Sector 56, Gurugram"
   city: string;
   pincode?: string;
+  /** Distinguishes a user-selected Jaipur locality from a device GPS estimate. */
+  source?: "manual" | "device";
 }
 
 export interface Address {
