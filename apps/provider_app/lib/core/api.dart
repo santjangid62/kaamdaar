@@ -25,7 +25,7 @@ class ApiException implements Exception {
 class Api {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE',
-    defaultValue: 'https://kaamdaar-seven.vercel.app',
+    defaultValue: 'https://kaamdaar-4psk25f65-unique-it-team.vercel.app',
   );
 
   static const _kAuthToken = 'kaamdaar.api.auth_token';
@@ -91,20 +91,8 @@ class Api {
   }
 
   static String? _phoneVerificationId;
-  static bool _testModeActive = false;
 
   static Future<String> sendOtp(String phone) async {
-    try {
-      final test = await post('/api/auth', {'action': 'send', 'phone': e164(phone)});
-      if (test['testMode'] == true) {
-        _testModeActive = true;
-        await FirebaseAuth.instance.signOut();
-        return (test['devCode'] ?? '123456').toString();
-      }
-    } catch (_) {
-      // Non-allowlisted numbers continue through Firebase Phone Auth.
-    }
-    _testModeActive = false;
     final auth = FirebaseAuth.instance;
     await auth.signOut();
     _phoneVerificationId = null;
@@ -133,26 +121,6 @@ class Api {
   }
 
   static Future<SessionUser> verifyOtp(String phone, String code) async {
-    if (_testModeActive && code.trim() == '123456') {
-      _testModeActive = false;
-      final data = await post('/api/auth', {
-        'action': 'verify', 'phone': e164(phone), 'code': code.trim(), 'role': 'provider',
-      });
-      final apiToken = data['accessToken']?.toString();
-      if (apiToken != null && apiToken.isNotEmpty) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_kAuthToken, apiToken);
-      }
-      final provider = data['provider'];
-      if (provider is! Map<String, dynamic>) throw ApiException('Provider profile was not returned');
-      final user = SessionUser(
-        id: (provider['id'] ?? '').toString(),
-        phone: (provider['phone'] ?? e164(phone)).toString(),
-        firstName: (provider['name'] ?? '').toString(),
-      );
-      await saveSession(user);
-      return user;
-    }
     final auth = FirebaseAuth.instance;
     final current = auth.currentUser;
     if (current == null || e164(current.phoneNumber ?? '') != e164(phone)) {
