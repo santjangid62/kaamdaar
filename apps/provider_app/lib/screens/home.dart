@@ -138,11 +138,23 @@ class _DashboardTabState extends State<DashboardTab> {
         if (mounted) setState(() => _locationLabel = 'Enable location to share your service area');
         return;
       }
-      final position = await Geolocator.getCurrentPosition(
+      var position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, timeLimit: Duration(seconds: 15)),
       );
-      var label = 'Current location';
-      try {
+      // Retry a coarse first fix before updating the provider's dispatch point.
+      if (position.accuracy > 60) {
+        try {
+          final retry = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, timeLimit: Duration(seconds: 12)),
+          );
+          if (retry.accuracy < position.accuracy) position = retry;
+        } catch (_) {}
+      }
+      final locationIsPrecise = position.accuracy <= 150;
+      var label = locationIsPrecise
+          ? 'Current location'
+          : 'GPS accuracy low (±${position.accuracy.round()} m) — move outdoors and tap to retry';
+      if (locationIsPrecise) try {
         final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
           'format': 'jsonv2', 'lat': '${position.latitude}', 'lon': '${position.longitude}',
           'zoom': '18', 'addressdetails': '1', 'accept-language': 'en',
@@ -160,15 +172,17 @@ class _DashboardTabState extends State<DashboardTab> {
         }
       } catch (_) {}
       if (mounted) setState(() => _locationLabel = label);
-      try {
-        await Api.post('/api/location', {
-          'latitude': position.latitude,
-          'longitude': position.longitude,
-          'accuracy': position.accuracy,
-          'address': label,
-        });
-      } catch (_) {
-        // Keep the local GPS fix; next dashboard refresh can sync it again.
+      if (locationIsPrecise) {
+        try {
+          await Api.post('/api/location', {
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+            'accuracy': position.accuracy,
+            'address': label,
+          });
+        } catch (_) {
+          // Keep the local GPS fix; next dashboard refresh can sync it again.
+        }
       }
     } catch (_) {
       if (mounted) setState(() => _locationLabel = 'Could not detect location');
