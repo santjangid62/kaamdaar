@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, CalendarDays, Clock, IndianRupee, MapPin, Repeat, Zap, X } from "lucide-react";
 import { useApp } from "./AppProvider";
 import { fill, useLang } from "../lib/i18n";
-import { listBookings } from "../lib/store";
+import { refreshBookings } from "../lib/store";
 import type { Booking, BookingTab } from "../lib/types";
 
 function bucket(status: Booking["status"]): BookingTab {
@@ -71,7 +71,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
     let active = true;
     const refresh = async () => {
       try {
-        const latest = await listBookings(user.id);
+        const latest = await refreshBookings(user.id);
         if (!active) return;
         const previous = previousBookings.current;
         if (previous) {
