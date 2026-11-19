@@ -262,9 +262,11 @@ export default function SectionClient({ def }: { def: SectionDef }) {
       const res = await fetch(`/api/admin/data/${def.collection}/${encodeURIComponent(String(row.id))}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Delete failed");
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Delete failed");
       setNotice(`Deleted “${label}”`);
-      if (def.collection === "settings") await refreshCatalog();
+      await refreshCustomers();
+      if (def.collection === "categories" || def.collection === "services") await refreshCatalog();
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Delete failed");
