@@ -49,6 +49,7 @@ jobs:
           src/components/admin/SystemLogsClient.tsx
           src/components/AppProvider.tsx
           src/app/api/providers/device-token/route.ts
+          src/app/api/providers/availability/route.ts
           src/app/login/page.tsx
           src/lib/auth-service.ts
           src/lib/types.ts
