@@ -35,19 +35,28 @@ export async function ensureProviderWallet(providerId: string): Promise<WalletRo
   const existing = await get<WalletRow>("wallets", providerId);
   if (existing) return existing;
   const balance = 500;
-  const wallet = await upsert("wallets", providerId, {
-    providerId,
-    balance,
-    updatedAt: Date.now(),
-  });
-  await addTxn({
-    providerId,
-    balanceAfter: balance,
-    kind: "recharge",
-    amount: balance,
-    note: "Kaamdaar provider onboarding credit",
-  });
-  return wallet;
+  try {
+    // Insert is atomic on the providerId key: concurrent create requests cannot
+    // issue the onboarding credit twice.
+    const wallet = await insert<WalletRow & Record<string, unknown>>("wallets", {
+      id: providerId,
+      providerId,
+      balance,
+      updatedAt: Date.now(),
+    });
+    await addTxn({
+      providerId,
+      balanceAfter: balance,
+      kind: "recharge",
+      amount: balance,
+      note: "Kaamdaar provider onboarding credit",
+    });
+    return wallet;
+  } catch (error) {
+    const createdByAnotherRequest = await get<WalletRow>("wallets", providerId);
+    if (createdByAnotherRequest) return createdByAnotherRequest;
+    throw error;
+  }
 }
 
 export async function getWallet(providerId: string): Promise<WalletRow> {
