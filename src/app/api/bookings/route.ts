@@ -155,6 +155,8 @@ export async function POST(req: Request) {
     .filter(Boolean));
   const eligibleProviders = providers.filter((provider) =>
     isInsideJaipur(provider) &&
+    provider.verified === true &&
+    provider.availabilityStatus === "available" &&
     !provider.activeBookingId &&
     !busyProviderIds.has(provider.id) &&
     (wallets.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimum
