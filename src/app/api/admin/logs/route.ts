@@ -6,6 +6,7 @@ import type { Booking, BookingEvent, Provider, User } from "../../../../lib/type
 type LogRow = {
   id: string; at: number; actor: string; action: string; module: string;
   title: string; description: string; reference: string; severity: "info" | "success" | "warning" | "danger";
+  metadata?: Record<string, unknown>;
 };
 
 const agoSafe = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
@@ -52,6 +53,7 @@ export async function GET(req: Request) {
     action: String(log.action ?? "activity"), module: String(log.module ?? "System"),
     title: String(log.title ?? "System activity"), description: String(log.description ?? ""),
     reference: String(log.reference ?? ""), severity: (log.severity as LogRow["severity"]) ?? "info",
+    metadata: log.metadata && typeof log.metadata === "object" && !Array.isArray(log.metadata) ? log.metadata as Record<string, unknown> : {},
   });
   rows.sort((a, b) => b.at - a.at);
   const selected = rows.slice(0, limit);
