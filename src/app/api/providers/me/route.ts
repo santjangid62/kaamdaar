@@ -12,6 +12,7 @@ import { NextResponse } from "next/server";
 import { all, insert, patch, ready } from "../../../../server/db";
 import type { Provider } from "../../../../lib/types";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
+import { isInsideJaipur } from "../../../../lib/areas";
 
 /** Last 10 digits — tolerates +91, spaces and dashes. */
 function digits(phone: string): string {
@@ -67,6 +68,9 @@ export async function POST(req: Request) {
   if (!city) {
     return NextResponse.json({ error: "City / area is required" }, { status: 422 });
   }
+  if (!/jaipur/i.test(city)) {
+    return NextResponse.json({ error: "Kaamdaar provider registration is currently limited to Jaipur." }, { status: 422 });
+  }
 
   const services = Array.isArray(body.services)
     ? body.services.map((s) => `${s}`.trim()).filter(Boolean)
@@ -79,6 +83,9 @@ export async function POST(req: Request) {
   const lng = Number(body.lng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     return NextResponse.json({ error: "A valid current location is required" }, { status: 422 });
+  }
+  if (!isInsideJaipur({ lat, lng })) {
+    return NextResponse.json({ error: "Provider GPS location must be inside Jaipur service areas." }, { status: 422 });
   }
   const experience = Number(body.experience ?? 0);
 
