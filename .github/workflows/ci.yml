@@ -39,6 +39,13 @@ jobs:
           src/components/BookingBox.tsx
           src/components/ProviderPanel.tsx
           src/app/api/providers/device-token/route.ts
+          src/app/api/providers/me/route.ts
+          src/app/api/providers/route.ts
+          src/app/api/admin/login/route.ts
+          'src/app/api/admin/data/[collection]/route.ts'
+          src/components/admin/SectionClient.tsx
+          src/server/wallet.ts
+          src/server/settings.ts
           src/app/login/page.tsx
           src/lib/auth-service.ts
           src/lib/types.ts
