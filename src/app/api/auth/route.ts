@@ -27,7 +27,9 @@ async function auditPhoneLogin(req: Request, input: {
   const userAgent = req.headers.get("user-agent") ?? "unknown";
   const ipAddress = (req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "").split(",")[0].trim() || "unknown";
   const platformHeader = req.headers.get("x-kaamdaar-platform");
-  const platform = input.platform ?? (platformHeader === "mobile_app" ? "mobile_app" : "web");
+  const platform = platformHeader === "customer_app" || platformHeader === "provider_app"
+    ? platformHeader
+    : input.platform ?? (platformHeader === "mobile_app" ? "mobile_app" : "web");
   const device = /android/i.test(userAgent) ? "Android" : /iphone|ipad|ios/i.test(userAgent) ? "iOS" : /mobile/i.test(userAgent) ? "Mobile browser" : "Desktop browser";
   try {
     await recordAudit({
