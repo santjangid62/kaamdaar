@@ -12,7 +12,7 @@ import { normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
 function maskPhone(value: string): string {
-  const digits = value.replace(/\\D/g, "");
+  const digits = value.replace(/\D/g, "");
   return digits.length >= 4 ? `••••${digits.slice(-4)}` : "unknown phone";
 }
 
