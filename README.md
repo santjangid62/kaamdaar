@@ -7,7 +7,14 @@
 - **Firebase Cloud Messaging (FCM)** sends provider job-offer push notifications. Set `FIREBASE_PROJECT_ID` and the complete service-account JSON in `FIREBASE_SERVICE_ACCOUNT_JSON` as encrypted Vercel environment variables. Never commit service-account JSON to Git.
 - **Super Admin login** requires `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET` in Production. Use a strong unique password and a randomly generated session secret of at least 32 characters. Production will not accept the built-in development credentials.
 
-### Local setup
+## QA phone sign-in and APKs
+
+- CI builds separate **Customer** and **Provider** Android QA debug APKs and uploads each as a downloadable GitHub Actions artifact.
+- QA APKs are built with `FIREBASE_PHONE_AUTH_TESTING=true`. This disables Android app-verification only in debug builds; release builds keep normal Firebase app verification enabled.
+- In Firebase Console → Authentication → Sign-in method → Phone numbers for testing, add the two authorized QA phone numbers and assign the same fixed 6-digit test code `123456` to each. Firebase does not send SMS for configured test numbers. Use the configured code on both web and the two QA APKs.
+- Do not add real customer numbers as test numbers outside a controlled QA environment. Remove the test-number entries before public launch if they are no longer needed.
+
+## Local setup
 
 1. Copy `.env.example` to `.env.local`.
 2. Fill the Firebase Web App values and MongoDB Atlas connection string.
@@ -15,7 +22,7 @@
 4. Install dependencies with `npm ci`, then run `npm run dev`.
 5. Check `GET /api/health` for a non-secret readiness report.
 
-### Production readiness
+## Production readiness
 
 `GET /api/health` performs a read-only MongoDB ping and reports whether Firebase Phone Auth, FCM, and secure Admin credentials are configured. It never returns credential values. A missing production MongoDB connection, Firebase Web configuration, FCM service account, or Admin credential set is reported as not ready.
 
