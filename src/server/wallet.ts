@@ -5,7 +5,7 @@
 import { get, insert, upsert, uid } from "./db";
 
 export const MIN_WALLET_BALANCE = 500;
-// New providers start at zero; money is credited only after verified payment.
+// Legacy providers without a wallet row start at zero; newly added providers receive a one-time onboarding credit via ensureProviderWallet.
 export const DEFAULT_WALLET_BALANCE = 0;
 
 export interface WalletRow {
