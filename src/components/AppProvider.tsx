@@ -18,6 +18,7 @@ import type { GeoResult, Provider, Service, User } from "../lib/types";
 
 const LOC_KEY = "kaamdaar.location";
 const RADIUS_KEY = "kaamdaar.radius-km";
+const LOCATION_PROMPT_DISMISSED_KEY = "kaamdaar.location-prompt-dismissed";
 
 interface AppContextValue {
   user: User | null;
@@ -85,6 +86,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const dismissLocationPrompt = useCallback(() => {
     setLocationPromptVisible(false);
+    try {
+      window.sessionStorage.setItem(LOCATION_PROMPT_DISMISSED_KEY, "1");
+    } catch {
+      /* ignore private-mode storage restrictions */
+    }
   }, []);
 
   const setRadiusKm = useCallback((next: 3 | 5) => {
@@ -112,9 +118,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (requestId === locationRequestIdRef.current && !manualLocationSelectedRef.current) {
         setLocation(geo, "device");
       }
-    } catch {
+    } catch (error) {
       if (requestId === locationRequestIdRef.current && !manualLocationSelectedRef.current) {
-        setLocationError("Location access denied");
+        const code = error instanceof Error ? error.message : "unavailable";
+        const message = code === "permission-denied"
+          ? "Browser location permission is blocked. Allow Location access for this site in your browser settings, then retry."
+          : code === "position-unavailable"
+            ? "Your device could not determine the location. Turn on device Location/GPS and check your internet connection, then retry."
+            : code === "timeout"
+              ? "Location detection timed out. Move to an open area or check GPS, then retry."
+              : "Unable to detect your location. Check browser permission and device GPS, then retry.";
+        setLocationError(message);
         setLocationPromptVisible(true);
       }
     } finally {
@@ -246,6 +260,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     let hasSavedLocation = false;
     let hasManualLocation = false;
+    let promptDismissedThisSession = false;
+    try {
+      promptDismissedThisSession = window.sessionStorage.getItem(LOCATION_PROMPT_DISMISSED_KEY) === "1";
+    } catch {
+      /* ignore */
+    }
     try {
       const cached = window.localStorage.getItem(LOC_KEY);
       if (cached) {
@@ -287,7 +307,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           /* show the in-app prompt when permission state is unavailable */
         }
       }
-      if (!hasSavedLocation || permissionAvailable) {
+      if (!promptDismissedThisSession && (!hasSavedLocation || permissionAvailable)) {
         setLocationPromptVisible(true);
       }
     })();
