@@ -393,8 +393,12 @@ class _DashboardTabState extends State<DashboardTab> {
                         Text(_available ? 'Online — receiving requests' : 'Offline',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w800, fontSize: 13.5)),
-                        const Text('Naye requests lene ke liye online rahein',
-                            style: TextStyle(fontSize: 11.5, color: Colors.black45)),
+                        Text(
+                          me.kycStatus == 'Verified'
+                              ? 'Online hone par naye requests milenge'
+                              : 'Admin KYC approval ke baad hi Online ho sakte hain',
+                          style: const TextStyle(fontSize: 11.5, color: Colors.black45),
+                        ),
                       ],
                     ),
                   ),
