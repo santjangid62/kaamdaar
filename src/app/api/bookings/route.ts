@@ -141,7 +141,7 @@ export async function POST(req: Request) {
   }
 
   const [providers, wallets, existingBookings] = await Promise.all([
-    all<Provider & { activeBookingId?: string }>("providers"),
+    all<Provider & { activeBookingId?: string; fcmTokens?: string[] }>("providers"),
     all<{ providerId: string; balance: number }>("wallets"),
     all<Booking>("bookings"),
   ]);
@@ -205,6 +205,20 @@ export async function POST(req: Request) {
       ),
     ],
   } as unknown as Record<string, unknown>);
+
+  // Deliver a real background push to every matched Pro. The in-app inbox
+  // polling remains the fallback when FCM credentials or a device token are absent.
+  const fcmTokens = match.matches.flatMap((m) => m.provider.fcmTokens ?? []);
+  try {
+    await sendProviderJobOffer(fcmTokens, {
+      id: booking.id,
+      serviceName: booking.serviceName,
+      serviceId: booking.serviceId,
+      offerExpiresAt: booking.offerExpiresAt,
+    });
+  } catch (error) {
+    console.error("[fcm] job offer push could not be sent", error);
+  }
 
   // Persist real catalogue demand so homepage ranking learns from actual bookings.
   const bookedService = await all<{ id: string; bookingCount?: number }>("services");
