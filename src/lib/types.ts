@@ -210,6 +210,8 @@ export interface Booking {
   pingAt?: number;
   /** How many position updates this job has received. */
   pingCount?: number;
+  /** Last provider GPS sample copied into the Admin audit timeline (throttled). */
+  locationAuditAt?: number;
   /** Set when the Pro taps "Start navigation" in the Provider app. */
   navigationStartedAt?: number;
   /** Append-only audit trail for this job, rendered in the Admin activity log. */
