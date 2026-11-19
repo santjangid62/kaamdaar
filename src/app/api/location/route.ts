@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { find, patch, ready } from "../../../server/db";
 import type { Provider, User } from "../../../lib/types";
-import { firebaseIdentityFromRequest } from "../../../server/firebase-auth";
+import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
+import { isInsideJaipur } from "../../../lib/areas";
 
 export async function POST(request: Request) {
   const identity = await firebaseIdentityFromRequest(request);
@@ -21,12 +22,15 @@ export async function POST(request: Request) {
     address: typeof body.address === "string" ? body.address.slice(0, 500) : "",
     capturedAt: Date.now(),
   };
-  const providers = await find<Provider & { id: string; phone?: string }>("providers", (p) => p.phone === identity.phone);
+  const providers = await find<Provider & { id: string; phone?: string }>("providers", (p) => normalizeIndianPhone(p.phone ?? "") === identity.phone);
   if (providers[0]) {
-    await patch("providers", providers[0].id, { currentLocation: location, locationUpdatedAt: location.capturedAt });
+    if (!isInsideJaipur({ lat, lng })) {
+      return NextResponse.json({ error: "Provider location must remain inside Jaipur service areas." }, { status: 422 });
+    }
+    await patch("providers", providers[0].id, { lat, lng, currentLocation: location, locationUpdatedAt: location.capturedAt });
     return NextResponse.json({ ok: true, role: "provider", location });
   }
-  const users = await find<User & { id: string; phone?: string }>("users", (u) => u.phone === identity.phone);
+  const users = await find<User & { id: string; phone?: string }>("users", (u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
   if (users[0]) {
     await patch("users", users[0].id, { currentLocation: location, locationUpdatedAt: location.capturedAt });
     return NextResponse.json({ ok: true, role: "customer", location });
