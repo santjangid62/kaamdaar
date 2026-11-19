@@ -33,11 +33,17 @@ export async function verifyFirebasePhoneToken(idToken: string): Promise<{ phone
       cache: "no-store",
     },
   );
-  if (!response.ok) throw new Error("Firebase phone verification failed");
-
-  const payload = (await response.json()) as {
+  const payload = (await response.json().catch(() => ({}))) as {
+    error?: { message?: string };
     users?: Array<{ phoneNumber?: string; phone_number?: string; localId?: string }>;
   };
+  if (!response.ok) {
+    // Surface Google's safe error code (never the API key or ID token) so
+    // production diagnostics distinguish disabled Identity Toolkit, key
+    // restrictions, invalid tokens and expired sessions.
+    const code = (payload.error?.message ?? "UNKNOWN").replace(/[^A-Z0-9_]/gi, "").slice(0, 80);
+    throw new Error(`Firebase phone verification failed (${response.status}: ${code})`);
+  }
   const user = payload.users?.[0];
   const phone = normalizeIndianPhone(user?.phoneNumber ?? user?.phone_number ?? "");
   if (!phone || !user?.localId) {
