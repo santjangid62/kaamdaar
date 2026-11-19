@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import {
   signInWithPhoneNumber, RecaptchaVerifier, type ConfirmationResult,
 } from "firebase/auth";
@@ -163,21 +164,69 @@ export default function ProviderPortalPage() {
   }
 
   if (step !== "dashboard" || !provider) {
-    return <main className="min-h-screen bg-slate-950 px-4 py-12 text-slate-900 flex items-center justify-center">
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
-        <div className="mb-7 flex items-center gap-3"><div className="rounded-2xl bg-orange-100 p-3 text-orange-600"><BriefcaseBusiness/></div><div><p className="text-xs font-bold uppercase tracking-widest text-orange-600">Kaamdaar Pro</p><h1 className="text-2xl font-black">Provider Portal</h1></div></div>
-        <p className="mb-6 text-sm text-slate-500">Apne registered provider mobile number se login karein. OTP Firebase se verify hoga.</p>
-        {step === "phone" ? <form onSubmit={sendCode} className="space-y-4">
-          <label className="block text-sm font-semibold">Mobile number<input value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,"").slice(-10))} inputMode="numeric" required minLength={10} maxLength={10} placeholder="10-digit mobile number" className="mt-2 w-full rounded-xl border p-3 text-lg outline-none focus:border-orange-500"/></label>
-          <button disabled={busy || phone.length!==10} className="w-full rounded-xl bg-slate-900 p-3 font-bold text-white disabled:opacity-50">{busy?"Sending OTP…":"Send OTP"}</button>
-        </form> : <form onSubmit={verifyCode} className="space-y-4">
-          <label className="block text-sm font-semibold">6-digit OTP<input value={otp} onChange={e=>setOtp(e.target.value.replace(/\D/g,"").slice(0,6))} inputMode="numeric" required minLength={6} maxLength={6} placeholder="••••••" className="mt-2 w-full rounded-xl border p-3 text-center text-2xl tracking-[0.5em]"/></label>
-          <button disabled={busy || otp.length!==6} className="w-full rounded-xl bg-slate-900 p-3 font-bold text-white disabled:opacity-50">{busy?"Verifying…":"Verify & Login"}</button>
-          <button type="button" onClick={()=>{setStep("phone");setConfirmation(null);setOtp("");}} className="w-full text-sm text-slate-500">Change mobile number</button>
-        </form>}
-        <div id="provider-recaptcha"/>
-        {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-        <p className="mt-6 flex items-center gap-2 text-xs text-slate-400"><ShieldCheck size={15}/> Secure Firebase phone verification · Provider roster only</p>
+    return <main className="flex min-h-screen items-center justify-center bg-[#0B1F3A] px-4 py-10">
+      <div className="w-full max-w-sm">
+        <div className="mb-9 flex justify-center">
+          <Image
+            src="/kaamdaar-logo-white.png"
+            alt="Kaamdaar"
+            width={220}
+            height={76}
+            priority
+            className="h-auto w-52 object-contain"
+          />
+        </div>
+        <div className="rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
+          {step === "phone" ? (
+            <form onSubmit={sendCode} className="space-y-5">
+              <label className="block text-sm font-semibold text-slate-800">
+                Mobile Number
+                <div className="mt-2 flex overflow-hidden rounded-xl border border-slate-200 focus-within:border-orange-500">
+                  <span className="flex items-center border-r border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-600">+91</span>
+                  <input
+                    value={phone}
+                    onChange={e=>setPhone(e.target.value.replace(/\D/g,"").slice(-10))}
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    required
+                    minLength={10}
+                    maxLength={10}
+                    placeholder="Enter mobile number"
+                    className="min-w-0 flex-1 p-3 text-base outline-none"
+                  />
+                </div>
+              </label>
+              <button disabled={busy || phone.length!==10} className="w-full rounded-xl bg-[#FF7A00] p-3.5 font-bold text-[#0B1F3A] transition hover:bg-[#ff9430] disabled:opacity-50">
+                {busy?"Sending OTP…":"Continue"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={verifyCode} className="space-y-5">
+              <label className="block text-sm font-semibold text-slate-800">
+                Enter OTP
+                <input
+                  value={otp}
+                  onChange={e=>setOtp(e.target.value.replace(/\D/g,"").slice(0,6))}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                  minLength={6}
+                  maxLength={6}
+                  placeholder="6-digit OTP"
+                  className="mt-2 w-full rounded-xl border border-slate-200 p-3.5 text-center text-2xl tracking-[0.5em] outline-none focus:border-orange-500"
+                />
+              </label>
+              <button disabled={busy || otp.length!==6} className="w-full rounded-xl bg-[#FF7A00] p-3.5 font-bold text-[#0B1F3A] transition hover:bg-[#ff9430] disabled:opacity-50">
+                {busy?"Verifying…":"Verify & Login"}
+              </button>
+              <button type="button" onClick={()=>{setStep("phone");setConfirmation(null);setOtp("");setError("");}} className="w-full text-sm font-medium text-slate-500 hover:text-slate-800">
+                Change mobile number
+              </button>
+            </form>
+          )}
+          <div id="provider-recaptcha"/>
+          {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+        </div>
       </div>
     </main>;
   }
