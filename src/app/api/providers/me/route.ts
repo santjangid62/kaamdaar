@@ -13,6 +13,7 @@ import { all, insert, patch, ready } from "../../../../server/db";
 import type { Provider } from "../../../../lib/types";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
 import { isInsideJaipur } from "../../../../lib/areas";
+import { ensureProviderWallet } from "../../../../server/wallet";
 
 /** Last 10 digits — tolerates +91, spaces and dashes. */
 function digits(phone: string): string {
@@ -119,6 +120,7 @@ export async function POST(req: Request) {
     status: "Offline",
   } as unknown as Record<string, unknown>);
 
+  await ensureProviderWallet(created.id);
   return NextResponse.json({ provider: created }, { status: 201 });
 }
 
