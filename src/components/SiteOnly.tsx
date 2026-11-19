@@ -9,6 +9,6 @@ import { usePathname } from "next/navigation";
 
 export default function SiteOnly({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  if (pathname?.startsWith("/admin")) return null;
+  if (pathname?.startsWith("/admin") || pathname?.startsWith("/provider") || pathname?.startsWith("/kaamdaar")) return null;
   return <>{children}</>;
 }
