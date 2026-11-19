@@ -17,6 +17,7 @@ function metadataSummary(metadata?: Record<string, unknown>): string {
   const entries: Array<[string, unknown]> = [
     ["Result", metadata.result], ["Source", metadata.platform], ["Device", metadata.device],
     ["IP", metadata.ipAddress], ["Provider", metadata.providerId], ["Booking", metadata.bookingId],
+    ["Error code", metadata.errorCode], ["Error", typeof metadata.errorMessage === "string" ? metadata.errorMessage.slice(0, 120) : undefined],
     ["Latitude", metadata.latitude ?? metadata.lat], ["Longitude", metadata.longitude ?? metadata.lng],
     ["Accuracy", metadata.accuracy == null ? undefined : String(metadata.accuracy) + " m"],
   ];
