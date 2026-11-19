@@ -39,7 +39,17 @@ export async function PATCH(
 
   const row = await patch(collection, id, result.clean);
   if (!row) return NextResponse.json({ error: "Row not found" }, { status: 404 });
-  await recordAudit({ action: "updated", module: collection, title: `${collection} record updated`, description: id, reference: id });
+  const providerApproved = collection === "providers" &&
+    (result.clean.verified === true || result.clean.kycStatus === "Verified" || result.clean.kycStatus === "Approved");
+  await recordAudit({
+    action: providerApproved ? "approved" : "updated",
+    module: collection,
+    title: providerApproved ? "Admin approved provider verification" : `${collection} record updated`,
+    description: providerApproved ? `Provider ${id} approved by Admin` : `Updated fields: ${Object.keys(result.clean).join(", ")}`,
+    reference: id,
+    severity: providerApproved ? "success" : "info",
+    metadata: { recordId: id, fields: Object.keys(result.clean), occurredAt: Date.now() },
+  });
   return NextResponse.json({ row });
 }
 
