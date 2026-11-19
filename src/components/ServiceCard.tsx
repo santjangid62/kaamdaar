@@ -1,7 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { Service } from "../lib/types";
-import { Clock, IndianRupee } from "lucide-react";
+import { Clock, IndianRupee, Users } from "lucide-react";
+import { useApp } from "./AppProvider";
+import { haversineKm } from "../lib/geo";
 import { useCatLabel, useLang, useServiceLabels } from "../lib/i18n";
 import { FALLBACK_ICON, ICONS, SERVICE_ICONS, serviceTone } from "../lib/service-icons";
 
@@ -12,6 +14,8 @@ export default function ServiceCard({ service }: { service: Service }) {
     SERVICE_ICONS[service.id] ??
     FALLBACK_ICON;
   const { s } = useLang();
+  const { providers, location } = useApp();
+  const availableCount = providers.filter((provider) => provider.verified === true && provider.availabilityStatus === "available" && !provider.activeBookingId && (provider.services ?? []).includes(service.id) && (!location || (Number.isFinite(provider.lat) && Number.isFinite(provider.lng) && haversineKm(location, provider) <= 5))).length;
   const labels = useServiceLabels();
   const cat = useCatLabel();
   const { name, tagline, duration } = labels(service);
@@ -68,6 +72,11 @@ export default function ServiceCard({ service }: { service: Service }) {
           <Clock className="h-3.5 w-3.5" />
           {duration}
         </span>
+      </div>
+      <div className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+        <Users className="h-3.5 w-3.5" />
+        {availableCount} Kaamdaar available
+        <span className="font-normal text-slate-400">{location ? "within 5 km" : "in Jaipur"}</span>
       </div>
     </Link>
   );

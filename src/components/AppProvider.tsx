@@ -226,6 +226,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void refreshCatalog();
   }, [location, refreshCatalog]);
 
+  // Refresh the provider roster periodically so service-card counts stay current.
+  useEffect(() => {
+    const refreshProviders = async () => {
+      try {
+        const res = await fetch("/api/providers", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { providers?: Provider[] };
+        if (Array.isArray(data.providers)) setProviders(data.providers);
+      } catch { /* retain the last known roster during brief network failures */ }
+    };
+    const timer = window.setInterval(() => void refreshProviders(), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   // Load the live catalogue + provider roster once the shell hydrates, so
   // every page renders what the Admin panel actually manages.
   useEffect(() => {
@@ -313,7 +327,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           /* show the in-app prompt when permission state is unavailable */
         }
       }
-      if (!promptDismissedThisSession && (!hasSavedLocation || permissionAvailable)) {
+      if (!promptDismissedThisSession && !hasSavedLocation) {
+        // First visit: request the browser's native GPS permission immediately.
+        // If the user denies it or the device cannot locate, detectLocation
+        // will show the in-app recovery prompt with clear instructions.
+        void detectLocation();
+        return;
+      }
+      if (!promptDismissedThisSession && permissionAvailable) {
         setLocationPromptVisible(true);
       }
     })();

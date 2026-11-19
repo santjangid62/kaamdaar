@@ -66,7 +66,7 @@ export async function GET(req: Request) {
     all<Provider & { activeBookingId?: string }>("providers"),
     all<Booking>("bookings"),
   ]);
-  const service = services.find((row) => row.id === serviceId && !("parent" in row) && row.active !== false);
+  const service = services.find((row) => row.id === serviceId && !("parent" in row && row.parent) && row.active !== false);
   if (!service) return NextResponse.json({ error: "Selected service is unavailable" }, { status: 404 });
 
   const duration = durationOf(service);
