@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'core/job_alerts.dart';
+import 'core/location_gate.dart';
 import 'core/push_notifications.dart';
 import 'core/theme.dart';
 import 'screens/auth.dart';
@@ -29,7 +30,12 @@ class KaamdaarProviderApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       navigatorKey: jobAlertNavigatorKey,
       theme: providerTheme(),
-      home: const SplashScreen(),
+      home: const LocationGate(
+        appTitle: 'Kaamdaar Provider',
+        background: PColors.greenDark,
+        accent: PColors.green,
+        child: SplashScreen(),
+      ),
     );
   }
 }
