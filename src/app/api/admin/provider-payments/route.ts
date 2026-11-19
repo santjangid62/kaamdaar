@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { all, get, insert, patch, ready, uid } from "../../../../server/db";
 import { isAuthed } from "../../../../lib/admin/auth";
 import { getWallet, rechargeWallet, type WalletTxn } from "../../../../server/wallet";
+import { recordAudit } from "../../../../server/audit";
 
 type ProviderPayment = {
   id: string;
@@ -84,6 +85,7 @@ export async function PATCH(req: Request) {
 
   if (body.action === "reject") {
     const updated = await patch<ProviderPayment>("providerPayments", paymentId, { status: "rejected" });
+    await recordAudit({ actor: "admin", action: "rejected", module: "Provider Payments", title: "Admin rejected provider joining payment", description: `Provider ${payment.providerName}; ₹${payment.amount}; ${payment.method}`, reference: payment.id, severity: "warning", metadata: { providerId: payment.providerId, paymentId: payment.id, amount: payment.amount, method: payment.method, occurredAt: Date.now() } });
     return NextResponse.json({ payment: updated });
   }
   if (body.action !== "verify" || String(body.otp ?? "") !== payment.otp) {
@@ -95,10 +97,12 @@ export async function PATCH(req: Request) {
   if (!existingCredit) {
     await rechargeWallet(payment.providerId, payment.amount, payment.id);
   }
+  const verifiedAt = Date.now();
   const updated = await patch<ProviderPayment>("providerPayments", paymentId, {
     status: "verified",
-    verifiedAt: Date.now(),
+    verifiedAt,
   });
+  await recordAudit({ actor: "admin", action: "approved", module: "Provider Payments", title: "Admin verified provider joining payment", description: `Provider ${payment.providerName}; ₹${payment.amount}; wallet credited`, reference: payment.id, severity: "success", metadata: { providerId: payment.providerId, paymentId: payment.id, amount: payment.amount, method: payment.method, occurredAt: verifiedAt } });
   return NextResponse.json({
     payment: updated,
     wallet: await getWallet(payment.providerId),
