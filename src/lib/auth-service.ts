@@ -5,6 +5,25 @@ import type { User } from "./types";
 let confirmation: ConfirmationResult | null = null;
 let recaptcha: RecaptchaVerifier | null = null;
 
+async function reportPhoneAuthFailure(phone: string, errorCode: string, errorMessage: string) {
+  try {
+    await fetch("/api/client-events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Kaamdaar-Platform": "web" },
+      body: JSON.stringify({
+        event: "firebase_phone_verification_failed",
+        platform: "web",
+        phone,
+        errorCode,
+        errorMessage,
+      }),
+      keepalive: true,
+    });
+  } catch {
+    // Diagnostic events are best-effort.
+  }
+}
+
 async function authRequest(body: Record<string, unknown>) {
   const response = await fetch("/api/auth", {
     method: "POST",
@@ -31,6 +50,8 @@ export async function sendOtp(phone: string): Promise<void> {
     const code = error && typeof error === "object" && "code" in error
       ? String((error as { code?: unknown }).code ?? "unknown")
       : "unknown";
+    const message = error && typeof error === "object" && "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
+    void reportPhoneAuthFailure(phone, code, message);
 
     if (code === "auth/billing-not-enabled") {
       throw new Error(
@@ -59,7 +80,15 @@ export async function verifyOtp(
   if (!isFirebaseConfigured || !confirmation) {
     throw new Error("OTP session expired. Request a new code.");
   }
-  const credential = await confirmation.confirm(code);
+  let credential: Awaited<ReturnType<ConfirmationResult["confirm"]>>;
+  try {
+    credential = await confirmation.confirm(code);
+  } catch (error) {
+    const codeValue = error && typeof error === "object" && "code" in error ? String((error as { code?: unknown }).code ?? "unknown") : "unknown";
+    const message = error && typeof error === "object" && "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
+    void reportPhoneAuthFailure(phone, codeValue, message);
+    throw error;
+  }
   confirmation = null;
   const idToken = await credential.user.getIdToken(true);
   return authRequest({
