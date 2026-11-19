@@ -42,6 +42,10 @@ export interface Provider {
   jobs: number;
   experience: number;
   verified: boolean;
+  /** KYC approval state set only by Admin. */
+  kycStatus?: "Pending" | "Verified" | "Rejected" | string;
+  /** Provider's persisted dispatch availability. */
+  status?: "Online" | "Offline" | "blocked";
   policeVerified?: boolean;
   hourlyRate?: number; // ₹/hr shown to the user after accept
   reviewCount?: number;
