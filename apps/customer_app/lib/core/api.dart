@@ -39,6 +39,7 @@ class Api {
     final firebaseToken = await FirebaseAuth.instance.currentUser?.getIdToken();
     return {
       'Content-Type': 'application/json',
+      'X-Kaamdaar-Platform': 'customer_app',
       if (firebaseToken != null && firebaseToken.isNotEmpty)
         'Authorization': 'Bearer $firebaseToken',
     };
