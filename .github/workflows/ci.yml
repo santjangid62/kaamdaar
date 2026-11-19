@@ -5,6 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 # Keep only the newest CI run for this branch; push and PR events share a key.
 concurrency:
@@ -65,7 +66,7 @@ jobs:
           FIREBASE_PROJECT_ID: active-valve-162810
 
   flutter:
-    name: Flutter ${{ matrix.app }} checks
+    name: Flutter ${{ matrix.app }} checks and QA APK
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -85,6 +86,16 @@ jobs:
       - name: Analyze
         working-directory: apps/${{ matrix.app }}
         run: flutter analyze --no-fatal-infos
-      - name: Build Android debug APK
+      - name: Build Android QA debug APK
         working-directory: apps/${{ matrix.app }}
-        run: flutter build apk --debug
+        run: >-
+          flutter build apk --debug
+          --dart-define=API_BASE=https://kaamdaar-seven.vercel.app
+          --dart-define=FIREBASE_PHONE_AUTH_TESTING=true
+      - name: Upload QA APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaamdaar-${{ matrix.app }}-qa-apk
+          path: apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
