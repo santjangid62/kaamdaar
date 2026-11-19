@@ -164,7 +164,12 @@ class Api {
     if (current == null || e164(current.phoneNumber ?? '') != e164(phone)) {
       final verificationId = _phoneVerificationId;
       if (verificationId == null) throw ApiException('OTP session expired. Please resend.');
-      await auth.signInWithCredential(PhoneAuthProvider.credential(verificationId: verificationId, smsCode: code.trim()));
+      try {
+        await auth.signInWithCredential(PhoneAuthProvider.credential(verificationId: verificationId, smsCode: code.trim()));
+      } on FirebaseAuthException catch (error) {
+        unawaited(_reportPhoneAuthFailure(phone, error.code, error.message));
+        rethrow;
+      }
     }
     final idToken = await auth.currentUser?.getIdToken(true);
     if (idToken == null) throw ApiException('Firebase phone verification did not complete.');
