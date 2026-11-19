@@ -301,6 +301,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (!pro) {
       return NextResponse.json({ error: "Professional account not found" }, { status: 404 });
     }
+    if (pro.kycStatus !== "Verified" || pro.status !== "Online") {
+      return NextResponse.json({ error: "Admin KYC approval and Online availability are required to accept jobs" }, { status: 403 });
+    }
     if (!(pro.services ?? []).includes(booking.serviceId)) {
       return NextResponse.json({ error: "You are not eligible for this service" }, { status: 403 });
     }
