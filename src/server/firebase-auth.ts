@@ -33,11 +33,24 @@ export async function verifyFirebasePhoneToken(idToken: string): Promise<{ phone
       cache: "no-store",
     },
   );
-  if (!response.ok) throw new Error("Firebase phone verification failed");
-
-  const payload = (await response.json()) as {
+  const payload = (await response.json().catch(() => ({}))) as {
+    error?: { message?: string };
     users?: Array<{ phoneNumber?: string; phone_number?: string; localId?: string }>;
   };
+  if (!response.ok) {
+    // Preserve Google's actionable error code without ever logging the API key
+    // or the supplied Firebase ID token.
+    const code = payload.error?.message || `HTTP_${response.status}`;
+    const guidance: Record<string, string> = {
+      API_KEY_INVALID: "Firebase server API key is invalid or belongs to a different project",
+      INVALID_ID_TOKEN: "Firebase ID token is invalid — sign in again and retry",
+      TOKEN_EXPIRED: "Firebase ID token expired — sign in again and retry",
+      USER_DISABLED: "This Firebase account is disabled",
+      PROJECT_NOT_FOUND: "Firebase project configuration could not be found",
+    };
+    throw new Error(`Firebase token verification failed (${code}): ${guidance[code] ?? "check the Firebase project API key and Phone Auth configuration"}`);
+  }
+
   const user = payload.users?.[0];
   const phone = normalizeIndianPhone(user?.phoneNumber ?? user?.phone_number ?? "");
   if (!phone || !user?.localId) {
