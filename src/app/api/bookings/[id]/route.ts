@@ -419,6 +419,21 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (booking.providerId && ["pending_confirm", "completed", "cancelled"].includes(String(changes.status ?? ""))) {
     await releaseProviderBooking(booking.providerId, id);
   }
+  if (changes.status === "cancelled" && actorRole === "customer") {
+    await insert("notifications", {
+      id: uid("ntf"),
+      type: "booking_cancelled",
+      title: "Customer cancelled a booking",
+      message: `Customer cancelled ${booking.serviceName} booking ${booking.id}.`,
+      userId: booking.userId,
+      userName: booking.phone || "Customer",
+      phone: booking.phone || "",
+      platform: "Booking cancellation",
+      bookingId: booking.id,
+      readAt: null,
+      createdAt: Date.now(),
+    });
+  }
   if (changes.paymentReportedAt && actorRole === "provider") {
     await insert("notifications", {
       id: uid("ntf"),
