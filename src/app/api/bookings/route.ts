@@ -210,13 +210,14 @@ export async function POST(req: Request) {
 
   // Deliver a real background push to every matched Pro. The in-app inbox
   // polling remains the fallback when FCM credentials or a device token are absent.
-  const fcmTokens = match.matches.flatMap((m) => m.provider.fcmTokens ?? []);
+  const matchedProviderIds = new Set(match.matches.map((m) => m.provider.id));
+  const fcmTokens = providers.filter((provider) => matchedProviderIds.has(provider.id)).flatMap((provider) => provider.fcmTokens ?? []);
   try {
     await sendProviderJobOffer(fcmTokens, {
       id: booking.id,
-      serviceName: booking.serviceName,
-      serviceId: booking.serviceId,
-      offerExpiresAt: booking.offerExpiresAt,
+      serviceName: combinedServiceName,
+      serviceId: body.serviceId,
+      offerExpiresAt: now + 40_000,
     });
   } catch (error) {
     console.error("[fcm] job offer push could not be sent", error);
