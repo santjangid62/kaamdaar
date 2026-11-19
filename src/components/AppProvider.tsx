@@ -48,6 +48,12 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const [pathname, setPathname] = useState<string | null>(null);
+  useEffect(() => {
+    setPathname(window.location.pathname);
+  }, []);
+  // Until the browser route is known, do not run customer-only location logic.
+  const isStaffRoute = pathname === null || pathname.startsWith("/admin") || pathname.startsWith("/provider") || pathname.startsWith("/kaamdaar");
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
@@ -109,7 +115,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setLocating(true);
     setLocationError(null);
-    setLocationPromptVisible(false);
+    setLocationPromptVisible(true);
     try {
       const point = await browserLocation();
       const geo = await reverseGeocode(point);
@@ -156,9 +162,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // block/delete actions apply without re-login
     try {
       const res = await fetch(`/api/users/resolve?phone=${encodeURIComponent(session.phone)}`);
-      if (res.status === 404) {
+      // A missing lookup row can be caused by a transient DB/environment
+      // mismatch. Do not log a returning customer out on refresh; only an
+      // explicit blocked/deleted response revokes the cached session.
+      if (res.status === 403) {
         clearSession();
         setUser(null);
+        return;
+      }
+      if (res.status === 404) {
+        setUser(session);
         return;
       }
       if (res.ok) {
@@ -309,10 +322,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setReady(true);
 
     void (async () => {
+      // Admin/provider workspaces never request staff device location here.
+      if (isStaffRoute) {
+        setLocationPromptVisible(false);
+        return;
+      }
+      // Require customer GPS on every fresh website visit.
+      setLocationPromptVisible(true);
       // A locality chosen from the Jaipur area list is an explicit user choice.
       // Keep it as the anchor for Area We Serve instead of replacing it with a
       // coarse desktop/browser geolocation result on every page load.
-      if (hasManualLocation) return;
+      if (hasManualLocation) manualLocationSelectedRef.current = false;
 
       let permissionAvailable = false;
       if (navigator.permissions?.query) {
@@ -338,7 +358,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setLocationPromptVisible(true);
       }
     })();
-  }, [detectLocation, refreshUser]);
+  }, [detectLocation, refreshUser, isStaffRoute]);
 
   const value = useMemo<AppContextValue>(
     () => ({

@@ -20,7 +20,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ user: null }, { status: 400 });
   }
   const user = await find<User & { id: string; status?: string }>("users", (u) => u.phone === phone);
-  if (!user[0] || user[0].status === "deleted") return NextResponse.json({ user: null }, { status: 404 });
+  if (!user[0]) return NextResponse.json({ user: null }, { status: 404 });
+  if (user[0].status === "deleted" || user[0].status === "blocked") {
+    return NextResponse.json({ user: null, error: "This account is unavailable" }, { status: 403 });
+  }
   return NextResponse.json({ user: user[0] });
 }
 

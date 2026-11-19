@@ -142,12 +142,18 @@ export async function createBooking(booking: Omit<Booking, "id">): Promise<Booki
   return data.booking;
 }
 
+/** Strict booking fetch for live polling; callers can retain the last good list on errors. */
+export async function refreshBookings(userId: string): Promise<Booking[]> {
+  const data = await api<{ bookings: Booking[] }>(
+    `/api/bookings?userId=${encodeURIComponent(userId)}`,
+  );
+  return data.bookings;
+}
+
+/** Best-effort one-shot booking read for dashboard summaries. */
 export async function listBookings(userId: string): Promise<Booking[]> {
   try {
-    const data = await api<{ bookings: Booking[] }>(
-      `/api/bookings?userId=${encodeURIComponent(userId)}`,
-    );
-    return data.bookings;
+    return await refreshBookings(userId);
   } catch {
     return [];
   }

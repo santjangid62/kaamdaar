@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Clock, IndianRupee, MapPin, Repeat, Zap } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Bell, CalendarDays, Clock, IndianRupee, MapPin, Repeat, Zap, X } from "lucide-react";
 import { useApp } from "./AppProvider";
 import { fill, useLang } from "../lib/i18n";
-import { listBookings } from "../lib/store";
+import { refreshBookings } from "../lib/store";
 import type { Booking, BookingTab } from "../lib/types";
 
 function bucket(status: Booking["status"]): BookingTab {
@@ -49,10 +49,78 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
   const TAB_LABEL = tabLabels(s.bookings);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [tab, setTab] = useState<BookingTab>(initialTab ?? "current");
+  const [notice, setNotice] = useState<string | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("default");
+  const previousBookings = useRef<Map<string, Booking["status"]> | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (user) void listBookings(user.id).then(setBookings);
-  }, [user]);
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    setNotificationPermission(window.Notification.permission);
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      previousBookings.current = null;
+      setBookings([]);
+      return;
+    }
+    let active = true;
+    const refresh = async () => {
+      try {
+        const latest = await refreshBookings(user.id);
+        if (!active) return;
+        const previous = previousBookings.current;
+        if (previous) {
+          for (const booking of latest) {
+            const oldStatus = previous.get(booking.id);
+            if (oldStatus && oldStatus !== booking.status) {
+              const message = `${booking.serviceName}: ${s.bookings.status[booking.status]}`;
+              setNotice(message);
+              if (noticeTimer.current) clearTimeout(noticeTimer.current);
+              noticeTimer.current = setTimeout(() => setNotice(null), 7000);
+              if ("Notification" in window && Notification.permission === "granted") {
+                try {
+                  new Notification("Kaamdaar booking update", {
+                    body: message,
+                    tag: `kaamdaar-booking-${booking.id}`,
+                  });
+                } catch { /* browser notification may be unavailable in this context */ }
+              }
+            }
+          }
+        }
+        previousBookings.current = new Map(latest.map((booking) => [booking.id, booking.status]));
+        setBookings(latest);
+      } catch {
+        // Keep the last good booking list during network/auth restoration.
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 5000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    };
+  }, [user, s.bookings.status]);
+
+  async function enableNotifications() {
+    if (!("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    if (permission === "granted") {
+      setNotice("Browser notifications enabled. Booking updates will appear here and as browser alerts.");
+      if (noticeTimer.current) clearTimeout(noticeTimer.current);
+      noticeTimer.current = setTimeout(() => setNotice(null), 7000);
+    }
+  }
 
   const grouped = useMemo(() => {
     const g: Record<BookingTab, Booking[]> = { current: [], upcoming: [], previous: [] };
@@ -75,12 +143,28 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
 
   return (
     <section className="card p-6" id="bookings">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-bold text-slate-900">{s.bookings.title}</h2>
-        <Link href="/services" className="text-sm font-semibold text-flame-600 hover:underline">
-          {s.bookings.newBooking}
-        </Link>
+        <div className="flex items-center gap-3">
+          {notificationPermission === "default" && (
+            <button type="button" onClick={() => void enableNotifications()} className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50">
+              <Bell className="h-3.5 w-3.5" /> Enable notifications
+            </button>
+          )}
+          {notificationPermission === "granted" && (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700"><Bell className="h-3.5 w-3.5" /> Notifications on</span>
+          )}
+          <Link href="/services" className="text-sm font-semibold text-flame-600 hover:underline">
+            {s.bookings.newBooking}
+          </Link>
+        </div>
       </div>
+      {notice && (
+        <div role="status" aria-live="polite" className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-900">
+          <span className="flex items-center gap-2"><Bell className="h-4 w-4 shrink-0" />{notice}</span>
+          <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss notification" className="rounded p-1 hover:bg-blue-100"><X className="h-4 w-4" /></button>
+        </div>
+      )}
 
       <div className="mt-4 flex gap-2 border-b border-slate-100 pb-3">
         {(Object.keys(TAB_LABEL) as BookingTab[]).map((t) => (
