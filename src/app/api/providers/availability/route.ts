@@ -53,7 +53,7 @@ export async function POST(req: Request) {
   const status = body.online ? "Online" : "Offline";
   const updated = await patch<Provider & { status?: string }>("providers", provider.id, {
     status,
-    availabilityStatus: body.online ? "available" : "busy",
+    availabilityStatus: provider.activeBookingId ? "busy" : "available",
     availabilityUpdatedAt: now,
   });
   if (!updated) return NextResponse.json({ error: "Provider record could not be updated" }, { status: 500 });
