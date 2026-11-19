@@ -4,7 +4,8 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, "qa/**"]
+  workflow_dispatch:
 
 # Keep only the newest CI run for this branch; push and PR events share a key.
 concurrency:
@@ -32,6 +33,12 @@ jobs:
         run: >-
           npx eslint
           src/app/api/auth/route.ts
+          src/app/api/admin/login/route.ts
+          src/app/api/admin/logs/route.ts
+          src/app/api/admin/booking-payments/route.ts
+          src/app/api/admin/provider-payments/route.ts
+          src/app/api/admin/data/[collection]/[id]/route.ts
+          src/app/api/client-events/route.ts
           'src/app/api/bookings/[id]/route.ts'
           src/app/api/bookings/route.ts
           src/app/api/booking-slots/route.ts
