@@ -14,6 +14,7 @@ import { identifyAccount, initAnalytics, resetAnalytics } from "../lib/analytics
 import { browserLocation, reverseGeocode } from "../lib/geo";
 import { clearSession, loadSession, saveSession } from "../lib/store";
 import { setCatalog } from "../lib/assistant";
+import { usePathname } from "next/navigation";
 import type { GeoResult, Provider, Service, User } from "../lib/types";
 
 const LOC_KEY = "kaamdaar.location";
@@ -48,6 +49,8 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isStaffRoute = pathname?.startsWith("/admin") || pathname?.startsWith("/provider") || pathname?.startsWith("/kaamdaar");
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
@@ -109,7 +112,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setLocating(true);
     setLocationError(null);
-    setLocationPromptVisible(false);
+    setLocationPromptVisible(true);
     try {
       const point = await browserLocation();
       const geo = await reverseGeocode(point);
@@ -316,10 +319,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setReady(true);
 
     void (async () => {
+      // Admin/provider workspaces never request staff device location here.
+      if (isStaffRoute) {
+        setLocationPromptVisible(false);
+        return;
+      }
+      // Require customer GPS on every fresh website visit.
+      setLocationPromptVisible(true);
       // A locality chosen from the Jaipur area list is an explicit user choice.
       // Keep it as the anchor for Area We Serve instead of replacing it with a
       // coarse desktop/browser geolocation result on every page load.
-      if (hasManualLocation) return;
+      if (hasManualLocation) manualLocationSelectedRef.current = false;
 
       let permissionAvailable = false;
       if (navigator.permissions?.query) {
@@ -345,7 +355,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setLocationPromptVisible(true);
       }
     })();
-  }, [detectLocation, refreshUser]);
+  }, [detectLocation, refreshUser, isStaffRoute]);
 
   const value = useMemo<AppContextValue>(
     () => ({
