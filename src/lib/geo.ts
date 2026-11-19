@@ -20,11 +20,11 @@ export function formatDistance(km: number): string {
 
 type Fix = { lat: number; lng: number; accuracy: number };
 
-/** One geolocation request that never rejects — null means no fix. */
-function requestFix(opts: PositionOptions): Promise<Fix | null> {
-  return new Promise((resolve) => {
+/** One geolocation request. Preserve browser error codes for useful recovery guidance. */
+function requestFix(opts: PositionOptions): Promise<Fix> {
+  return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      resolve(null);
+      reject(new Error("position-unavailable"));
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -34,45 +34,60 @@ function requestFix(opts: PositionOptions): Promise<Fix | null> {
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy ?? 9999,
         }),
-      () => resolve(null),
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) reject(new Error("permission-denied"));
+        else if (error.code === error.TIMEOUT) reject(new Error("timeout"));
+        else reject(new Error("position-unavailable"));
+      },
       opts,
     );
   });
 }
 
 /**
- * Ask the browser for the *exact* current position.
- *
- * 1. Fresh high-accuracy fix only (maximumAge 0 — a stale cached point is
- *    never accepted, GPS/ Wi-Fi hybrid is requested instead).
- * 2. If the fix is coarse (>50 m accuracy) a second reading is taken and the
- *    sharper of the two wins.
- * 3. Only when both fail do we fall back to a cached position, which still
- *    beats failing outright.
+ * Prefer a fresh high-accuracy fix. Retry with a network-assisted/cached fix
+ * for timeouts or unavailable GPS, but never retry after an explicit denial.
  */
-export async function browserLocation(timeoutMs = 10000): Promise<GeoPoint> {
+export async function browserLocation(timeoutMs = 15000): Promise<GeoPoint> {
   const hiAccuracy: PositionOptions = {
     enableHighAccuracy: true,
     timeout: timeoutMs,
     maximumAge: 0,
   };
 
-  let best = await requestFix(hiAccuracy);
+  let best: Fix | null = null;
+  let firstError: unknown = null;
+  try {
+    best = await requestFix(hiAccuracy);
+  } catch (error) {
+    firstError = error;
+    if (error instanceof Error && error.message === "permission-denied") throw error;
+  }
 
   if (best && best.accuracy > 50) {
-    const second = await requestFix(hiAccuracy);
-    if (second && second.accuracy < best.accuracy) best = second;
+    try {
+      const second = await requestFix(hiAccuracy);
+      if (second.accuracy < best.accuracy) best = second;
+    } catch {
+      // Keep the first valid reading when a refinement attempt fails.
+    }
   }
 
   if (!best) {
-    best = await requestFix({
-      enableHighAccuracy: false,
-      timeout: timeoutMs,
-      maximumAge: 5 * 60_000,
-    });
+    try {
+      best = await requestFix({
+        enableHighAccuracy: false,
+        timeout: timeoutMs,
+        maximumAge: 5 * 60_000,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "permission-denied") throw error;
+      if (error instanceof Error && error.message === "timeout") throw error;
+      if (firstError instanceof Error && firstError.message === "timeout") throw firstError;
+      throw new Error("position-unavailable");
+    }
   }
 
-  if (!best) throw new Error("Location unavailable");
   return { lat: best.lat, lng: best.lng, accuracy: best.accuracy };
 }
 
