@@ -327,7 +327,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           /* show the in-app prompt when permission state is unavailable */
         }
       }
-      if (!promptDismissedThisSession && (!hasSavedLocation || permissionAvailable)) {
+      if (!promptDismissedThisSession && !hasSavedLocation) {
+        // First visit: request the browser's native GPS permission immediately.
+        // If the user denies it or the device cannot locate, detectLocation
+        // will show the in-app recovery prompt with clear instructions.
+        void detectLocation();
+        return;
+      }
+      if (!promptDismissedThisSession && permissionAvailable) {
         setLocationPromptVisible(true);
       }
     })();
