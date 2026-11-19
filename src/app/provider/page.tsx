@@ -118,9 +118,36 @@ export default function ProviderPortalPage() {
     if (!provider) return;
     setBusy(true); setError(""); setNotice("");
     try {
+      let patch: Record<string, unknown>;
+      if (accept) {
+        if (!navigator.geolocation) {
+          throw new Error("Is device/browser mein location support nahi hai. Booking accept karne ke liye Provider App use karein.");
+        }
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, (geoError) => {
+            const message = geoError.code === geoError.PERMISSION_DENIED
+              ? "Location permission allow karein, phir booking accept karein."
+              : geoError.code === geoError.TIMEOUT
+                ? "Location milne mein der hui. Dobara try karein."
+                : "Current location nahi mil saki. Location/GPS on karke dobara try karein.";
+            reject(new Error(message));
+          }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+        });
+        patch = {
+          status: "accepted",
+          providerId: provider.id,
+          providerAcceptPoint: {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          },
+        };
+      } else {
+        patch = { withdrawNotify: provider.id };
+      }
       await api(`/api/bookings/${encodeURIComponent(booking.id)}`, {
         method: "PATCH",
-        body: JSON.stringify({ patch: accept ? { status: "accepted", providerId: provider.id } : { withdrawNotify: provider.id } }),
+        body: JSON.stringify({ patch }),
       });
       await refresh(provider);
       setNotice(accept
