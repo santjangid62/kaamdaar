@@ -105,7 +105,7 @@ class _DashboardTabState extends State<DashboardTab> {
   List<BookingItem> _active = [];
   List<BookingItem> _all = [];
   WalletInfo? _wallet;
-  bool _available = true;
+  bool _available = false;
   bool _loading = true;
   String? _error;
   String _locationLabel = 'Detecting your location…';
@@ -220,6 +220,7 @@ class _DashboardTabState extends State<DashboardTab> {
       setState(() {
         _user = user;
         _me = me;
+        _available = me.status == "Online";
         _all = jobs;
         _offers = jobs
             .where((b) => b.status == 'dispatched' && b.notifiedIds.contains(me.id))
@@ -232,6 +233,26 @@ class _DashboardTabState extends State<DashboardTab> {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _setAvailability(bool online) async {
+    final previous = _available;
+    setState(() => _available = online);
+    try {
+      final updated = await Api.setAvailability(online);
+      if (!mounted) return;
+      setState(() {
+        _me = updated;
+        _available = updated.status == "Online";
+      });
+      await _load(silent: true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _available = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
     }
   }
 
@@ -380,7 +401,7 @@ class _DashboardTabState extends State<DashboardTab> {
                   Switch(
                     value: _available,
                     activeThumbColor: PColors.green,
-                    onChanged: (v) => setState(() => _available = v),
+                    onChanged: (v) => _setAvailability(v),
                   ),
                 ],
               ),
