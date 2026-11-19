@@ -91,12 +91,18 @@ export async function verifyOtp(
   }
   confirmation = null;
   const idToken = await credential.user.getIdToken(true);
-  return authRequest({
-    action: "verify",
-    phone,
-    idToken,
-    platform: "web",
-  });
+  try {
+    return await authRequest({
+      action: "verify",
+      phone,
+      idToken,
+      platform: "web",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Phone sign-in failed";
+    void reportPhoneAuthFailure(phone, "server/phone-verification-failed", message);
+    throw error;
+  }
 }
 
 export function resetOtpFlow() {
