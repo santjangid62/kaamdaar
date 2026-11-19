@@ -10,6 +10,8 @@ export async function recordAudit(input: {
   description?: string;
   reference?: string;
   severity?: "info" | "success" | "warning" | "danger";
+  /** Safe request context only: never include OTPs, passwords or Firebase tokens. */
+  metadata?: Record<string, unknown>;
 }) {
   await ready();
   return insert("auditLogs", {
@@ -20,6 +22,7 @@ export async function recordAudit(input: {
     description: (input.description ?? "").slice(0, 500),
     reference: input.reference ?? "",
     severity: input.severity ?? (input.action === "deleted" || input.action === "rejected" ? "warning" : input.action === "created" || input.action === "approved" ? "success" : "info"),
+    metadata: input.metadata ?? {},
     at: Date.now(),
   });
 }
