@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, AlertTriangle, Download, RefreshCw, Search, ShieldCheck, type LucideIcon } from "lucide-react";
 
 type LogRow = {
@@ -38,7 +38,7 @@ export default function SystemLogsClient() {
   const [actor, setActor] = useState("all");
   const [range, setRange] = useState("all");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
       const response = await fetch("/api/admin/logs?limit=1000", { cache: "no-store" });
@@ -46,12 +46,16 @@ export default function SystemLogsClient() {
       setData(await response.json() as Payload);
     } catch (e) { setError(e instanceof Error ? e.message : "Could not load logs."); }
     finally { setLoading(false); }
-  }
+  }, []);
 
-  useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 5000); return () => window.clearInterval(timer); }, []);
+  useEffect(() => {
+    const initial = window.setTimeout(() => void load(), 0);
+    const timer = window.setInterval(() => void load(), 5000);
+    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+  }, [load]);
 
   const filtered = useMemo(() => {
-    const now = Date.now();
+    const now = data?.generatedAt ?? 0;
     const cutoff = range === "today" ? new Date().setHours(0, 0, 0, 0) : range === "7d" ? now - 7 * 86400000 : range === "30d" ? now - 30 * 86400000 : 0;
     const q = query.trim().toLowerCase();
     return (data?.rows ?? []).filter(row =>
