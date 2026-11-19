@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   signInWithPhoneNumber, RecaptchaVerifier, type ConfirmationResult,
 } from "firebase/auth";
 import {
-  Bell, BriefcaseBusiness, CheckCircle2, Clock3, IndianRupee, LogOut,
-  RefreshCw, ShieldCheck, Star, Wallet, XCircle, Smartphone, History,
+  Bell, BriefcaseBusiness, CheckCircle2, IndianRupee, LogOut,
+  RefreshCw, ShieldCheck, Star, Wallet, XCircle, Smartphone,
 } from "lucide-react";
 import { getFirebaseAuth, isFirebaseConfigured } from "../../lib/firebase";
 import type { Booking, Provider } from "../../lib/types";
@@ -34,7 +33,6 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export default function ProviderPortalPage() {
-  const router = useRouter();
   const [step, setStep] = useState<"phone" | "otp" | "dashboard">("phone");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
