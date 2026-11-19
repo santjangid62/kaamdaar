@@ -41,6 +41,7 @@ export async function GET(req: Request) {
     .filter(Boolean));
   const providers = providerRows
     .filter((provider) => isInsideJaipur(provider))
+    .filter((provider) => provider.kycStatus === "Verified" && provider.status === "Online")
     .filter((provider) => !provider.activeBookingId && !busyIds.has(provider.id));
   // NB: Number(null) === 0 — an absent param must not be mistaken for (0, 0)
   const hasPoint =
