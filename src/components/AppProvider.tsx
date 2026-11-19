@@ -12,6 +12,7 @@ import {
 } from "react";
 import { identifyAccount, initAnalytics, resetAnalytics } from "../lib/analytics";
 import { browserLocation, reverseGeocode } from "../lib/geo";
+import { AREAS } from "../lib/areas";
 import { clearSession, loadSession, saveSession } from "../lib/store";
 import { setCatalog } from "../lib/assistant";
 import type { GeoResult, Provider, Service, User } from "../lib/types";
@@ -250,10 +251,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const cached = window.localStorage.getItem(LOC_KEY);
       if (cached) {
         const saved = JSON.parse(cached) as GeoResult;
-        setLoc(saved);
-        locationRef.current = saved;
+        // Older builds saved manually selected Jaipur localities without a source field.
+        // Recognise known locality labels and migrate them to manual so startup GPS
+        // cannot overwrite the user's selected area after an update or reload.
+        const savedLabel = (saved.label ?? "").split(",")[0].trim().toLowerCase();
+        const isLegacyAreaChoice = !saved.source && AREAS.some(
+          (area) => area.city.toLowerCase() === (saved.city ?? "").toLowerCase() && area.name.toLowerCase() === savedLabel,
+        );
+        const restored: GeoResult = isLegacyAreaChoice ? { ...saved, source: "manual" } : saved;
+        setLoc(restored);
+        locationRef.current = restored;
         hasSavedLocation = true;
-        hasManualLocation = saved.source === "manual";
+        hasManualLocation = restored.source === "manual";
+        if (isLegacyAreaChoice) window.localStorage.setItem(LOC_KEY, JSON.stringify(restored));
         if (hasManualLocation) {
           manualLocationSelectedRef.current = true;
           setLocationPromptVisible(false);
