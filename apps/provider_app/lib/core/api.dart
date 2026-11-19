@@ -40,6 +40,7 @@ class Api {
     final firebaseToken = await FirebaseAuth.instance.currentUser?.getIdToken();
     return {
       'Content-Type': 'application/json',
+      'X-Kaamdaar-Platform': 'provider_app',
       if (firebaseToken != null && firebaseToken.isNotEmpty)
         'Authorization': 'Bearer $firebaseToken',
     };
@@ -256,6 +257,15 @@ class Api {
     final data = await get('/api/providers/me?phone=${Uri.encodeComponent(phone)}');
     final p = data['provider'];
     return p is Map<String, dynamic> ? ProviderItem.fromJson(p) : null;
+  }
+
+  static Future<ProviderItem> setAvailability(bool online) async {
+    final data = await post('/api/providers/availability', {'online': online});
+    final provider = data['provider'];
+    if (provider is! Map<String, dynamic>) {
+      throw ApiException('Provider availability response was invalid');
+    }
+    return ProviderItem.fromJson(provider);
   }
 
   static Future<ProviderItem> register(Map<String, dynamic> body) async {
