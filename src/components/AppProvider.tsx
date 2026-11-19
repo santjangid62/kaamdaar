@@ -156,9 +156,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // block/delete actions apply without re-login
     try {
       const res = await fetch(`/api/users/resolve?phone=${encodeURIComponent(session.phone)}`);
-      if (res.status === 404) {
+      // A missing lookup row can be caused by a transient DB/environment
+      // mismatch. Do not log a returning customer out on refresh; only an
+      // explicit blocked/deleted response revokes the cached session.
+      if (res.status === 403) {
         clearSession();
         setUser(null);
+        return;
+      }
+      if (res.status === 404) {
+        setUser(session);
         return;
       }
       if (res.ok) {
