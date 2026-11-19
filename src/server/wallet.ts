@@ -4,7 +4,7 @@
  */
 import { get, insert, upsert, uid } from "./db";
 
-export const MIN_WALLET_BALANCE = 200;
+export const MIN_WALLET_BALANCE = 500;
 // New providers start at zero; money is credited only after verified payment.
 export const DEFAULT_WALLET_BALANCE = 0;
 
@@ -28,6 +28,26 @@ export interface WalletTxn {
   kind: "commission" | "recharge";
   note: string;
   createdAt: number;
+}
+
+/** Create the one-time ₹500 provider onboarding credit; never repeat it for an existing wallet. */
+export async function ensureProviderWallet(providerId: string): Promise<WalletRow> {
+  const existing = await get<WalletRow>("wallets", providerId);
+  if (existing) return existing;
+  const balance = 500;
+  const wallet = await upsert("wallets", providerId, {
+    providerId,
+    balance,
+    updatedAt: Date.now(),
+  });
+  await addTxn({
+    providerId,
+    balanceAfter: balance,
+    kind: "recharge",
+    amount: balance,
+    note: "Kaamdaar provider onboarding credit",
+  });
+  return wallet;
 }
 
 export async function getWallet(providerId: string): Promise<WalletRow> {
