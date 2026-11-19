@@ -104,6 +104,7 @@ class ProviderItem {
   final int experience;
   final bool verified;
   final bool policeVerified;
+  final String availabilityStatus;
   final int hourlyRate;
   final int reviewCount;
   final double distanceKm;
@@ -123,6 +124,7 @@ class ProviderItem {
         experience: _int(j["experience"]),
         verified: j["verified"] == true,
         policeVerified: j["policeVerified"] == true,
+        availabilityStatus: (j["availabilityStatus"] ?? "offline").toString(),
         hourlyRate: _int(j["hourlyRate"]),
         reviewCount: _int(j["reviewCount"]),
         distanceKm: distance,
@@ -142,6 +144,7 @@ class ProviderItem {
     this.experience = 0,
     this.verified = false,
     this.policeVerified = false,
+    this.availabilityStatus = "offline",
     this.hourlyRate = 0,
     this.reviewCount = 0,
     this.distanceKm = 0,
