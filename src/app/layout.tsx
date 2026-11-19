@@ -30,7 +30,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col bg-offwhite text-slate-900">
         <AppProvider>
           <LangProvider>
-            <LocationNotice />
+            <SiteOnly>
+              <LocationNotice />
+            </SiteOnly>
             <Suspense fallback={<Navbar />}>
               <SiteOnly>
                 <Navbar />
