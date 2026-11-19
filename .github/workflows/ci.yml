@@ -43,6 +43,7 @@ jobs:
           src/lib/auth-service.ts
           src/lib/types.ts
           src/server/db.ts
+          src/server/audit.ts
           src/server/fcm.ts
           src/server/firebase-auth.ts
       - name: Next.js production build
@@ -80,3 +81,10 @@ jobs:
       - name: Build Android debug APK
         working-directory: apps/${{ matrix.app }}
         run: flutter build apk --debug
+      - name: Upload QA debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaamdaar-${{ matrix.app }}-qa-debug
+          path: apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
