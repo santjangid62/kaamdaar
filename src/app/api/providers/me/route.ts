@@ -121,3 +121,26 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ provider: created }, { status: 201 });
 }
+
+export async function PATCH(req: Request) {
+  await ready();
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  let body: { availabilityStatus?: string };
+  try { body = await req.json() as typeof body; }
+  catch { return NextResponse.json({ error: "Invalid request body" }, { status: 400 }); }
+  if (body.availabilityStatus !== "available" && body.availabilityStatus !== "offline") {
+    return NextResponse.json({ error: "Choose available or offline status" }, { status: 422 });
+  }
+  const provider = await findByPhone(identity.phone) as (Provider & { status?: string }) | null;
+  if (!provider) return NextResponse.json({ error: "Provider profile not found" }, { status: 404 });
+  if (provider.status === "blocked") return NextResponse.json({ error: "Provider account is blocked" }, { status: 403 });
+  if (body.availabilityStatus === "available" && !provider.verified) {
+    return NextResponse.json({ error: "KYC approval is required before receiving jobs" }, { status: 403 });
+  }
+  const updated = await patch<Provider>("providers", provider.id, {
+    availabilityStatus: body.availabilityStatus,
+    availabilityUpdatedAt: Date.now(),
+  });
+  return NextResponse.json({ provider: updated });
+}
