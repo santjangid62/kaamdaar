@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { all, get, patch, ready } from "../../../../server/db";
 import { isAuthed } from "../../../../lib/admin/auth";
+import { recordAudit } from "../../../../server/audit";
 import { appendEvents, newEvent } from "../../../../server/events";
 import { debitCommission, type WalletTxn } from "../../../../server/wallet";
 import type { Booking } from "../../../../lib/types";
@@ -46,5 +47,15 @@ export async function PATCH(req: Request) {
         { bookingId: booking.id, service: booking.serviceName, serviceCharge: booking.amount, commission });
     }
   }
+  await recordAudit({
+    actor: "admin",
+    action: body.action === "verify" ? "approved" : "rejected",
+    module: "Booking Payments",
+    title: body.action === "verify" ? "Admin verified customer payment" : "Admin disputed customer payment",
+    description: `Booking ${booking.id}: ₹${booking.amount} via ${booking.paymentMethod ?? "unknown"}; ${body.action === "dispute" ? String(body.note ?? "Needs review").slice(0, 180) : "payment verified"}`,
+    reference: booking.id,
+    severity: body.action === "verify" ? "success" : "warning",
+    metadata: { bookingId: booking.id, providerId: booking.providerId, amount: booking.amount, paymentMethod: booking.paymentMethod ?? "", paymentReferenceLast4: String(booking.paymentReference ?? "").slice(-4), paymentStatus: updated?.paymentStatus ?? "", occurredAt: now },
+  });
   return NextResponse.json({ booking: updated });
 }
