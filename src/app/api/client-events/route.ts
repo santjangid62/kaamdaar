@@ -43,12 +43,12 @@ export async function POST(req: Request) {
 
   const userAgent = req.headers.get("user-agent") ?? "unknown";
   const device = /android/i.test(userAgent) ? "Android" : /iphone|ipad|ios/i.test(userAgent) ? "iOS" : /mobile/i.test(userAgent) ? "Mobile browser" : "Desktop browser";
-  const digits = String(body.phone ?? "").replace(/\\D/g, "");
+  const digits = String(body.phone ?? "").replace(/\D/g, "");
   const phoneMasked = digits.length >= 4 ? "••••" + digits.slice(-4) : "unknown phone";
   const errorCode = String(body.errorCode ?? "unknown").replace(/[^a-zA-Z0-9_/-]/g, "").slice(0, 100) || "unknown";
   const errorMessage = String(body.errorMessage ?? "")
-    .replace(/\\+?\\d[\\d\\s()-]{5,}\\d/g, "[redacted number]")
-    .replace(/\\b\\d{6,}\\b/g, "[redacted digits]")
+    .replace(/\+?\d[\d\s()-]{5,}\d/g, "[redacted number]")
+    .replace(/\b\d{6,}\b/g, "[redacted digits]")
     .slice(0, 240);
 
   await recordAudit({
