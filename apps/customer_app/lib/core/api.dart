@@ -39,7 +39,6 @@ class Api {
     final firebaseToken = await FirebaseAuth.instance.currentUser?.getIdToken();
     return {
       'Content-Type': 'application/json',
-      'X-Kaamdaar-Platform': 'customer_app',
       if (firebaseToken != null && firebaseToken.isNotEmpty)
         'Authorization': 'Bearer $firebaseToken',
     };
@@ -99,6 +98,27 @@ class Api {
 
   static String? _phoneVerificationId;
 
+  static Future<void> _reportPhoneAuthFailure(String phone, String errorCode, String? errorMessage) async {
+    try {
+      await http.post(
+        Uri.parse('${baseUrl}/api/client-events'),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Kaamdaar-Platform': 'customer_app',
+        },
+        body: jsonEncode({
+          'event': 'firebase_phone_verification_failed',
+          'platform': 'customer_app',
+          'phone': e164(phone),
+          'errorCode': errorCode,
+          'errorMessage': errorMessage ?? '',
+        }),
+      ).timeout(const Duration(seconds: 4));
+    } catch (_) {
+      // Diagnostic delivery is best-effort and must never block the OTP UI.
+    }
+  }
+
   static Future<String> sendOtp(String phone) async {
     final auth = FirebaseAuth.instance;
     await auth.signOut();
@@ -115,6 +135,7 @@ class Api {
         if (!completed.isCompleted) completed.complete();
       },
       verificationFailed: (error) {
+        unawaited(_reportPhoneAuthFailure(phone, error.code, error.message));
         final message = switch (error.code) {
           'billing-not-enabled' || 'auth/billing-not-enabled' =>
             'Firebase billing is not enabled. For QA, use a fictional number configured in Firebase Console and install the QA debug APK.',
