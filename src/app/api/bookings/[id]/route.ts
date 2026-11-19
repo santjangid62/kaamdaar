@@ -8,6 +8,7 @@ import { haversineKm } from "../../../../lib/geo";
 import { appendEvents, eventsForChange, newEvent } from "../../../../server/events";
 import { isAuthed } from "../../../../lib/admin/auth";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
+import { recordAudit } from "../../../../server/audit";
 import type {
   Booking,
   BookingActor,
@@ -224,6 +225,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
    * position from a stale one. */
   const ping = body.patch?.providerPing;
   let pinged = false;
+  let auditLocationPing = false;
   if (ping && (!Number.isFinite(ping.lat) || !Number.isFinite(ping.lng))) {
     return NextResponse.json({ error: "providerPing needs numeric lat/lng" }, { status: 422 });
   }
@@ -240,9 +242,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
         { status: 409 },
       );
     }
-    changes.livePoint = { lat: ping.lat, lng: ping.lng };
-    changes.pingAt = Date.now();
+    const receivedAt = Date.now();
+    changes.livePoint = { lat: ping.lat, lng: ping.lng, ...(Number.isFinite(ping.accuracy) ? { accuracy: ping.accuracy } : {}) };
+    changes.pingAt = receivedAt;
     changes.pingCount = (booking.pingCount ?? 0) + 1;
+    // Persist the newest point on the provider profile as well; write a log
+    // sample at most every 10 seconds to avoid flooding the audit timeline.
+    auditLocationPing = !booking.locationAuditAt || receivedAt - Number(booking.locationAuditAt) >= 10_000;
+    if (auditLocationPing) changes.locationAuditAt = receivedAt;
     // the first ping is also where the journey started
     if (!booking.providerPoint) {
       changes.providerPoint = { lat: ping.lat, lng: ping.lng };
@@ -410,6 +417,32 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       await releaseProviderBooking(authenticatedProviderId, id);
     }
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  }
+  if (pinged && actorRole === "provider" && authenticatedProviderId && ping) {
+    const receivedAt = Number(updated.pingAt ?? Date.now());
+    const point = { lat: ping.lat, lng: ping.lng, ...(Number.isFinite(ping.accuracy) ? { accuracy: ping.accuracy } : {}) };
+    await patch("providers", authenticatedProviderId, {
+      livePoint: point,
+      liveLocationAt: receivedAt,
+      lastLocationBookingId: id,
+    });
+    if (auditLocationPing) {
+      const userAgent = req.headers.get("user-agent") ?? "unknown";
+      const ipAddress = (req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "").split(",")[0].trim() || "unknown";
+      await recordAudit({
+        actor: "provider", action: "status_changed", module: "Provider Tracking",
+        title: "Live provider location updated",
+        description: `Provider GPS received for booking ${id}`,
+        reference: id, severity: "info",
+        metadata: {
+          platform: req.headers.get("x-kaamdaar-platform") ?? "provider_app",
+          device: /android/i.test(userAgent) ? "Android" : /iphone|ipad|ios/i.test(userAgent) ? "iOS" : "Browser",
+          providerId: authenticatedProviderId, bookingId: id,
+          latitude: ping.lat, longitude: ping.lng, accuracy: ping.accuracy ?? null,
+          ipAddress, userAgent: userAgent.slice(0, 240), occurredAt: receivedAt,
+        },
+      });
+    }
   }
   // The Pro becomes available immediately after tapping Work Completed
   // (pending_confirm), not after the customer enters the completion OTP.
