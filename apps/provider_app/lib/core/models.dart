@@ -95,6 +95,7 @@ class ProviderItem {
   final String name;
   final String phone;
   final String kycStatus;
+  final String status;
   final List<String> services;
   final double lat;
   final double lng;
@@ -114,6 +115,7 @@ class ProviderItem {
         name: (j["name"] ?? "").toString(),
         phone: (j["phone"] ?? "").toString(),
         kycStatus: (j["kycStatus"] ?? "Pending").toString(),
+        status: (j["status"] ?? "Offline").toString(),
         services: _strList(j["services"]),
         lat: _num(j["lat"]).toDouble(),
         lng: _num(j["lng"]).toDouble(),
@@ -133,6 +135,7 @@ class ProviderItem {
     required this.name,
     this.phone = "",
     this.kycStatus = "Pending",
+    this.status = "Offline",
     this.services = const [],
     this.lat = 0,
     this.lng = 0,
