@@ -5,7 +5,7 @@
  * table with pagination, and real Add / Edit / Delete mutations against
  * /api/admin/data/:collection when the section is editable.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Pencil, Plus, Search, Trash2, X, Sparkles, RefreshCw } from "lucide-react";
 import type { Field, SectionDef } from "../../lib/admin/types";
@@ -134,7 +134,7 @@ export default function SectionClient({ def }: { def: SectionDef }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
 
-  const refreshCustomers = async () => {
+  const refreshCustomers = useCallback(async () => {
     if (!def.collection) return;
     setRefreshing(true);
     try {
@@ -147,16 +147,20 @@ export default function SectionClient({ def }: { def: SectionDef }) {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [def.collection, def.title]);
 
   useEffect(() => {
     if (!def.collection) return;
-    void refreshCustomers();
+    const initial = window.setTimeout(() => void refreshCustomers(), 0);
     const timer = window.setInterval(() => void refreshCustomers(), 15000);
     const onFocus = () => void refreshCustomers();
     window.addEventListener("focus", onFocus);
-    return () => { window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
-  }, [def.collection, def.title]);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [def.collection, refreshCustomers]);
 
   const editable = Boolean(def.collection && !def.readOnly && def.fields?.length);
   const canAdd = editable && !def.noAdd;
