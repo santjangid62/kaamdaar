@@ -226,12 +226,26 @@ class _DashboardTabState extends State<DashboardTab> {
             .toList();
         _active = jobs.where((b) => b.providerId == me.id && b.isLive).toList();
         _wallet = wallet;
+        _available = me.availabilityStatus == "available";
         _error = null;
       });
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _setAvailability(bool value) async {
+    final previous = _available;
+    setState(() => _available = value);
+    try {
+      await Api.setAvailability(value);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _available = previous);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     }
   }
 
@@ -380,7 +394,7 @@ class _DashboardTabState extends State<DashboardTab> {
                   Switch(
                     value: _available,
                     activeThumbColor: PColors.green,
-                    onChanged: (v) => setState(() => _available = v),
+                    onChanged: _setAvailability,
                   ),
                 ],
               ),

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordAudit } from "../../../../server/audit";
 import {
   ADMIN_COOKIE,
   checkCredentials,
@@ -33,8 +34,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 });
   }
   if (!checkCredentials(email, password)) {
+    const userAgent = req.headers.get("user-agent") ?? "unknown";
+    const platform = /android|iphone|ipad|mobile/i.test(userAgent) ? "mobile" : "web";
+    const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim().slice(0, 64);
+    try {
+      await recordAudit({ actor: "admin", action: "login", module: "Authentication", title: "Admin login failed", description: `platform=${platform}; ip=${ip || "unknown"}; reason=invalid_credentials`, severity: "warning" });
+    } catch (error) { console.error("[audit] admin login failure log could not be saved", error); }
     return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
   }
+
+  const userAgent = req.headers.get("user-agent") ?? "unknown";
+  const platform = /android|iphone|ipad|mobile/i.test(userAgent) ? "mobile" : "web";
+  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim().slice(0, 64);
+  try {
+    await recordAudit({ actor: email.trim().toLowerCase(), action: "login", module: "Authentication", title: "Admin login successful", description: `platform=${platform}; ip=${ip || "unknown"}`, severity: "success" });
+  } catch (error) { console.error("[audit] admin login success log could not be saved", error); }
 
   const res = NextResponse.json({ ok: true, email: email.trim().toLowerCase() });
   res.cookies.set(ADMIN_COOKIE, createSessionToken(), {

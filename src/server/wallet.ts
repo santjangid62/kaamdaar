@@ -4,8 +4,8 @@
  */
 import { get, insert, upsert, uid } from "./db";
 
-export const MIN_WALLET_BALANCE = 200;
-// New providers start at zero; money is credited only after verified payment.
+export const MIN_WALLET_BALANCE = 500;
+// Legacy providers without a wallet row start at zero; newly added providers receive a one-time onboarding credit via ensureProviderWallet.
 export const DEFAULT_WALLET_BALANCE = 0;
 
 export interface WalletRow {
@@ -28,6 +28,35 @@ export interface WalletTxn {
   kind: "commission" | "recharge";
   note: string;
   createdAt: number;
+}
+
+/** Create the one-time ₹500 provider onboarding credit; never repeat it for an existing wallet. */
+export async function ensureProviderWallet(providerId: string): Promise<WalletRow> {
+  const existing = await get<WalletRow>("wallets", providerId);
+  if (existing) return existing;
+  const balance = 500;
+  try {
+    // Insert is atomic on the providerId key: concurrent create requests cannot
+    // issue the onboarding credit twice.
+    const wallet = await insert<WalletRow & Record<string, unknown>>("wallets", {
+      id: providerId,
+      providerId,
+      balance,
+      updatedAt: Date.now(),
+    });
+    await addTxn({
+      providerId,
+      balanceAfter: balance,
+      kind: "recharge",
+      amount: balance,
+      note: "Kaamdaar provider onboarding credit",
+    });
+    return wallet;
+  } catch (error) {
+    const createdByAnotherRequest = await get<WalletRow>("wallets", providerId);
+    if (createdByAnotherRequest) return createdByAnotherRequest;
+    throw error;
+  }
 }
 
 export async function getWallet(providerId: string): Promise<WalletRow> {

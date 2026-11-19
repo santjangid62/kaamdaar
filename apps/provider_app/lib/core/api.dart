@@ -236,6 +236,10 @@ class Api {
     return p is Map<String, dynamic> ? ProviderItem.fromJson(p) : null;
   }
 
+  static Future<void> setAvailability(bool online) async {
+    await patch("/api/providers/me", {"availabilityStatus": online ? "available" : "offline"});
+  }
+
   static Future<ProviderItem> register(Map<String, dynamic> body) async {
     final data = await post('/api/providers/me', {
       ...body,

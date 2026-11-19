@@ -193,8 +193,13 @@ const mongoEngine = {
   },
 
   async remove(col: Collection, id: string): Promise<boolean> {
-    const res = await (await mongoDb()).collection(col).deleteOne({ _id: id } as Document);
-    return res.deletedCount > 0;
+    const collection = (await mongoDb()).collection(col);
+    // Current rows use _id=id; imported/legacy rows may have an ObjectId _id
+    // and keep the stable application identifier in the separate id field.
+    const byMongoId = await collection.deleteOne({ _id: id } as Document);
+    if (byMongoId.deletedCount > 0) return true;
+    const byApplicationId = await collection.deleteOne({ id } as Document);
+    return byApplicationId.deletedCount > 0;
   },
 
   async count(col: Collection): Promise<number> {
@@ -209,17 +214,10 @@ const mongoEngine = {
     const db = await mongoDb();
     const meta = db.collection(META_COLLECTION);
     const flag = await meta.findOne({ _id: "seeded" } as Document);
-    if (flag) {
-      const [services, admins, settings, catalogueVersionCount] = await Promise.all([
-        db.collection("services").countDocuments(),
-        db.collection("adminUsers").countDocuments(),
-        db.collection("settings").countDocuments({ _id: { $in: REQUIRED_SITE_SETTINGS } } as Document),
-        db.collection("settings").countDocuments({ _id: "catalog_schema_version" } as Document),
-      ]);
-      // Same rule as the file store: a data set that predates a collection is
-      // re-seeded, an existing-but-empty collection is the admin's own state.
-      if (services > 0 && admins > 0 && settings === REQUIRED_SITE_SETTINGS.length && catalogueVersionCount > 0) return;
-    }
+    // The seed marker means the initial seed has completed. Never infer that
+    // an intentionally emptied collection is missing: Admin must be able to
+    // delete every category/service without the next API request restoring it.
+    if (flag) return;
 
     await import("./seed");
     if (seeders.length === 0) return;

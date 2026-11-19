@@ -141,7 +141,7 @@ export async function POST(req: Request) {
   }
 
   const [providers, wallets, existingBookings] = await Promise.all([
-    all<Provider & { activeBookingId?: string }>("providers"),
+    all<Provider & { activeBookingId?: string; fcmTokens?: string[] }>("providers"),
     all<{ providerId: string; balance: number }>("wallets"),
     all<Booking>("bookings"),
   ]);
@@ -155,6 +155,8 @@ export async function POST(req: Request) {
     .filter(Boolean));
   const eligibleProviders = providers.filter((provider) =>
     isInsideJaipur(provider) &&
+    provider.verified === true &&
+    provider.availabilityStatus === "available" &&
     !provider.activeBookingId &&
     !busyProviderIds.has(provider.id) &&
     (wallets.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimum
@@ -205,6 +207,21 @@ export async function POST(req: Request) {
       ),
     ],
   } as unknown as Record<string, unknown>);
+
+  // Deliver a real background push to every matched Pro. The in-app inbox
+  // polling remains the fallback when FCM credentials or a device token are absent.
+  const matchedProviderIds = new Set(match.matches.map((m) => m.provider.id));
+  const fcmTokens = providers.filter((provider) => matchedProviderIds.has(provider.id)).flatMap((provider) => provider.fcmTokens ?? []);
+  try {
+    await sendProviderJobOffer(fcmTokens, {
+      id: booking.id,
+      serviceName: combinedServiceName,
+      serviceId: body.serviceId,
+      offerExpiresAt: now + 40_000,
+    });
+  } catch (error) {
+    console.error("[fcm] job offer push could not be sent", error);
+  }
 
   // Persist real catalogue demand so homepage ranking learns from actual bookings.
   const bookedService = await all<{ id: string; bookingCount?: number }>("services");

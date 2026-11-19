@@ -48,7 +48,7 @@ export interface Provider {
   reviews?: ProviderReview[];
   /** Server-owned single-job lock shared by web, mobile and admin surfaces. */
   activeBookingId?: string;
-  availabilityStatus?: "available" | "busy";
+  availabilityStatus?: "available" | "busy" | "offline";
   availabilityUpdatedAt?: number;
   synthetic?: boolean; // dev-mode filler, never persisted
 }

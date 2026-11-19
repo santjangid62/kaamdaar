@@ -9,6 +9,7 @@ import { all, COLLECTIONS, insert, ready, type Collection } from "../../../../..
 import { sanitizeRow } from "../../../../../server/sanitize";
 import { isAuthed } from "../../../../../lib/admin/auth";
 import { recordAudit } from "../../../../../server/audit";
+import { ensureProviderWallet } from "../../../../../server/wallet";
 
 function isCollection(value: string): value is Collection {
   return (COLLECTIONS as string[]).includes(value);
@@ -89,6 +90,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ collection: st
   }
 
   const row = await insert(collection, clean);
+  if (collection === "providers") await ensureProviderWallet(row.id);
   await recordAudit({ action: "created", module: collection, title: `${collection} record created`, description: String(clean.title ?? clean.name ?? clean.id ?? "New record"), reference: row.id });
   return NextResponse.json({ row }, { status: 201 });
 }

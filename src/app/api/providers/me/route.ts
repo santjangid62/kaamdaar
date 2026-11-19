@@ -12,6 +12,8 @@ import { NextResponse } from "next/server";
 import { all, insert, patch, ready } from "../../../../server/db";
 import type { Provider } from "../../../../lib/types";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
+import { isInsideJaipur } from "../../../../lib/areas";
+import { ensureProviderWallet } from "../../../../server/wallet";
 
 /** Last 10 digits — tolerates +91, spaces and dashes. */
 function digits(phone: string): string {
@@ -67,6 +69,9 @@ export async function POST(req: Request) {
   if (!city) {
     return NextResponse.json({ error: "City / area is required" }, { status: 422 });
   }
+  if (!/jaipur/i.test(city)) {
+    return NextResponse.json({ error: "Kaamdaar provider registration is currently limited to Jaipur." }, { status: 422 });
+  }
 
   const services = Array.isArray(body.services)
     ? body.services.map((s) => `${s}`.trim()).filter(Boolean)
@@ -79,6 +84,9 @@ export async function POST(req: Request) {
   const lng = Number(body.lng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     return NextResponse.json({ error: "A valid current location is required" }, { status: 422 });
+  }
+  if (!isInsideJaipur({ lat, lng })) {
+    return NextResponse.json({ error: "Provider GPS location must be inside Jaipur service areas." }, { status: 422 });
   }
   const experience = Number(body.experience ?? 0);
 
@@ -112,5 +120,29 @@ export async function POST(req: Request) {
     status: "Offline",
   } as unknown as Record<string, unknown>);
 
+  await ensureProviderWallet(created.id);
   return NextResponse.json({ provider: created }, { status: 201 });
+}
+
+export async function PATCH(req: Request) {
+  await ready();
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  let body: { availabilityStatus?: string };
+  try { body = await req.json() as typeof body; }
+  catch { return NextResponse.json({ error: "Invalid request body" }, { status: 400 }); }
+  if (body.availabilityStatus !== "available" && body.availabilityStatus !== "offline") {
+    return NextResponse.json({ error: "Choose available or offline status" }, { status: 422 });
+  }
+  const provider = await findByPhone(identity.phone) as (Provider & { status?: string }) | null;
+  if (!provider) return NextResponse.json({ error: "Provider profile not found" }, { status: 404 });
+  if (provider.status === "blocked") return NextResponse.json({ error: "Provider account is blocked" }, { status: 403 });
+  if (body.availabilityStatus === "available" && !provider.verified) {
+    return NextResponse.json({ error: "KYC approval is required before receiving jobs" }, { status: 403 });
+  }
+  const updated = await patch<Provider>("providers", provider.id, {
+    availabilityStatus: body.availabilityStatus,
+    availabilityUpdatedAt: Date.now(),
+  });
+  return NextResponse.json({ provider: updated });
 }

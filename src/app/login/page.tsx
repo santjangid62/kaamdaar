@@ -79,9 +79,9 @@ function LoginFlow() {
       // returning users land on their dashboard, first-timers complete their
       // profile before browsing
       router.replace(isNew ? "/profile?setup=1" : "/dashboard");
-    } catch {
+    } catch (error) {
       otpAttempted.current = "";
-      setError(s.login.verifyFail);
+      setError(error instanceof Error ? error.message : s.login.verifyFail);
       setBusy(false);
     }
   }

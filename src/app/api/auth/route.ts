@@ -7,6 +7,7 @@ import { find, insert, ready } from "../../../server/db";
 import type { Provider, User } from "../../../lib/types";
 import { createUserRegisteredNotification } from "../../../server/notifications";
 import { normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/firebase-auth";
+import { recordAudit } from "../../../server/audit";
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
@@ -44,10 +45,20 @@ export async function POST(req: Request) {
     }
     phone = identity.phone;
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Phone verification failed" },
-      { status: 401 },
-    );
+    const reason = error instanceof Error ? error.message : "Phone verification failed";
+    try {
+      await recordAudit({
+        actor: body.role === "provider" ? "provider" : "customer",
+        action: "login",
+        module: "Authentication",
+        title: "Firebase phone verification failed",
+        description: `platform=${body.platform === "web" ? "web" : "mobile_app"}; role=${body.role === "provider" ? "provider" : "customer"}; reason=${reason.slice(0, 220)}`,
+        severity: "warning",
+      });
+    } catch (auditError) {
+      console.error("[audit] phone verification failure log could not be saved", auditError);
+    }
+    return NextResponse.json({ error: reason }, { status: 401 });
   }
 
   if (!PHONE_RE.test(phone)) {
@@ -69,6 +80,9 @@ export async function POST(req: Request) {
     if (provider.status === "blocked") {
       return NextResponse.json({ error: "This provider account is blocked. Contact support." }, { status: 403 });
     }
+    try {
+      await recordAudit({ actor: provider.name || "provider", action: "login", module: "Authentication", title: "Provider login successful", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
+    } catch (error) { console.error("[audit] provider login log could not be saved", error); }
     return NextResponse.json({ provider });
   }
 
@@ -83,6 +97,9 @@ export async function POST(req: Request) {
     if (existing[0].status === "blocked") {
       return NextResponse.json({ error: "This account is blocked. Contact support." }, { status: 403 });
     }
+    try {
+      await recordAudit({ actor: "customer", action: "login", module: "Authentication", title: "Customer login successful", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
+    } catch (error) { console.error("[audit] customer login log could not be saved", error); }
     return NextResponse.json({ user: existing[0], isNew: false });
   }
 
@@ -99,5 +116,8 @@ export async function POST(req: Request) {
     registrationPlatform: body.platform === "web" ? "web" : "mobile_app",
   });
   await createUserRegisteredNotification(user);
+  try {
+    await recordAudit({ actor: "customer", action: "login", module: "Authentication", title: "New customer verified phone login", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
+  } catch (error) { console.error("[audit] customer login log could not be saved", error); }
   return NextResponse.json({ user, isNew: true });
 }

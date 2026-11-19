@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../core/api.dart';
 import '../core/models.dart';
@@ -480,13 +481,29 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _error = null;
     });
     try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        throw Exception('Provider registration ke liye location permission zaroori hai.');
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw Exception('GPS on karein, phir registration complete karein.');
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 12),
+        ),
+      );
       await Api.register({
         'phone': user.phone,
         'name': _name.text.trim(),
         'services': _services.toList(),
         'city': '${_area.text.trim()}, ${_city.text.trim()}',
-        'lat': 26.9124,
-        'lng': 75.7873,
+        'lat': position.latitude,
+        'lng': position.longitude,
         'experience': int.tryParse(_experience.value.split('-').first) ?? 1,
       });
       if (!mounted) return;
@@ -556,7 +573,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                      'Dispatch radius 3 km — aapke area ke aas-paas ke customer requests milenge.',
+                      'Jaipur mein pehle 3 km aur zaroorat par 5 km tak ke customer requests milenge.',
                       style: TextStyle(fontSize: 11, color: Colors.black45)),
                   const SizedBox(height: 18),
                   const Text('Select service categories',

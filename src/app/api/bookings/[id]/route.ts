@@ -294,6 +294,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (!pro) {
       return NextResponse.json({ error: "Professional account not found" }, { status: 404 });
     }
+    if (!pro.verified || pro.availabilityStatus !== "available") {
+      return NextResponse.json({ error: "Only verified, online professionals can accept new jobs" }, { status: 403 });
+    }
     if (!(pro.services ?? []).includes(booking.serviceId)) {
       return NextResponse.json({ error: "You are not eligible for this service" }, { status: 403 });
     }
