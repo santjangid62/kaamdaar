@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 
+import 'core/location_gate.dart';
 import 'core/theme.dart';
 import 'screens/auth.dart';
 
@@ -24,7 +25,12 @@ class KaamdaarApp extends StatelessWidget {
       title: 'Kaamdaar',
       debugShowCheckedModeBanner: false,
       theme: kamTheme(),
-      home: const SplashScreen(),
+      home: const LocationGate(
+        appTitle: 'Kaamdaar',
+        background: Color(0xFF0B2240),
+        accent: Color(0xFFFF7A00),
+        child: SplashScreen(),
+      ),
     );
   }
 }
