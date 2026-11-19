@@ -129,7 +129,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
               ? "Location detection timed out. Move to an open area or check GPS, then retry."
               : "Unable to detect your location. Check browser permission and device GPS, then retry.";
         setLocationError(message);
-        setLocationPromptVisible(true);
+        let wasDismissed = false;
+        try {
+          wasDismissed = window.sessionStorage.getItem(LOCATION_PROMPT_DISMISSED_KEY) === "1";
+        } catch {
+          /* ignore */
+        }
+        if (!wasDismissed) setLocationPromptVisible(true);
       }
     } finally {
       if (requestId === locationRequestIdRef.current) setLocating(false);
