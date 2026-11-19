@@ -45,10 +45,20 @@ export async function POST(req: Request) {
     }
     phone = identity.phone;
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Phone verification failed" },
-      { status: 401 },
-    );
+    const reason = error instanceof Error ? error.message : "Phone verification failed";
+    try {
+      await recordAudit({
+        actor: body.role === "provider" ? "provider" : "customer",
+        action: "login",
+        module: "Authentication",
+        title: "Firebase phone verification failed",
+        description: `platform=${body.platform === "web" ? "web" : "mobile_app"}; role=${body.role === "provider" ? "provider" : "customer"}; reason=${reason.slice(0, 220)}`,
+        severity: "warning",
+      });
+    } catch (auditError) {
+      console.error("[audit] phone verification failure log could not be saved", auditError);
+    }
+    return NextResponse.json({ error: reason }, { status: 401 });
   }
 
   if (!PHONE_RE.test(phone)) {
