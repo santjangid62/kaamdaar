@@ -93,15 +93,20 @@ export async function browserLocation(timeoutMs = 15000): Promise<GeoPoint> {
 
 /** Reverse geocode to a readable label. Falls back gracefully when offline/blocked. */
 export async function reverseGeocode(point: GeoPoint): Promise<GeoResult> {
+  // Prefer Google Maps reverse geocoding through a server endpoint so the key
+  // stays private. Fall back gracefully when Google is not configured.
+  try {
+    const res = await fetch(`/api/geocode?lat=${point.lat}&lng=${point.lng}`, { cache: "no-store" });
+    if (res.ok) {
+      const data = (await res.json()) as { label?: string; city?: string; pincode?: string };
+      if (data.label) return { ...point, label: data.label, city: data.city ?? "", pincode: data.pincode };
+    }
+  } catch { /* use fallback geocoder */ }
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${point.lat}&lon=${point.lng}&zoom=18&addressdetails=1&accept-language=en`;
     const res = await fetch(url, { headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error(`geocode ${res.status}`);
-    const data = (await res.json()) as {
-      address?: Record<string, string>;
-      name?: string;
-      display_name?: string;
-    };
+    const data = (await res.json()) as { address?: Record<string, string>; name?: string; display_name?: string };
     const a = data.address ?? {};
     const locality = a.suburb || a.neighbourhood || a.quarter || a.residential || a.village || a.town || a.city_district || a.city || data.name || "";
     const city = a.city || a.town || a.village || a.state_district || a.state || "";
