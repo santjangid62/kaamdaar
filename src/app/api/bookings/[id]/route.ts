@@ -8,6 +8,7 @@ import { haversineKm } from "../../../../lib/geo";
 import { appendEvents, eventsForChange, newEvent } from "../../../../server/events";
 import { isAuthed } from "../../../../lib/admin/auth";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
+import { advanceProviderDispatch } from "../../../../server/dispatch";
 import type {
   Booking,
   BookingActor,
@@ -224,6 +225,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   }
   if (typeof withdraw === "string" && withdraw) {
     changes.notifiedIds = (booking.notifiedIds ?? []).filter((pid) => pid !== withdraw);
+    changes.rejectedProviderIds = [...new Set([...(booking.rejectedProviderIds ?? []), withdraw])];
+    // Trigger the next ranked Pro immediately after an explicit rejection.
+    changes.offerExpiresAt = Date.now();
   }
 
   /* ---- live tracking: the Pro app reports its GPS while travelling ----
@@ -421,6 +425,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       await releaseProviderBooking(authenticatedProviderId, id);
     }
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  }
+  if (typeof withdraw === "string" && withdraw && updated.status === "dispatched") {
+    await advanceProviderDispatch(id);
   }
   // The Pro becomes available immediately after tapping Work Completed
   // (pending_confirm), not after the customer enters the completion OTP.
