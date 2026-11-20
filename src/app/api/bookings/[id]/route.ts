@@ -223,6 +223,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     }
     withdraw = authenticatedProviderId;
   }
+  if (typeof withdraw === "string" && withdraw &&
+      booking.status === "dispatched" && booking.offerExpiresAt && Date.now() >= booking.offerExpiresAt) {
+    return NextResponse.json({ error: "This 40-second offer has expired and is now being marked as missed" }, { status: 409 });
+  }
   if (typeof withdraw === "string" && withdraw) {
     changes.notifiedIds = (booking.notifiedIds ?? []).filter((pid) => pid !== withdraw);
     changes.rejectedProviderIds = [...new Set([...(booking.rejectedProviderIds ?? []), withdraw])];
