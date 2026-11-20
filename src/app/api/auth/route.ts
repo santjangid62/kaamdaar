@@ -3,6 +3,7 @@
  * Firebase is the sole OTP authority; MongoDB stores application accounts.
  */
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { find, insert, ready } from "../../../server/db";
 import type { Provider, User } from "../../../lib/types";
 import { createUserRegisteredNotification } from "../../../server/notifications";
@@ -39,14 +40,15 @@ export async function POST(req: Request) {
     // these env vars are configured solely for the named Preview branch.
     if (process.env.QA_MOBILE_AUTH_ENABLED !== "true" ||
         !process.env.QA_MOBILE_AUTH_SECRET ||
-        !process.env.QA_MOBILE_TEST_OTP ||
-        !process.env.QA_MOBILE_TEST_PHONES) {
+        !process.env.QA_MOBILE_TEST_OTP_SHA256 ||
+        !process.env.QA_MOBILE_TEST_PHONE_HASHES) {
       return NextResponse.json({ error: "QA mobile login is not enabled on this backend" }, { status: 403 });
     }
-    const allowedPhones = process.env.QA_MOBILE_TEST_PHONES
-      .split(",").map(normalizeIndianPhone).filter(Boolean);
-    if (!phone || !allowedPhones.includes(phone) ||
-        !body.otp || body.otp !== process.env.QA_MOBILE_TEST_OTP ||
+    const phoneHash = createHash("sha256").update(phone).digest("hex");
+    const allowedPhoneHashes = process.env.QA_MOBILE_TEST_PHONE_HASHES.split(",").map((v) => v.trim());
+    const otpHash = createHash("sha256").update(body.otp ?? "").digest("hex");
+    if (!phone || !allowedPhoneHashes.includes(phoneHash) ||
+        otpHash !== process.env.QA_MOBILE_TEST_OTP_SHA256 ||
         (body.role !== "customer" && body.role !== "provider")) {
       return NextResponse.json({ error: "Invalid QA phone number or test OTP" }, { status: 401 });
     }
