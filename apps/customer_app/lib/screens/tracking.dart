@@ -79,13 +79,19 @@ class _TrackScreenState extends State<TrackScreen> {
         }
       });
       if (previousStatus != null && previousStatus != b?.status && mounted) {
-        final message = b?.status == 'arrived'
-            ? 'Professional aapke location par pahunch gaya hai.'
-            : b?.status == 'pending_confirm'
-                ? 'Work completion OTP aa gaya hai. Provider ko OTP batayein.'
-                : b?.status == 'completed'
-                    ? 'Completion OTP verify ho gaya. Work complete!'
-                    : null;
+        final message = b?.dispatchFailedAt != null
+            ? 'Maaf kijiye, 5 minute mein koi professional booking accept nahi kar saka.'
+            : b?.status == 'accepted'
+                ? 'Professional ne aapki booking accept kar li hai.'
+                : b?.status == 'enroute'
+                    ? 'Professional aapki location ki taraf aa raha hai. Live location map par dekhein.'
+                    : b?.status == 'arrived'
+                        ? 'Professional aapke location par pahunch gaya hai.'
+                        : b?.status == 'pending_confirm'
+                            ? 'Work completion OTP aa gaya hai. Provider ko OTP batayein.'
+                            : b?.status == 'completed'
+                                ? 'Completion OTP verify ho gaya. Work complete!'
+                                : null;
         if (message != null) ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(message)));
       }
