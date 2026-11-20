@@ -206,7 +206,11 @@ export interface Booking {
    * surface shows the same last-known point instead of animating a fake one.
    */
   livePoint?: GeoPoint;
-  /** Timestamp of the last live ping (ms). */
+  /** Customer live GPS shared while the booking is active. */
+  customerLivePoint?: GeoPoint;
+  customerPingAt?: number;
+  customerPingCount?: number;
+  /** Timestamp of the last provider live ping (ms). */
   pingAt?: number;
   /** How many position updates this job has received. */
   pingCount?: number;

@@ -239,6 +239,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void refreshCatalog();
   }, [location, refreshCatalog]);
 
+  // Share the customer's live GPS only while an active booking is in progress.
+  // GPS permission is already requested by the customer location gate; staff routes are excluded.
+  useEffect(() => {
+    if (!user || isStaffRoute || !navigator.geolocation) return;
+    let active = true;
+    let latestPoint: { lat: number; lng: number; accuracy?: number } | null = null;
+    let watchId: number | null = null;
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        latestPoint = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        };
+      },
+      () => { /* retain last known point; do not block the customer UI */ },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    );
+    const sync = async () => {
+      if (!latestPoint || !active) return;
+      try {
+        const response = await fetch(`/api/bookings?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as { bookings?: Array<{ id: string; status: string }> };
+        const activeBookings = (data.bookings ?? []).filter((booking) =>
+          ["dispatched", "accepted", "scheduled", "enroute", "arrived", "in_progress"].includes(booking.status),
+        );
+        await Promise.all(activeBookings.map((booking) =>
+          fetch(`/api/bookings/${encodeURIComponent(booking.id)}/customer-location`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(latestPoint),
+          }).catch(() => undefined),
+        ));
+      } catch {
+        /* transient auth/network errors retry on the next sync */
+      }
+    };
+    const timer = window.setInterval(() => void sync(), 15000);
+    void sync();
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [user, isStaffRoute]);
+
   // Refresh the provider roster periodically so service-card counts stay current.
   useEffect(() => {
     const refreshProviders = async () => {
