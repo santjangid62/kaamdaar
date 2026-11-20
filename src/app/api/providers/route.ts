@@ -13,6 +13,7 @@
  */
 import { NextResponse } from "next/server";
 import { all, ready } from "../../../server/db";
+import { minWallet } from "../../../server/settings";
 import { haversineKm } from "../../../lib/geo";
 import { matchProviders, NEAR_RING_KM, WIDE_RING_KM } from "../../../lib/match";
 import { isInsideJaipur } from "../../../lib/areas";
