@@ -12,6 +12,7 @@ import { matchProviders } from "../../../lib/match";
 import { isInsideJaipur } from "../../../lib/areas";
 import { newEvent } from "../../../server/events";
 import { sendProviderJobOffer } from "../../../server/fcm";
+import { advanceProviderDispatch } from "../../../server/dispatch";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
 
 /** Booking location: the live point the customer is at, else the address pin. */
@@ -57,15 +58,31 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Not your customer account" }, { status: 403 });
   }
 
-  // Customers see only their bookings; Pros see only jobs allotted or offered to them.
+  // Polling is the lightweight scheduler for sequential dispatch. The customer
+  // tracking page and provider inbox both poll this endpoint every few seconds.
+  const dispatchRows = await all<Booking>("bookings");
+  const relevantDispatches = dispatchRows.filter((b) =>
+    b.status === "dispatched" && !b.dispatchFailedAt &&
+    (providerId
+      ? (b.notifiedIds ?? []).includes(providerId)
+      : b.userId === userId),
+  );
+  await Promise.all(relevantDispatches.map((b) => advanceProviderDispatch(b.id)));
+
+  // Customers see their own bookings. Pros see assigned, current, missed and
+  // explicitly rejected offers so their history remains available.
   const rows = (await all<Booking>("bookings"))
     .filter((b) =>
       providerId
-        ? b.providerId === providerId || (b.notifiedIds ?? []).includes(providerId)
+        ? b.providerId === providerId ||
+          (b.notifiedIds ?? []).includes(providerId) ||
+          (b.missedProviderIds ?? []).includes(providerId) ||
+          (b.rejectedProviderIds ?? []).includes(providerId)
         : b.userId === userId,
     )
     .filter((b) => !status || b.status === status)
-    .filter((b) => b.status !== "dispatched" || !b.offerExpiresAt || b.offerExpiresAt > Date.now())
+    .filter((b) => b.status !== "dispatched" || !b.offerExpiresAt || b.offerExpiresAt > Date.now() ||
+      (providerId && ((b.missedProviderIds ?? []).includes(providerId) || (b.rejectedProviderIds ?? []).includes(providerId))))
     .sort((a, b) => b.createdAt - a.createdAt);
 
   const providerBusy = Boolean(
@@ -191,9 +208,16 @@ export async function POST(req: Request) {
     commission: Math.round((amount * rate) / 100),
     status: "dispatched",
     createdAt: now,
-    offerExpiresAt: now + 40_000,
-    // server-owned dispatch state — always recomputed, never taken from the client
-    notifiedIds: match.matches.map((m) => m.provider.id),
+    offerExpiresAt: Math.min(now + 40_000, now + 5 * 60_000),
+    // Sequential dispatch: only the highest-ranked available Pro is notified
+    // first; the remaining ranked Pros are offered the job after reject/timeout.
+    notifiedIds: [match.matches[0].provider.id],
+    dispatchQueueIds: match.matches.map((m) => m.provider.id),
+    dispatchCursor: 1,
+    dispatchStartedAt: now,
+    dispatchDeadlineAt: now + 5 * 60_000,
+    missedProviderIds: [],
+    rejectedProviderIds: [],
     dispatchRadiusKm: match.radiusKm,
     dispatchedAt: now,
     originPoint: origin,
@@ -210,8 +234,9 @@ export async function POST(req: Request) {
 
   // Deliver a real background push to every matched Pro. The in-app inbox
   // polling remains the fallback when FCM credentials or a device token are absent.
-  const matchedProviderIds = new Set(match.matches.map((m) => m.provider.id));
-  const fcmTokens = providers.filter((provider) => matchedProviderIds.has(provider.id)).flatMap((provider) => provider.fcmTokens ?? []);
+  const firstProviderId = match.matches[0].provider.id;
+  const firstProvider = providers.find((provider) => provider.id === firstProviderId);
+  const fcmTokens = firstProvider?.fcmTokens ?? [];
   try {
     await sendProviderJobOffer(fcmTokens, {
       id: booking.id,
@@ -233,7 +258,9 @@ export async function POST(req: Request) {
   return NextResponse.json({
     booking,
     dispatch: {
-      notified: match.matches.length,
+      notified: 1,
+      queued: match.matches.length,
+      dispatchWindowMinutes: 5,
       radiusKm: match.radiusKm,
       ring: match.ring,
     },
