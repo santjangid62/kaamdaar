@@ -81,7 +81,15 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       all<Provider & { phone?: string }>("providers"),
     ]);
     const customer = users.find((u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
-    const professional = providers.find((p) => normalizeIndianPhone(p.phone ?? "") === identity.phone);
+    const providerIdHint = typeof body.patch?.providerId === "string"
+      ? body.patch.providerId
+      : typeof body.patch?.withdrawNotify === "string"
+        ? body.patch.withdrawNotify
+        : booking.providerId;
+    const professional = providers.find((p) =>
+      normalizeIndianPhone(p.phone ?? "") === identity.phone &&
+      (!providerIdHint || p.id === providerIdHint)
+    );
     if (
       professional &&
       (booking.providerId === professional.id ||
