@@ -281,6 +281,13 @@ class BookingItem {
   final List<String> notifiedIds;
   /// Radius this request was offered in — 3 km first, 5 km after widening.
   final int dispatchRadiusKm;
+  final int? offerExpiresAt;
+  final int? dispatchDeadlineAt;
+  final int? dispatchFailedAt;
+  final String dispatchFailedMessage;
+  final double? liveLat;
+  final double? liveLng;
+  final int? pingAt;
   final int? acceptedAt;
   final int? enrouteAt;
   final int? arrivedAt;
@@ -313,6 +320,15 @@ class BookingItem {
         createdAt: _int(j["createdAt"]),
         notifiedIds: _strList(j["notifiedIds"]),
         dispatchRadiusKm: _int(j["dispatchRadiusKm"]),
+        offerExpiresAt: _optInt(j["offerExpiresAt"]),
+        dispatchDeadlineAt: _optInt(j["dispatchDeadlineAt"]),
+        dispatchFailedAt: _optInt(j["dispatchFailedAt"]),
+        dispatchFailedMessage: (j["dispatchFailedMessage"] ?? "").toString(),
+        liveLat: (j["livePoint"] as Map<String, dynamic>?)?["lat"] == null
+            ? null : _num((j["livePoint"] as Map<String, dynamic>)["lat"]).toDouble(),
+        liveLng: (j["livePoint"] as Map<String, dynamic>?)?["lng"] == null
+            ? null : _num((j["livePoint"] as Map<String, dynamic>)["lng"]).toDouble(),
+        pingAt: _optInt(j["pingAt"]),
         acceptedAt: _optInt(j["acceptedAt"]),
         enrouteAt: _optInt(j["enrouteAt"]),
         arrivedAt: _optInt(j["arrivedAt"]),
@@ -347,6 +363,13 @@ class BookingItem {
     this.createdAt = 0,
     this.notifiedIds = const [],
     this.dispatchRadiusKm = 0,
+    this.offerExpiresAt,
+    this.dispatchDeadlineAt,
+    this.dispatchFailedAt,
+    this.dispatchFailedMessage = "",
+    this.liveLat,
+    this.liveLng,
+    this.pingAt,
     this.acceptedAt,
     this.enrouteAt,
     this.arrivedAt,
