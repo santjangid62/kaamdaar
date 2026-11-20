@@ -184,15 +184,12 @@ export async function POST(req: Request) {
     (wallets.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimum
   );
   const match = matchProviders(eligibleProviders, body.serviceId, origin);
-  if (match.matches.length === 0) {
-    return NextResponse.json(
-      { error: "No professional is available within 5 km of this Jaipur address yet. Please try another nearby area." },
-      { status: 409 },
-    );
-  }
   const rate = await commissionRate();
   const now = Date.now();
+  const firstMatch = match.matches[0];
 
+  // Keep the booking alive for the full five-minute search window even when
+  // no Pro is available at creation time; the dispatcher rechecks availability.
   const booking = await insert("bookings", {
     ...body,
     id: undefined, // never trust a client id
@@ -213,12 +210,12 @@ export async function POST(req: Request) {
     commission: Math.round((amount * rate) / 100),
     status: "dispatched",
     createdAt: now,
-    offerExpiresAt: Math.min(now + 40_000, now + 5 * 60_000),
-    // Sequential dispatch: only the highest-ranked available Pro is notified
-    // first; the remaining ranked Pros are offered the job after reject/timeout.
-    notifiedIds: [match.matches[0].provider.id],
+    offerExpiresAt: firstMatch ? Math.min(now + 40_000, now + 5 * 60_000) : now + 5_000,
+    // Sequential dispatch: notify one Pro at a time; when none are available,
+    // keep searching the same 3 km / 5 km rings until the five-minute deadline.
+    notifiedIds: firstMatch ? [firstMatch.provider.id] : [],
     dispatchQueueIds: match.matches.map((m) => m.provider.id),
-    dispatchCursor: 1,
+    dispatchCursor: firstMatch ? 1 : 0,
     dispatchStartedAt: now,
     dispatchDeadlineAt: now + 5 * 60_000,
     missedProviderIds: [],
@@ -232,26 +229,27 @@ export async function POST(req: Request) {
       newEvent(
         "customer",
         "created",
-        `${match.matches.length} Pros notified within ${match.radiusKm} km (${match.ring} ring)`,
+        `${match.matches.length} eligible Pros found within ${match.radiusKm} km (${match.ring} ring); one-at-a-time dispatch started`,
         { status: "dispatched" },
       ),
     ],
   } as unknown as Record<string, unknown>);
 
-  // Deliver a real background push to every matched Pro. The in-app inbox
-  // polling remains the fallback when FCM credentials or a device token are absent.
-  const firstProviderId = match.matches[0].provider.id;
-  const firstProvider = providers.find((provider) => provider.id === firstProviderId);
-  const fcmTokens = firstProvider?.fcmTokens ?? [];
-  try {
-    await sendProviderJobOffer(fcmTokens, {
-      id: booking.id,
-      serviceName: combinedServiceName,
-      serviceId: body.serviceId,
-      offerExpiresAt: now + 40_000,
-    });
-  } catch (error) {
-    console.error("[fcm] job offer push could not be sent", error);
+  // Only the first ranked Pro is notified now. Later Pros are notified by
+  // advanceProviderDispatch after reject/timeout; inbox polling is the fallback.
+  if (firstMatch) {
+    const firstProvider = providers.find((provider) => provider.id === firstMatch.provider.id);
+    const fcmTokens = firstProvider?.fcmTokens ?? [];
+    try {
+      await sendProviderJobOffer(fcmTokens, {
+        id: booking.id,
+        serviceName: combinedServiceName,
+        serviceId: body.serviceId,
+        offerExpiresAt: booking.offerExpiresAt ?? now + 40_000,
+      });
+    } catch (error) {
+      console.error("[fcm] job offer push could not be sent", error);
+    }
   }
 
   // Persist real catalogue demand so homepage ranking learns from actual bookings.
@@ -264,7 +262,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     booking,
     dispatch: {
-      notified: 1,
+      notified: firstMatch ? 1 : 0,
       queued: match.matches.length,
       dispatchWindowMinutes: 5,
       radiusKm: match.radiusKm,
