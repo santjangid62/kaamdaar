@@ -230,6 +230,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (typeof withdraw === "string" && withdraw) {
     changes.notifiedIds = (booking.notifiedIds ?? []).filter((pid) => pid !== withdraw);
     changes.rejectedProviderIds = [...new Set([...(booking.rejectedProviderIds ?? []), withdraw])];
+    const history = [...(booking.providerOfferHistory ?? [])];
+    if (!history.some((row) => row.providerId === withdraw && row.outcome === "rejected")) {
+      history.push({ providerId: withdraw, outcome: "rejected", at: Date.now() });
+    }
+    changes.providerOfferHistory = history;
     // Trigger the next ranked Pro immediately after an explicit rejection.
     changes.offerExpiresAt = Date.now();
   }
