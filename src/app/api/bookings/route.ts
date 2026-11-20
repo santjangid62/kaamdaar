@@ -92,7 +92,12 @@ export async function GET(req: Request) {
   ));
   const visibleRows = providerId
     ? rows
-        .filter((b) => !(providerBusy && b.status === "dispatched"))
+        // Hide only a live offer while the Pro is already working. Keep the
+        // provider's own missed/rejected history visible in every state.
+        .filter((b) => !(providerBusy && b.status === "dispatched" &&
+          (b.notifiedIds ?? []).includes(providerId) &&
+          !(b.missedProviderIds ?? []).includes(providerId) &&
+          !(b.rejectedProviderIds ?? []).includes(providerId)))
         .map(({ startOtp: _startOtp, completeOtp: _completeOtp, ...safe }) => safe)
     : rows;
   return NextResponse.json({ bookings: visibleRows });
