@@ -386,7 +386,7 @@ class BookingItem {
   });
 
   bool get isLive =>
-      status == "dispatched" ||
+      (status == "dispatched" && dispatchFailedAt == null) ||
       status == "accepted" ||
       status == "scheduled" ||
       status == "enroute" ||
