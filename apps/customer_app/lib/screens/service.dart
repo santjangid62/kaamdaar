@@ -401,9 +401,8 @@ class _BookingScreenState extends State<BookingScreen> {
       _error = null;
     });
     try {
-      // The backend works out who can serve this near the address (3 km,
-      // widening to 5 km), notifies every one of them and the first accept
-      // wins — the app never picks or ranks Pros itself.
+      // The backend ranks eligible Pros within its 3 km / 5 km rings and
+      // offers the request to one Pro at a time. The app never chooses a Pro.
       // Never substitute a hard-coded Jaipur coordinate: it can dispatch a
       // real job to professionals around the wrong address. The backend will
       // validate the saved address pin before creating the booking.
