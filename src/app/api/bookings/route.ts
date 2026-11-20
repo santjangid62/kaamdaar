@@ -245,7 +245,7 @@ export async function POST(req: Request) {
         id: booking.id,
         serviceName: combinedServiceName,
         serviceId: body.serviceId,
-        offerExpiresAt: booking.offerExpiresAt ?? now + 40_000,
+        offerExpiresAt: now + 40_000,
       });
     } catch (error) {
       console.error("[fcm] job offer push could not be sent", error);
