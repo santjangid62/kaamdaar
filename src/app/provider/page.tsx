@@ -320,7 +320,7 @@ export default function ProviderPortalPage() {
               <div className="flex items-center gap-2 rounded-xl border px-3"><Search size={16} className="text-slate-400"/><input value={missedSearch} onChange={e=>setMissedSearch(e.target.value)} placeholder="Booking ID, service, mobile…" className="min-w-0 flex-1 py-3 text-sm outline-none"/></div>
             </div>
             <div className="mt-4 space-y-3">
-              {filteredMissedRecords.map(({booking,outcome})=><article key={booking.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+              {filteredMissedRecords.map(({booking,outcome,at})=><article key={booking.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
                 <div className="min-w-0"><p className="font-bold">{booking.serviceName}</p><p className="mt-1 text-xs text-slate-500">{booking.id} · {date(at)}</p><p className="mt-1 text-xs text-slate-500">{booking.address?.label || booking.address?.line1 || "Jaipur"} · {booking.phone || "Customer"}</p></div>
                 <div className="text-right"><span className={`rounded-full px-3 py-1 text-xs font-bold ${outcome==="missed"?"bg-red-50 text-red-700":"bg-amber-50 text-amber-700"}`}>{outcome==="missed"?"Missed · 40 sec timeout":"Rejected"}</span><p className="mt-2 font-black">{money(booking.amount)}</p></div>
               </article>)}
