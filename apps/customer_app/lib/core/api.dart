@@ -30,12 +30,27 @@ class Api {
     defaultValue: false,
   );
 
+  static const bool _qaMobileAuthEnabled = bool.fromEnvironment(
+    'QA_MOBILE_AUTH',
+    defaultValue: false,
+  );
+  static String? _qaBearerToken;
+
   static const String baseUrl = String.fromEnvironment(
     'API_BASE',
     defaultValue: 'https://kaamdaar-seven.vercel.app',
   );
 
   static Future<Map<String, String>> _headers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final qaToken = _qaBearerToken ?? prefs.getString('kaamdaar.qa.mobile.token');
+    if (_qaMobileAuthEnabled && qaToken != null && qaToken.isNotEmpty) {
+      _qaBearerToken = qaToken;
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $qaToken',
+      };
+    }
     final firebaseToken = await FirebaseAuth.instance.currentUser?.getIdToken();
     return {
       'Content-Type': 'application/json',
@@ -99,9 +114,16 @@ class Api {
   static String? _phoneVerificationId;
 
   static Future<String> sendOtp(String phone) async {
+    _phoneVerificationId = null;
+    if (_qaMobileAuthEnabled && kDebugMode) {
+      _qaBearerToken = null;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('kaamdaar.qa.mobile.token');
+      await FirebaseAuth.instance.signOut();
+      return '123456';
+    }
     final auth = FirebaseAuth.instance;
     await auth.signOut();
-    _phoneVerificationId = null;
     if (kDebugMode && _firebasePhoneAuthTesting) {
       await auth.setSettings(appVerificationDisabledForTesting: true);
     }
@@ -114,7 +136,12 @@ class Api {
         if (!completed.isCompleted) completed.complete();
       },
       verificationFailed: (error) {
-        final message = switch (error.code) {
+        final rawMessage = error.message ?? '';
+        final isAndroidClientBlocked = rawMessage.contains('are blocked') ||
+            rawMessage.contains('API_KEY_ANDROID_APP_BLOCKED');
+        final message = isAndroidClientBlocked
+            ? 'Firebase has blocked this Android build. Add this app package name and the QA APK signing SHA-1 in Firebase Project Settings and Google Cloud > APIs & Services > Credentials > Firebase Android API key restrictions, then rebuild the APK.'
+            : switch (error.code) {
           'billing-not-enabled' || 'auth/billing-not-enabled' =>
             'Firebase billing is not enabled. For QA, use a fictional number configured in Firebase Console and install the QA debug APK.',
           'invalid-phone-number' => 'Enter a valid Indian mobile number.',
@@ -137,6 +164,20 @@ class Api {
   }
 
   static Future<({SessionUser user, bool isNew})> verifyOtp(String phone, String code) async {
+    if (_qaMobileAuthEnabled && kDebugMode) {
+      final data = await post('/api/auth', {
+        'action': 'qa_verify', 'phone': e164(phone), 'otp': code.trim(),
+        'role': 'customer', 'platform': 'mobile_app',
+      });
+      final token = (data['sessionToken'] ?? '').toString();
+      if (token.isEmpty) throw ApiException('QA session token was not returned.');
+      _qaBearerToken = token;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('kaamdaar.qa.mobile.token', token);
+      final user = SessionUser.fromJson((data['user'] as Map<String, dynamic>?) ?? const {});
+      await saveSession(user);
+      return (user: user, isNew: data['isNew'] == true);
+    }
     final auth = FirebaseAuth.instance;
     final current = auth.currentUser;
     if (current == null || e164(current.phoneNumber ?? '') != e164(phone)) {
@@ -197,6 +238,8 @@ class Api {
     cached = null;
     final p = await SharedPreferences.getInstance();
     await p.remove(_kSession);
+    await p.remove('kaamdaar.qa.mobile.token');
+    _qaBearerToken = null;
   }
 
   static Future<bool> get onboarded async {

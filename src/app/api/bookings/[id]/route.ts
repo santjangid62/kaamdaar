@@ -8,6 +8,7 @@ import { haversineKm } from "../../../../lib/geo";
 import { appendEvents, eventsForChange, newEvent } from "../../../../server/events";
 import { isAuthed } from "../../../../lib/admin/auth";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
+import { advanceProviderDispatch } from "../../../../server/dispatch";
 import type {
   Booking,
   BookingActor,
@@ -133,6 +134,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       return NextResponse.json({ error: "Provider identity mismatch" }, { status: 403 });
     }
     if (changes.status === "accepted") {
+      const offerExpiresAt = booking.offerExpiresAt ??
+        ((booking.dispatchedAt ?? booking.createdAt) + 40_000);
+      if (booking.status !== "dispatched" ||
+          !(booking.notifiedIds ?? []).includes(authenticatedProviderId) ||
+          Date.now() >= offerExpiresAt) {
+        return NextResponse.json({ error: "This provider offer is no longer active or has expired" }, { status: 409 });
+      }
       changes.providerId = authenticatedProviderId;
     } else if (booking.providerId !== authenticatedProviderId && !body.patch?.withdrawNotify) {
       return NextResponse.json({ error: "Only the assigned provider can update this job" }, { status: 403 });
@@ -223,7 +231,24 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     withdraw = authenticatedProviderId;
   }
   if (typeof withdraw === "string" && withdraw) {
+    const offerExpiresAt = booking.offerExpiresAt ??
+      ((booking.dispatchedAt ?? booking.createdAt) + 40_000);
+    if (booking.status !== "dispatched" ||
+        !(booking.notifiedIds ?? []).includes(withdraw) ||
+        Date.now() >= offerExpiresAt) {
+      return NextResponse.json({ error: "This provider offer is no longer active or has expired" }, { status: 409 });
+    }
+  }
+  if (typeof withdraw === "string" && withdraw) {
     changes.notifiedIds = (booking.notifiedIds ?? []).filter((pid) => pid !== withdraw);
+    changes.rejectedProviderIds = [...new Set([...(booking.rejectedProviderIds ?? []), withdraw])];
+    const history = [...(booking.providerOfferHistory ?? [])];
+    if (!history.some((row) => row.providerId === withdraw && row.outcome === "rejected")) {
+      history.push({ providerId: withdraw, outcome: "rejected", at: Date.now() });
+    }
+    changes.providerOfferHistory = history;
+    // Trigger the next ranked Pro immediately after an explicit rejection.
+    changes.offerExpiresAt = Date.now();
   }
 
   /* ---- live tracking: the Pro app reports its GPS while travelling ----
@@ -421,6 +446,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       await releaseProviderBooking(authenticatedProviderId, id);
     }
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  }
+  if (typeof withdraw === "string" && withdraw && updated.status === "dispatched") {
+    await advanceProviderDispatch(id);
   }
   // The Pro becomes available immediately after tapping Work Completed
   // (pending_confirm), not after the customer enters the completion OTP.

@@ -12,6 +12,7 @@ import { matchProviders } from "../../../lib/match";
 import { isInsideJaipur } from "../../../lib/areas";
 import { newEvent } from "../../../server/events";
 import { sendProviderJobOffer } from "../../../server/fcm";
+import { advanceProviderDispatch } from "../../../server/dispatch";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
 
 /** Booking location: the live point the customer is at, else the address pin. */
@@ -57,15 +58,31 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Not your customer account" }, { status: 403 });
   }
 
-  // Customers see only their bookings; Pros see only jobs allotted or offered to them.
+  // Polling is the lightweight scheduler for sequential dispatch. The customer
+  // tracking page and provider inbox both poll this endpoint every few seconds.
+  const dispatchRows = await all<Booking>("bookings");
+  const relevantDispatches = dispatchRows.filter((b) =>
+    b.status === "dispatched" && !b.dispatchFailedAt &&
+    (providerId
+      ? (b.notifiedIds ?? []).includes(providerId)
+      : b.userId === userId),
+  );
+  await Promise.all(relevantDispatches.map((b) => advanceProviderDispatch(b.id)));
+
+  // Customers see their own bookings. Pros see assigned, current, missed and
+  // explicitly rejected offers so their history remains available.
   const rows = (await all<Booking>("bookings"))
     .filter((b) =>
       providerId
-        ? b.providerId === providerId || (b.notifiedIds ?? []).includes(providerId)
+        ? b.providerId === providerId ||
+          (b.notifiedIds ?? []).includes(providerId) ||
+          (b.missedProviderIds ?? []).includes(providerId) ||
+          (b.rejectedProviderIds ?? []).includes(providerId)
         : b.userId === userId,
     )
     .filter((b) => !status || b.status === status)
-    .filter((b) => b.status !== "dispatched" || !b.offerExpiresAt || b.offerExpiresAt > Date.now())
+    .filter((b) => b.status !== "dispatched" || !b.offerExpiresAt || b.offerExpiresAt > Date.now() ||
+      (providerId && ((b.missedProviderIds ?? []).includes(providerId) || (b.rejectedProviderIds ?? []).includes(providerId))))
     .sort((a, b) => b.createdAt - a.createdAt);
 
   const providerBusy = Boolean(
@@ -75,7 +92,12 @@ export async function GET(req: Request) {
   ));
   const visibleRows = providerId
     ? rows
-        .filter((b) => !(providerBusy && b.status === "dispatched"))
+        // Hide only a live offer while the Pro is already working. Keep the
+        // provider's own missed/rejected history visible in every state.
+        .filter((b) => !(providerBusy && b.status === "dispatched" &&
+          (b.notifiedIds ?? []).includes(providerId) &&
+          !(b.missedProviderIds ?? []).includes(providerId) &&
+          !(b.rejectedProviderIds ?? []).includes(providerId)))
         .map(({ startOtp: _startOtp, completeOtp: _completeOtp, ...safe }) => safe)
     : rows;
   return NextResponse.json({ bookings: visibleRows });
@@ -162,15 +184,12 @@ export async function POST(req: Request) {
     (wallets.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimum
   );
   const match = matchProviders(eligibleProviders, body.serviceId, origin);
-  if (match.matches.length === 0) {
-    return NextResponse.json(
-      { error: "No professional is available within 5 km of this Jaipur address yet. Please try another nearby area." },
-      { status: 409 },
-    );
-  }
   const rate = await commissionRate();
   const now = Date.now();
+  const firstMatch = match.matches[0];
 
+  // Keep the booking alive for the full five-minute search window even when
+  // no Pro is available at creation time; the dispatcher rechecks availability.
   const booking = await insert("bookings", {
     ...body,
     id: undefined, // never trust a client id
@@ -191,9 +210,17 @@ export async function POST(req: Request) {
     commission: Math.round((amount * rate) / 100),
     status: "dispatched",
     createdAt: now,
-    offerExpiresAt: now + 40_000,
-    // server-owned dispatch state — always recomputed, never taken from the client
-    notifiedIds: match.matches.map((m) => m.provider.id),
+    offerExpiresAt: firstMatch ? Math.min(now + 40_000, now + 5 * 60_000) : now + 5_000,
+    // Sequential dispatch: notify one Pro at a time; when none are available,
+    // keep searching the same 3 km / 5 km rings until the five-minute deadline.
+    notifiedIds: firstMatch ? [firstMatch.provider.id] : [],
+    dispatchQueueIds: match.matches.map((m) => m.provider.id),
+    dispatchCursor: firstMatch ? 1 : 0,
+    dispatchStartedAt: now,
+    dispatchDeadlineAt: now + 5 * 60_000,
+    missedProviderIds: [],
+    rejectedProviderIds: [],
+    providerOfferHistory: [],
     dispatchRadiusKm: match.radiusKm,
     dispatchedAt: now,
     originPoint: origin,
@@ -202,25 +229,27 @@ export async function POST(req: Request) {
       newEvent(
         "customer",
         "created",
-        `${match.matches.length} Pros notified within ${match.radiusKm} km (${match.ring} ring)`,
+        `${match.matches.length} eligible Pros found within ${match.radiusKm} km (${match.ring} ring); one-at-a-time dispatch started`,
         { status: "dispatched" },
       ),
     ],
   } as unknown as Record<string, unknown>);
 
-  // Deliver a real background push to every matched Pro. The in-app inbox
-  // polling remains the fallback when FCM credentials or a device token are absent.
-  const matchedProviderIds = new Set(match.matches.map((m) => m.provider.id));
-  const fcmTokens = providers.filter((provider) => matchedProviderIds.has(provider.id)).flatMap((provider) => provider.fcmTokens ?? []);
-  try {
-    await sendProviderJobOffer(fcmTokens, {
-      id: booking.id,
-      serviceName: combinedServiceName,
-      serviceId: body.serviceId,
-      offerExpiresAt: now + 40_000,
-    });
-  } catch (error) {
-    console.error("[fcm] job offer push could not be sent", error);
+  // Only the first ranked Pro is notified now. Later Pros are notified by
+  // advanceProviderDispatch after reject/timeout; inbox polling is the fallback.
+  if (firstMatch) {
+    const firstProvider = providers.find((provider) => provider.id === firstMatch.provider.id);
+    const fcmTokens = firstProvider?.fcmTokens ?? [];
+    try {
+      await sendProviderJobOffer(fcmTokens, {
+        id: booking.id,
+        serviceName: combinedServiceName,
+        serviceId: body.serviceId,
+        offerExpiresAt: now + 40_000,
+      });
+    } catch (error) {
+      console.error("[fcm] job offer push could not be sent", error);
+    }
   }
 
   // Persist real catalogue demand so homepage ranking learns from actual bookings.
@@ -233,7 +262,9 @@ export async function POST(req: Request) {
   return NextResponse.json({
     booking,
     dispatch: {
-      notified: match.matches.length,
+      notified: firstMatch ? 1 : 0,
+      queued: match.matches.length,
+      dispatchWindowMinutes: 5,
       radiusKm: match.radiusKm,
       ring: match.ring,
     },

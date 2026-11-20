@@ -81,7 +81,7 @@ function TrackView() {
 
   /* elapsed clock while the work runs */
   useEffect(() => {
-    if (booking?.status !== "in_progress") return;
+    if (booking?.status !== "in_progress" && booking?.status !== "dispatched") return;
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [booking?.status]);
@@ -161,6 +161,7 @@ function TrackView() {
 
   const status = booking.status;
   const pro = booking.providerProfile;
+  const dispatchSecondsLeft = Math.max(0, Math.ceil(((booking.dispatchDeadlineAt ?? (booking.createdAt + 5 * 60_000)) - now) / 1000));
   const etaLeft = Math.max(1, booking.etaMinutes ?? 8);
   const stepIdx =
     status === "accepted"
@@ -195,8 +196,22 @@ function TrackView() {
         </span>
       </div>
 
+      {status === "dispatched" && !booking.dispatchFailedAt && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-4">
+          <div><p className="font-extrabold text-orange-950">Searching nearby Kaamdaar Pros</p><p className="mt-1 text-sm text-orange-800">We are contacting eligible professionals one by one. Each Pro gets 40 seconds to respond.</p></div>
+          <span className="rounded-full bg-white px-3 py-2 font-mono text-lg font-black text-orange-800">{mmss(dispatchSecondsLeft * 1000)}</span>
+        </div>
+      )}
+      {booking.dispatchFailedAt && (
+        <div role="alert" className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-5">
+          <p className="font-extrabold text-red-900">We’re sorry — no professional accepted your booking</p>
+          <p className="mt-2 text-sm leading-6 text-red-800">{booking.dispatchFailedMessage || "Maaf kijiye, 5 minute tak koi professional aapki booking accept nahi kar saka. Kripya dobara booking karein ya support se sampark karein."}</p>
+          <p className="mt-2 text-xs font-semibold text-red-700">No provider has been assigned and no service visit has been confirmed.</p>
+        </div>
+      )}
+
       {/* stepper */}
-      {stepIdx >= 0 && (
+      {stepIdx >= 0 && !booking.dispatchFailedAt && (
         <ol className="mt-4 flex flex-wrap gap-1.5">
           {STEPS.map((st, i) => (
             <li

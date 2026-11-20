@@ -174,6 +174,8 @@ const jobStatusLabels = <String, String>{
   'pending_confirm': 'Waiting for customer OTP',
   'completed': 'Completed',
   'cancelled': 'Cancelled',
+  'missed': 'Missed — no response',
+  'rejected': 'Rejected by you',
 };
 
 Color jobStatusColor(String status) {

@@ -1,6 +1,9 @@
 /// Service detail (Overview / Pricing / FAQ tabs) → booking review → dispatch.
 library;
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 
 import '../core/api.dart';
@@ -297,6 +300,71 @@ class _BookingScreenState extends State<BookingScreen> {
   SessionUser? _user;
   final _notes = TextEditingController();
   String _slot = 'ASAP';
+  bool _scheduleSelected = false;
+  DateTime _scheduledDate = DateTime.now().add(const Duration(days: 1));
+  List<String> _scheduledSlots = [];
+  bool _slotsLoading = false;
+  String? _slotError;
+
+  String _dateIso(DateTime value) =>
+      '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  Future<void> _loadScheduledSlots() async {
+    final address = _picked;
+    if (address?.lat == null || address?.lng == null) {
+      if (mounted) setState(() {
+        _scheduledSlots = [];
+        _slotError = 'Select an address with a saved map pin to check available slots.';
+      });
+      return;
+    }
+    if (mounted) setState(() {
+      _slotsLoading = true;
+      _slotError = null;
+    });
+    try {
+      final query = Uri(queryParameters: {
+        'serviceId': widget.service.id,
+        'date': _dateIso(_scheduledDate),
+        'lat': '${address!.lat}',
+        'lng': '${address.lng}',
+      }).query;
+      final data = await Api.get('/api/booking-slots?$query');
+      final slots = ((data['slots'] as List?) ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map((row) => '${row['start']} - ${row['end']}')
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _scheduledSlots = slots;
+        if (!_scheduledSlots.contains(_slot)) _slot = slots.isEmpty ? '' : slots.first;
+        if (slots.isEmpty) _slotError = 'No provider time slots are available for this date.';
+      });
+    } catch (e) {
+      if (mounted) setState(() {
+        _scheduledSlots = [];
+        _slot = '';
+        _slotError = e.toString();
+      });
+    } finally {
+      if (mounted) setState(() => _slotsLoading = false);
+    }
+  }
+
+  Future<void> _chooseScheduledDate() async {
+    final today = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _scheduledDate.isAfter(today) ? _scheduledDate : today.add(const Duration(days: 1)),
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 30)),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _scheduledDate = DateTime(picked.year, picked.month, picked.day);
+    });
+    await _loadScheduledSlots();
+  }
   bool _loading = true;
   bool _busy = false;
   String? _error;
@@ -331,6 +399,7 @@ class _BookingScreenState extends State<BookingScreen> {
             );
         _loading = false;
       });
+      if (_scheduleSelected) await _loadScheduledSlots();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -362,14 +431,17 @@ class _BookingScreenState extends State<BookingScreen> {
       setState(() => _error = 'Select or add an address first.');
       return;
     }
+    if (_scheduleSelected && (_slot.isEmpty || !_scheduledSlots.contains(_slot))) {
+      setState(() => _error = 'Please select an available scheduled time slot.');
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      // The backend works out who can serve this near the address (3 km,
-      // widening to 5 km), notifies every one of them and the first accept
-      // wins — the app never picks or ranks Pros itself.
+      // The backend ranks eligible Pros within its 3 km / 5 km rings and
+      // offers the request to one Pro at a time. The app never chooses a Pro.
       // Never substitute a hard-coded Jaipur coordinate: it can dispatch a
       // real job to professionals around the wrong address. The backend will
       // validate the saved address pin before creating the booking.
@@ -392,9 +464,9 @@ class _BookingScreenState extends State<BookingScreen> {
         'providerId': '',
         'providerName': '',
         'address': addr.toJson(),
-        'mode': _slot == 'ASAP' ? 'instant' : 'scheduled',
-        'date': DateTime.now().toIso8601String().split('T').first,
-        'slot': _slot,
+        'mode': _scheduleSelected ? 'scheduled' : 'instant',
+        'date': _dateIso(_scheduleSelected ? _scheduledDate : DateTime.now()),
+        'slot': _scheduleSelected ? _slot : 'ASAP',
         'amount': _totalAmount,
         'selectedSubServiceIds': _selectedSubServiceIds.toList(),
         'status': 'dispatched',
@@ -466,12 +538,29 @@ class _BookingScreenState extends State<BookingScreen> {
         ),
       );
       final parts = ctrl.text.split(',').map((e) => e.trim()).toList();
+      var city = '';
+      var pincode = '';
+      var area = '';
+      try {
+        final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
+          'format': 'jsonv2', 'lat': '${position.latitude}', 'lon': '${position.longitude}',
+          'zoom': '18', 'addressdetails': '1',
+        });
+        final response = await http.get(uri, headers: {'User-Agent': 'Kaamdaar/1.0 (address lookup)'});
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final address = (data['address'] as Map?)?.cast<String, dynamic>() ?? {};
+          city = (address['city'] ?? address['town'] ?? address['village'] ?? address['state_district'] ?? '').toString();
+          pincode = (address['postcode'] ?? '').toString();
+          area = (address['suburb'] ?? address['neighbourhood'] ?? address['quarter'] ?? '').toString();
+        }
+      } catch (_) {}
       await Api.addAddress(user.id, {
         'label': 'Home',
         'line1': parts.first,
-        if (parts.length > 1) 'line2': parts.sublist(1).join(', '),
-        'city': 'Jaipur',
-        'pincode': '302017',
+        if (parts.length > 1 || area.isNotEmpty) 'line2': [if (parts.length > 1) parts.sublist(1).join(', '), if (area.isNotEmpty) area].join(', '),
+        'city': city.isEmpty ? 'Jaipur' : city,
+        'pincode': pincode,
         'lat': position.latitude,
         'lng': position.longitude,
       });
@@ -553,17 +642,45 @@ class _BookingScreenState extends State<BookingScreen> {
                 const Text('Date & Time',
                     style: TextStyle(fontWeight: FontWeight.w800, color: KColors.navy)),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: ['ASAP', '10:00 AM - 12:00 PM', '02:00 PM - 04:00 PM', '05:00 PM - 07:00 PM']
-                      .map((t) => ChoiceChip(
-                            label: Text(t),
-                            selected: _slot == t,
-                            selectedColor: KColors.flame.withOpacity(.2),
-                            onSelected: (_) => setState(() => _slot = t),
-                          ))
-                      .toList(),
-                ),
+                Wrap(spacing: 8, children: [
+                  ChoiceChip(
+                    label: const Text('Book Now'),
+                    selected: !_scheduleSelected,
+                    selectedColor: KColors.flame.withOpacity(.2),
+                    onSelected: (_) => setState(() {
+                      _scheduleSelected = false;
+                      _slot = 'ASAP';
+                    }),
+                  ),
+                  ChoiceChip(
+                    label: const Text('Schedule'),
+                    selected: _scheduleSelected,
+                    selectedColor: KColors.flame.withOpacity(.2),
+                    onSelected: (_) {
+                      setState(() => _scheduleSelected = true);
+                      _loadScheduledSlots();
+                    },
+                  ),
+                ]),
+                if (_scheduleSelected) ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: _chooseScheduledDate,
+                    icon: const Icon(Icons.calendar_month),
+                    label: Text('Date: ${_scheduledDate.day.toString().padLeft(2, '0')}/${_scheduledDate.month.toString().padLeft(2, '0')}/${_scheduledDate.year}'),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_slotsLoading)
+                    const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()))
+                  else if (_slotError != null)
+                    Text(_slotError!, style: const TextStyle(color: KColors.red, fontSize: 12))
+                  else
+                    Wrap(spacing: 8, runSpacing: 8, children: _scheduledSlots.map((t) => ChoiceChip(
+                      label: Text(t), selected: _slot == t,
+                      selectedColor: KColors.flame.withOpacity(.2),
+                      onSelected: (_) => setState(() => _slot = t),
+                    )).toList()),
+                ],
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -584,7 +701,10 @@ class _BookingScreenState extends State<BookingScreen> {
                   ..._addresses.map((a) => Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: CardBox(
-                          onTap: () => setState(() => _picked = a),
+                          onTap: () {
+                            setState(() => _picked = a);
+                            if (_scheduleSelected) _loadScheduledSlots();
+                          },
                           child: Row(
                             children: [
                               Icon(

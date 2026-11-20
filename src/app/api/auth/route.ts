@@ -3,10 +3,11 @@
  * Firebase is the sole OTP authority; MongoDB stores application accounts.
  */
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { find, insert, ready } from "../../../server/db";
 import type { Provider, User } from "../../../lib/types";
 import { createUserRegisteredNotification } from "../../../server/notifications";
-import { normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/firebase-auth";
+import { createQaMobileToken, normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/firebase-auth";
 import { recordAudit } from "../../../server/audit";
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
     idToken?: string;
     role?: string;
     platform?: "web" | "mobile_app";
+    otp?: string;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -30,35 +32,58 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  if (body.action !== "verify") {
-    return NextResponse.json({ error: "OTP is handled by Firebase Phone Authentication" }, { status: 410 });
-  }
-
   let phone = normalizeIndianPhone(body.phone ?? "");
-  if (!body.idToken) {
-    return NextResponse.json({ error: "A valid Firebase verification token is required" }, { status: 401 });
-  }
-  try {
-    const identity = await verifyFirebasePhoneToken(body.idToken);
-    if (phone && phone !== identity.phone) {
-      return NextResponse.json({ error: "Verified mobile number does not match" }, { status: 401 });
+  let qaSessionToken: string | undefined;
+
+  if (body.action === "qa_verify") {
+    // Explicit preview-only QA path. Production remains Firebase-only because
+    // these env vars are configured solely for the named Preview branch.
+    if (process.env.QA_MOBILE_AUTH_ENABLED !== "true" ||
+        !process.env.QA_MOBILE_AUTH_SECRET ||
+        !process.env.QA_MOBILE_TEST_OTP_SHA256 ||
+        !process.env.QA_MOBILE_CUSTOMER_PHONE_HASH ||
+        !process.env.QA_MOBILE_PROVIDER_PHONE_HASH) {
+      return NextResponse.json({ error: "QA mobile login is not enabled on this backend" }, { status: 403 });
     }
-    phone = identity.phone;
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : "Phone verification failed";
+    const phoneHash = createHash("sha256").update(phone).digest("hex");
+    const expectedPhoneHash = body.role === "customer"
+      ? process.env.QA_MOBILE_CUSTOMER_PHONE_HASH
+      : body.role === "provider" ? process.env.QA_MOBILE_PROVIDER_PHONE_HASH : "";
+    const otpHash = createHash("sha256").update(body.otp ?? "").digest("hex");
+    if (!phone || phoneHash !== expectedPhoneHash ||
+        otpHash !== process.env.QA_MOBILE_TEST_OTP_SHA256 ||
+        (body.role !== "customer" && body.role !== "provider")) {
+      return NextResponse.json({ error: "Invalid QA phone number or test OTP" }, { status: 401 });
+    }
+    qaSessionToken = createQaMobileToken(phone, body.role);
+  } else if (body.action === "verify") {
+    if (!body.idToken) {
+      return NextResponse.json({ error: "A valid Firebase verification token is required" }, { status: 401 });
+    }
     try {
-      await recordAudit({
-        actor: body.role === "provider" ? "provider" : "customer",
-        action: "login",
-        module: "Authentication",
-        title: "Firebase phone verification failed",
-        description: `platform=${body.platform === "web" ? "web" : "mobile_app"}; role=${body.role === "provider" ? "provider" : "customer"}; reason=${reason.slice(0, 220)}`,
-        severity: "warning",
-      });
-    } catch (auditError) {
-      console.error("[audit] phone verification failure log could not be saved", auditError);
+      const identity = await verifyFirebasePhoneToken(body.idToken);
+      if (phone && phone !== identity.phone) {
+        return NextResponse.json({ error: "Verified mobile number does not match" }, { status: 401 });
+      }
+      phone = identity.phone;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Phone verification failed";
+      try {
+        await recordAudit({
+          actor: body.role === "provider" ? "provider" : "customer",
+          action: "login",
+          module: "Authentication",
+          title: "Firebase phone verification failed",
+          description: `platform=${body.platform === "web" ? "web" : "mobile_app"}; role=${body.role === "provider" ? "provider" : "customer"}; reason=${reason.slice(0, 220)}`,
+          severity: "warning",
+        });
+      } catch (auditError) {
+        console.error("[audit] phone verification failure log could not be saved", auditError);
+      }
+      return NextResponse.json({ error: reason }, { status: 401 });
     }
-    return NextResponse.json({ error: reason }, { status: 401 });
+  } else {
+    return NextResponse.json({ error: "Unsupported authentication action" }, { status: 410 });
   }
 
   if (!PHONE_RE.test(phone)) {
@@ -83,7 +108,7 @@ export async function POST(req: Request) {
     try {
       await recordAudit({ actor: provider.name || "provider", action: "login", module: "Authentication", title: "Provider login successful", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
     } catch (error) { console.error("[audit] provider login log could not be saved", error); }
-    return NextResponse.json({ provider });
+    return NextResponse.json({ provider, ...(qaSessionToken ? { sessionToken: qaSessionToken } : {}) });
   }
 
   const existing = await find<User & { id: string; status?: string }>(
@@ -100,7 +125,7 @@ export async function POST(req: Request) {
     try {
       await recordAudit({ actor: "customer", action: "login", module: "Authentication", title: "Customer login successful", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
     } catch (error) { console.error("[audit] customer login log could not be saved", error); }
-    return NextResponse.json({ user: existing[0], isNew: false });
+    return NextResponse.json({ user: existing[0], isNew: false, ...(qaSessionToken ? { sessionToken: qaSessionToken } : {}) });
   }
 
   const user = await insert<User & Record<string, unknown>>("users", {
@@ -119,5 +144,5 @@ export async function POST(req: Request) {
   try {
     await recordAudit({ actor: "customer", action: "login", module: "Authentication", title: "New customer verified phone login", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
   } catch (error) { console.error("[audit] customer login log could not be saved", error); }
-  return NextResponse.json({ user, isNew: true });
+  return NextResponse.json({ user, isNew: true, ...(qaSessionToken ? { sessionToken: qaSessionToken } : {}) });
 }

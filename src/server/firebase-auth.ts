@@ -1,3 +1,5 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
 export function normalizeIndianPhone(value: string): string {
@@ -16,11 +18,53 @@ export function normalizeIndianPhone(value: string): string {
 }
 
 /**
+ * QA-only signed bearer token. This is deliberately separate from Firebase
+ * tokens and is accepted only while the server QA switch and secret exist.
+ * Vercel config scopes that switch and secret to the named Preview branch.
+ */
+export function createQaMobileToken(phone: string, role: "customer" | "provider"): string {
+  const secret = process.env.QA_MOBILE_AUTH_SECRET;
+  if (process.env.QA_MOBILE_AUTH_ENABLED !== "true" || !secret) {
+    throw new Error("QA mobile authentication is disabled");
+  }
+  const payload = Buffer.from(JSON.stringify({
+    phone, uid: `qa:${role}:${phone}`, role,
+    iss: "kaamdaar-qa-mobile", exp: Math.floor(Date.now() / 1000) + 8 * 60 * 60,
+  })).toString("base64url");
+  const unsigned = `qa1.${payload}`;
+  const signature = createHmac("sha256", secret).update(unsigned).digest("base64url");
+  return `${unsigned}.${signature}`;
+}
+
+function verifyQaMobileToken(token: string): { phone: string; uid: string } | null {
+  const secret = process.env.QA_MOBILE_AUTH_SECRET;
+  if (process.env.QA_MOBILE_AUTH_ENABLED !== "true" || !secret || !token.startsWith("qa1.")) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const unsigned = `${parts[0]}.${parts[1]}`;
+  const expected = createHmac("sha256", secret).update(unsigned).digest();
+  let actual: Buffer;
+  try { actual = Buffer.from(parts[2], "base64url"); } catch { return null; }
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as {
+      phone?: string; uid?: string; iss?: string; exp?: number;
+    };
+    const phone = normalizeIndianPhone(payload.phone ?? "");
+    if (payload.iss !== "kaamdaar-qa-mobile" || !payload.uid ||
+        !phone || typeof payload.exp !== "number" || payload.exp <= Math.floor(Date.now() / 1000)) return null;
+    return { phone, uid: payload.uid };
+  } catch { return null; }
+}
+
+/**
  * Validates a Firebase Phone Auth ID token with Google's Identity Toolkit.
  * Application identity and profile data remain in MongoDB.
  */
 export async function verifyFirebasePhoneToken(idToken: string): Promise<{ phone: string; uid: string }> {
   if (!idToken?.trim()) throw new Error("Firebase verification token is required");
+  const qaIdentity = verifyQaMobileToken(idToken);
+  if (qaIdentity) return qaIdentity;
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   if (!apiKey) throw new Error("Firebase server verification is not configured");
 

@@ -6,8 +6,8 @@ import {
   signInWithPhoneNumber, RecaptchaVerifier, type ConfirmationResult,
 } from "firebase/auth";
 import {
-  Bell, BriefcaseBusiness, CheckCircle2, IndianRupee, LogOut,
-  RefreshCw, ShieldCheck, Star, Wallet, XCircle, Smartphone,
+  Bell, BriefcaseBusiness, CalendarX, CheckCircle2, IndianRupee, LogOut,
+  RefreshCw, Search, ShieldCheck, Star, Wallet, XCircle, Smartphone,
 } from "lucide-react";
 import { getFirebaseAuth, isFirebaseConfigured } from "../../lib/firebase";
 import type { Booking, Provider } from "../../lib/types";
@@ -42,7 +42,11 @@ export default function ProviderPortalPage() {
   const [provider, setProvider] = useState<Provider | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [walletData, setWalletData] = useState<WalletData | null>(null);
-  const [tab, setTab] = useState<"overview" | "bookings" | "wallet" | "reviews">("overview");
+  const [tab, setTab] = useState<"overview" | "bookings" | "missed" | "wallet" | "reviews">("overview");
+  const [missedPeriod, setMissedPeriod] = useState("today");
+  const [missedOutcome, setMissedOutcome] = useState("all");
+  const [missedService, setMissedService] = useState("all");
+  const [missedSearch, setMissedSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -88,6 +92,40 @@ export default function ProviderPortalPage() {
   const completed = useMemo(() => bookings.filter(b => b.providerId === provider?.id && b.status === "completed"), [bookings, provider]);
   const earnings = completed.filter(b => b.paymentStatus === "verified" || b.paidAt).reduce((sum, b) => sum + (b.amount || 0) - (b.commission || 0), 0);
   const reviews = provider?.reviews || [];
+  const missedRecords = useMemo(() => bookings
+    .map((booking) => {
+      const history = (booking.providerOfferHistory ?? []).find((row) => row.providerId === (provider?.id || ""));
+      const outcome = history?.outcome ??
+        ((booking.missedProviderIds ?? []).includes(provider?.id || "") ? "missed" :
+          (booking.rejectedProviderIds ?? []).includes(provider?.id || "") ? "rejected" : null);
+      return outcome ? { booking, outcome, at: history?.at ?? booking.createdAt } : null;
+    })
+    .filter((row): row is { booking: Booking; outcome: "missed" | "rejected"; at: number } => row !== null),
+    [bookings, provider]);
+  const missedToday = missedRecords.filter((r) => r.outcome === "missed" &&
+    new Date(r.at).toDateString() === new Date().toDateString()).length;
+  const missedWeek = missedRecords.filter((r) => r.outcome === "missed" &&
+    r.at >= Date.now() - 7 * 24 * 60 * 60 * 1000).length;
+  const missedMonth = missedRecords.filter((r) => r.outcome === "missed" &&
+    r.at >= Date.now() - 30 * 24 * 60 * 60 * 1000).length;
+  const rejectedToday = missedRecords.filter((r) => r.outcome === "rejected" &&
+    new Date(r.at).toDateString() === new Date().toDateString()).length;
+  const filteredMissedRecords = missedRecords.filter(({ booking, outcome, at }) => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+    const from = missedPeriod === "today" ? today.getTime()
+      : missedPeriod === "yesterday" ? yesterday.getTime()
+      : missedPeriod === "7days" ? Date.now() - 7 * 86400000
+      : missedPeriod === "30days" ? Date.now() - 30 * 86400000 : 0;
+    const before = missedPeriod === "yesterday" ? today.getTime() : Number.POSITIVE_INFINITY;
+    const periodOk = at >= from && at < before;
+    const outcomeOk = missedOutcome === "all" || outcome === missedOutcome;
+    const serviceOk = missedService === "all" || booking.serviceName === missedService;
+    const q = missedSearch.trim().toLowerCase();
+    const searchOk = !q || [booking.id, booking.serviceName, booking.phone, booking.address?.label, booking.address?.line1]
+      .some((value) => String(value ?? "").toLowerCase().includes(q));
+    return periodOk && outcomeOk && serviceOk && searchOk;
+  });
 
   async function sendCode(e: React.FormEvent) {
     e.preventDefault(); setError(""); setBusy(true);
@@ -232,7 +270,7 @@ export default function ProviderPortalPage() {
   }
 
   const nav = [
-    ["overview","Overview"],["bookings","Bookings"],["wallet","Wallet & Payments"],["reviews","Reviews"],
+    ["overview","Overview"],["bookings","Bookings"],["missed","Missed Bookings"],["wallet","Wallet & Payments"],["reviews","Reviews"],
   ] as const;
 
   return <main className="min-h-screen bg-slate-100 text-slate-900">
@@ -256,6 +294,40 @@ export default function ProviderPortalPage() {
           <div className="grid gap-4 xl:grid-cols-2"><div className="rounded-2xl bg-white p-5 shadow-sm"><h2 className="mb-4 font-black">Recent bookings</h2>{bookings.slice(0,5).map(b=><div key={b.id} className="flex justify-between gap-3 border-t py-3 text-sm"><span><b>{b.serviceName}</b><span className="block text-xs text-slate-400">{date(b.createdAt)}</span></span><span className="text-right font-bold">{b.status.replaceAll("_"," ")}<span className="block">{money(b.amount)}</span></span></div>)}{bookings.length===0&&<p className="text-sm text-slate-400">No bookings yet.</p>}</div><div className="rounded-2xl bg-white p-5 shadow-sm"><h2 className="mb-4 font-black">Provider profile · View only</h2><dl className="grid grid-cols-2 gap-4 text-sm">{[["Name",provider.name],["Mobile",provider.phone||"—"],["Service areas",provider.city],["Experience",`${provider.experience||0} years`],["Verified",provider.verified?"Yes":"Pending"],["Services",(provider.services||[]).join(", ")||"—"]].map(([k,v])=><div key={k}><dt className="text-slate-400">{k}</dt><dd className="mt-1 font-semibold">{v}</dd></div>)}</dl></div></div>
         </>}
         {tab==="bookings" && <div className="rounded-2xl bg-white p-5 shadow-sm"><h2 className="mb-4 text-lg font-black">All bookings</h2>{bookings.map(b=><div key={b.id} className="flex flex-wrap items-center justify-between gap-3 border-t py-4"><div><p className="font-bold">{b.serviceName}</p><p className="text-xs text-slate-500">{date(b.createdAt)} · {b.address?.label || b.address?.line1 || "Jaipur"}</p></div><div className="text-right"><p className="font-bold">{money(b.amount)}</p><p className="text-xs capitalize text-slate-500">{b.status.replaceAll("_"," ")}</p></div></div>)}{bookings.length===0&&<p className="text-sm text-slate-400">No bookings found.</p>}</div>}
+        {tab==="missed" && <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              ["Missed today", missedToday, "bg-red-50 text-red-700"],
+              ["Missed · 7 days", missedWeek, "bg-orange-50 text-orange-700"],
+              ["Missed · 30 days", missedMonth, "bg-slate-100 text-slate-800"],
+              ["Rejected today", rejectedToday, "bg-amber-50 text-amber-700"],
+            ].map(([label, value, style]) => <div key={String(label)} className={`rounded-2xl p-4 shadow-sm ${style}`}>
+              <p className="text-xs font-semibold">{label}</p><p className="mt-1 text-2xl font-black">{value}</p>
+            </div>)}
+          </div>
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2"><CalendarX className="text-orange-600"/><h2 className="text-lg font-black">Missed booking history</h2></div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <select value={missedPeriod} onChange={e=>setMissedPeriod(e.target.value)} className="rounded-xl border p-3 text-sm">
+                <option value="today">Today</option><option value="yesterday">Yesterday</option><option value="7days">Last 7 days</option><option value="30days">Last 30 days</option><option value="all">All time</option>
+              </select>
+              <select value={missedOutcome} onChange={e=>setMissedOutcome(e.target.value)} className="rounded-xl border p-3 text-sm">
+                <option value="all">All outcomes</option><option value="missed">Missed (no response)</option><option value="rejected">Rejected by me</option>
+              </select>
+              <select value={missedService} onChange={e=>setMissedService(e.target.value)} className="rounded-xl border p-3 text-sm">
+                <option value="all">All services</option>{Array.from(new Set(missedRecords.map(r=>r.booking.serviceName))).sort().map(name=><option key={name} value={name}>{name}</option>)}
+              </select>
+              <div className="flex items-center gap-2 rounded-xl border px-3"><Search size={16} className="text-slate-400"/><input value={missedSearch} onChange={e=>setMissedSearch(e.target.value)} placeholder="Booking ID, service, mobile…" className="min-w-0 flex-1 py-3 text-sm outline-none"/></div>
+            </div>
+            <div className="mt-4 space-y-3">
+              {filteredMissedRecords.map(({booking,outcome,at})=><article key={booking.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+                <div className="min-w-0"><p className="font-bold">{booking.serviceName}</p><p className="mt-1 text-xs text-slate-500">{booking.id} · {date(at)}</p><p className="mt-1 text-xs text-slate-500">{booking.address?.label || booking.address?.line1 || "Jaipur"} · {booking.phone || "Customer"}</p></div>
+                <div className="text-right"><span className={`rounded-full px-3 py-1 text-xs font-bold ${outcome==="missed"?"bg-red-50 text-red-700":"bg-amber-50 text-amber-700"}`}>{outcome==="missed"?"Missed · 40 sec timeout":"Rejected"}</span><p className="mt-2 font-black">{money(booking.amount)}</p></div>
+              </article>)}
+              {filteredMissedRecords.length===0 && <p className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">Selected filters ke liye koi missed booking nahi mili.</p>}
+            </div>
+          </div>
+        </div>}
         {tab==="wallet" && <div className="space-y-4"><div className="rounded-2xl bg-slate-900 p-6 text-white"><p className="text-sm text-slate-300">Available wallet balance</p><p className="mt-2 text-4xl font-black">{money(walletData?.wallet.balance || 0)}</p><p className="mt-2 text-xs text-slate-300">Wallet recharge online abhi configured nahi hai. Recharge ke liye admin/support se contact karein.</p></div><div className="rounded-2xl bg-white p-5 shadow-sm"><h2 className="mb-3 font-black">Payment & wallet history</h2>{(walletData?.txns||[]).map(t=><div key={t.id} className="flex justify-between gap-3 border-t py-3 text-sm"><div><p className="font-semibold">{t.note || t.kind}</p><p className="text-xs text-slate-400">{date(t.createdAt)} · Balance {money(t.balanceAfter)}</p></div><b className={t.amount<0?"text-red-600":"text-green-700"}>{t.amount<0?"−":"+"}{money(Math.abs(t.amount))}</b></div>)}{!walletData?.txns?.length&&<p className="text-sm text-slate-400">No wallet transactions.</p>}</div></div>}
         {tab==="reviews" && <div className="rounded-2xl bg-white p-5 shadow-sm"><h2 className="mb-4 text-lg font-black">Customer reviews</h2>{reviews.map((r,i)=><article key={i} className="border-t py-4"><div className="flex items-center justify-between"><b>{r.author}</b><span className="flex items-center gap-1 text-amber-600"><Star size={15} fill="currentColor"/>{r.rating}/5</span></div><p className="mt-2 text-sm text-slate-600">{r.text || "No written comment."}</p></article>)}{reviews.length===0&&<p className="text-sm text-slate-400">No reviews received yet.</p>}</div>}
         <p className="flex items-center gap-2 text-xs text-slate-400"><Smartphone size={14}/> Work start, navigation, arrival OTP, completion and customer verification are Provider App only. Dashboard refreshes automatically.</p>

@@ -1,11 +1,10 @@
 /**
  * Provider matching — the company's dispatch rule, in one place.
  *
- * A request is first offered to every Pro who serves the service inside the
- * near ring (3 km) around the customer. Only when nobody qualifies there
- * does the search widen to the 5 km ring. If no Jaipur Pro is within 5 km,
- * no booking is dispatched. The customer never picks a Pro: the whole ring
- * is notified and the first accept wins (enforced in /api/bookings/[id]).
+ * A request is matched to eligible Pros inside the near ring (3 km), widening
+ * to the 5 km ring only when the near ring is empty. Matches are ranked and
+ * offered one at a time by the dispatch worker; the worker rechecks availability
+ * during the five-minute window. The customer never picks a Pro.
  *
  * The ring is ranked so a well-reviewed, experienced Pro slightly further
  * away can beat a bare-bones one next door — distance dominates, but not

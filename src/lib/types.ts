@@ -165,8 +165,22 @@ export interface Booking {
   /** Radius this request was offered in — 3 km first, 5 km after widening. */
   dispatchRadiusKm?: number;
   dispatchedAt?: number;
-  /** Hard expiry for the provider's 40-second dispatch offer. */
+  /** Hard expiry for the current provider's 40-second dispatch offer. */
   offerExpiresAt?: number;
+  /** Ranked providers to contact one at a time during the 5-minute window. */
+  dispatchQueueIds?: string[];
+  dispatchCursor?: number;
+  dispatchStartedAt?: number;
+  dispatchDeadlineAt?: number;
+  /** Provider IDs whose 40-second offers expired without a response. */
+  missedProviderIds?: string[];
+  /** Provider IDs that explicitly rejected the offer. */
+  rejectedProviderIds?: string[];
+  /** Per-provider outcome timestamps used for accurate daily/weekly missed metrics. */
+  providerOfferHistory?: Array<{ providerId: string; outcome: "missed" | "rejected"; at: number }>;
+  /** Set when no provider accepts within five minutes. */
+  dispatchFailedAt?: number;
+  dispatchFailedMessage?: string;
   acceptedAt?: number;
   /** when the user confirmed the Pro — the ETA animation runs from here */
   enrouteAt?: number;

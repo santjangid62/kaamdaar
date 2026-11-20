@@ -262,6 +262,20 @@ class ProviderProfile {
   });
 }
 
+class ProviderOfferOutcome {
+  final String providerId;
+  final String outcome;
+  final int at;
+
+  const ProviderOfferOutcome({required this.providerId, required this.outcome, required this.at});
+
+  factory ProviderOfferOutcome.fromJson(Map<String, dynamic> j) => ProviderOfferOutcome(
+    providerId: (j['providerId'] ?? '').toString(),
+    outcome: (j['outcome'] ?? '').toString(),
+    at: _int(j['at']),
+  );
+}
+
 class BookingItem {
   final String id;
   final String userId;
@@ -279,6 +293,9 @@ class BookingItem {
   final int createdAt;
   final int? offerExpiresAt;
   final List<String> notifiedIds;
+  final List<String> missedProviderIds;
+  final List<String> rejectedProviderIds;
+  final List<ProviderOfferOutcome> providerOfferHistory;
   final int? acceptedAt;
   final int? enrouteAt;
   final int? arrivedAt;
@@ -321,6 +338,10 @@ class BookingItem {
         createdAt: _int(j["createdAt"]),
         offerExpiresAt: _optInt(j["offerExpiresAt"]),
         notifiedIds: _strList(j["notifiedIds"]),
+        missedProviderIds: _strList(j["missedProviderIds"]),
+        rejectedProviderIds: _strList(j["rejectedProviderIds"]),
+        providerOfferHistory: (j["providerOfferHistory"] as List? ?? [])
+            .whereType<Map<String, dynamic>>().map(ProviderOfferOutcome.fromJson).toList(),
         acceptedAt: _optInt(j["acceptedAt"]),
         enrouteAt: _optInt(j["enrouteAt"]),
         arrivedAt: _optInt(j["arrivedAt"]),
@@ -367,6 +388,9 @@ class BookingItem {
     this.createdAt = 0,
     this.offerExpiresAt,
     this.notifiedIds = const [],
+    this.missedProviderIds = const [],
+    this.rejectedProviderIds = const [],
+    this.providerOfferHistory = const [],
     this.acceptedAt,
     this.enrouteAt,
     this.arrivedAt,

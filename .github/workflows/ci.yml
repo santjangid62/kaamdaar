@@ -80,6 +80,31 @@ jobs:
         with:
           channel: stable
           cache: true
+      # Flutter's included Gradle build resolves Kotlin DSL artifacts through
+      # its own settings file. Add Maven Central there as a fallback because
+      # the Plugin Portal can return metadata without the Kotlin BOM artifacts.
+      - name: Add Maven Central to Flutter included-build plugin resolution
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          path = Path(os.environ["FLUTTER_ROOT"]) / "packages/flutter_tools/gradle/settings.gradle.kts"
+          content = path.read_text()
+          if "pluginManagement {" not in content:
+              plugin_repositories = """pluginManagement {
+              repositories {
+                  gradlePluginPortal()
+                  mavenCentral()
+                  google()
+              }
+          }
+
+          """
+              content = plugin_repositories + content
+              path.write_text(content)
+          print(path.read_text())
+          PY
       - name: Install packages
         working-directory: apps/${{ matrix.app }}
         run: flutter pub get
@@ -90,12 +115,23 @@ jobs:
         working-directory: apps/${{ matrix.app }}
         run: >-
           flutter build apk --debug
-          --dart-define=API_BASE=https://kaamdaar-seven.vercel.app
+          --dart-define=API_BASE=https://kaamdaar-git-feat-mobile-customer-provide-bfc6c0-unique-it-team.vercel.app
           --dart-define=FIREBASE_PHONE_AUTH_TESTING=true
-      - name: Upload QA APK
+          --dart-define=QA_MOBILE_AUTH=true
+      - name: Export QA APK signing fingerprints
+        working-directory: apps/${{ matrix.app }}/android
+        shell: bash
+        run: |
+          ./gradlew :app:signingReport | tee signing-report.txt
+          awk '/Variant: debug/{show=1; next} show && /^Variant:/{exit} show && /(SHA1|SHA-1|SHA-256):/{print}' signing-report.txt > ../firebase-debug-fingerprints.txt
+          echo "Debug signing fingerprints for Firebase Android app registration:"
+          cat ../firebase-debug-fingerprints.txt
+      - name: Upload QA APK and Firebase signing fingerprint
         uses: actions/upload-artifact@v4
         with:
           name: kaamdaar-${{ matrix.app }}-qa-apk
-          path: apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-debug.apk
+          path: |
+            apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-debug.apk
+            apps/${{ matrix.app }}/firebase-debug-fingerprints.txt
           if-no-files-found: error
           retention-days: 14

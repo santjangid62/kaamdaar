@@ -447,6 +447,36 @@ export async function patch<T = Doc>(
   return engine.patch<T>(col, id, changes);
 }
 
+/** Atomically advance one provider offer only if the observed offer window is still current. */
+export async function claimDispatchAdvance(
+  id: string,
+  expectedOfferExpiresAt: number,
+  changes: Record<string, unknown>,
+): Promise<boolean> {
+  if (MONGODB_URI) {
+    const collection = (await mongoDb()).collection<Document>("bookings");
+    const filter = { status: "dispatched", providerId: "", offerExpiresAt: expectedOfferExpiresAt } as Document;
+    const update = { $set: { ...changes, updatedAt: Date.now() } };
+    const options = { returnDocument: "after" as const, includeResultMetadata: false };
+    const claimed = await collection.findOneAndUpdate({ ...filter, _id: id } as never, update, options)
+      ?? await collection.findOneAndUpdate({ ...filter, id } as never, update, options);
+    return Boolean(claimed);
+  }
+  let claimed = false;
+  const run = async () => {
+    const store = await readStore();
+    const current = store.bookings?.[id] as (Doc & { status?: string; providerId?: string; offerExpiresAt?: number }) | undefined;
+    if (!current || current.status !== "dispatched" || (current.providerId ?? "") !== "" || current.offerExpiresAt !== expectedOfferExpiresAt) return;
+    store.bookings ??= {};
+    store.bookings[id] = { ...current, ...changes, updatedAt: Date.now() };
+    await writeStore(store);
+    claimed = true;
+  };
+  queue = queue.then(run, run);
+  await queue;
+  return claimed;
+}
+
 /** Insert-or-update by explicit id (used by upserts such as settings). */
 export async function upsert<T extends Record<string, unknown>>(
   col: Collection,
