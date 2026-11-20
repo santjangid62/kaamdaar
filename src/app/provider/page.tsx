@@ -108,7 +108,6 @@ export default function ProviderPortalPage() {
   const rejectedToday = missedRecords.filter((r) => r.outcome === "rejected" &&
     new Date(r.booking.createdAt).toDateString() === new Date().toDateString()).length;
   const filteredMissedRecords = missedRecords.filter(({ booking, outcome }) => {
-    const created = new Date(booking.createdAt);
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
     const from = missedPeriod === "today" ? today.getTime()
