@@ -279,6 +279,8 @@ class BookingItem {
   final int createdAt;
   final int? offerExpiresAt;
   final List<String> notifiedIds;
+  final List<String> missedProviderIds;
+  final List<String> rejectedProviderIds;
   final int? acceptedAt;
   final int? enrouteAt;
   final int? arrivedAt;
@@ -321,6 +323,8 @@ class BookingItem {
         createdAt: _int(j["createdAt"]),
         offerExpiresAt: _optInt(j["offerExpiresAt"]),
         notifiedIds: _strList(j["notifiedIds"]),
+        missedProviderIds: _strList(j["missedProviderIds"]),
+        rejectedProviderIds: _strList(j["rejectedProviderIds"]),
         acceptedAt: _optInt(j["acceptedAt"]),
         enrouteAt: _optInt(j["enrouteAt"]),
         arrivedAt: _optInt(j["arrivedAt"]),
@@ -367,6 +371,8 @@ class BookingItem {
     this.createdAt = 0,
     this.offerExpiresAt,
     this.notifiedIds = const [],
+    this.missedProviderIds = const [],
+    this.rejectedProviderIds = const [],
     this.acceptedAt,
     this.enrouteAt,
     this.arrivedAt,
