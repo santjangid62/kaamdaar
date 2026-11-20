@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { all, ready } from "../../../../server/db";
-import { isAuthed } from "../../../../server/admin/auth";
+import { isAuthed } from "../../../../lib/admin/auth";
 import type { Booking } from "../../../../lib/types";
 
-export const dynamic = "force-dynamic";
 
 export async function GET() {
   await ready();
