@@ -114,7 +114,12 @@ class Api {
         if (!completed.isCompleted) completed.complete();
       },
       verificationFailed: (error) {
-        final message = switch (error.code) {
+        final rawMessage = error.message ?? '';
+        final isAndroidClientBlocked = rawMessage.contains('are blocked') ||
+            rawMessage.contains('API_KEY_ANDROID_APP_BLOCKED');
+        final message = isAndroidClientBlocked
+            ? 'Firebase has blocked this Android build. Add this app package name and the QA APK signing SHA-1 in Firebase Project Settings and Google Cloud > APIs & Services > Credentials > Firebase Android API key restrictions, then rebuild the APK.'
+            : switch (error.code) {
           'billing-not-enabled' || 'auth/billing-not-enabled' =>
             'Firebase billing is not enabled. For QA, use a fictional number configured in Firebase Console and install the QA debug APK.',
           'invalid-phone-number' => 'Enter a valid Indian mobile number.',
