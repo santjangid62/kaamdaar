@@ -985,6 +985,7 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
   String _outcome = 'all';
   String _service = 'all';
   String _query = '';
+  String? _providerId;
 
   @override
   void initState() {
@@ -1002,6 +1003,7 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
       final all = await Api.inbox(me.id);
       if (!mounted) return;
       setState(() {
+        _providerId = me.id;
         _rows = all.where((b) => b.missedProviderIds.contains(me.id) || b.rejectedProviderIds.contains(me.id)).toList();
         _error = null;
       });
@@ -1013,8 +1015,8 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
   }
 
   bool _isMissed(BookingItem b) {
-    final me = ProviderState.provider;
-    return me != null && b.missedProviderIds.contains(me.id);
+    final id = _providerId;
+    return id != null && b.missedProviderIds.contains(id);
   }
 
   List<BookingItem> get _filtered {
@@ -1040,7 +1042,6 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final me = ProviderState.provider;
     final today = _rows.where((b) => _isMissed(b) && DateTime.fromMillisecondsSinceEpoch(b.createdAt).year == DateTime.now().year &&
       DateTime.fromMillisecondsSinceEpoch(b.createdAt).month == DateTime.now().month &&
       DateTime.fromMillisecondsSinceEpoch(b.createdAt).day == DateTime.now().day).length;
