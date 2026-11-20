@@ -101,7 +101,7 @@ jobs:
           repositories = content[repo_start:repo_end]
           if "mavenCentral()" not in repositories:
               insert_at = repo_start + len("repositories {")
-              content = content[:insert_at] + "\\n        mavenCentral()" + content[insert_at:]
+              content = content[:insert_at] + "\n        mavenCentral()" + content[insert_at:]
               path.write_text(content)
           print(path.read_text()[start:path.read_text().find("}", repo_start) + 1])
           PY
