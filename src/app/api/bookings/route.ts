@@ -48,7 +48,7 @@ export async function GET(req: Request) {
     all<Provider & { phone?: string }>("providers"),
   ]);
   const customer = users.find((u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
-  const professional = providers.find((p) => normalizeIndianPhone(p.phone ?? "") === identity.phone);
+  const professional = providers.find((p) => p.id === providerId && normalizeIndianPhone(p.phone ?? "") === identity.phone);
   if (providerId) {
     if (!professional || professional.id !== providerId) {
       return NextResponse.json({ error: "Not your provider account" }, { status: 403 });
