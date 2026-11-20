@@ -4,6 +4,8 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../core/api.dart';
 import '../core/models.dart';
@@ -177,6 +179,10 @@ class _TrackScreenState extends State<TrackScreen> {
                           _statusCard(b),
                           const SizedBox(height: 14),
                           _providerCard(b),
+                          if (b.liveLat != null && b.liveLng != null && b.liveLat!.abs() <= 90 && b.liveLng!.abs() <= 180) ...[
+                            const SizedBox(height: 14),
+                            _liveMap(b),
+                          ],
                           const SizedBox(height: 14),
                           _stepper(b),
                           const SizedBox(height: 14),
@@ -240,7 +246,20 @@ class _TrackScreenState extends State<TrackScreen> {
   }
 
   Widget _statusCard(BookingItem b) {
-    final searching = b.status == 'dispatched';
+    final searching = b.status == 'dispatched' && b.dispatchFailedAt == null;
+    if (b.dispatchFailedAt != null) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(color: const Color(0xFFFFF1F2), borderRadius: BorderRadius.circular(20), border: Border.all(color: KColors.red.withOpacity(.3))),
+        child: Column(children: [
+          const Icon(Icons.error_outline, color: KColors.red, size: 42),
+          const SizedBox(height: 10),
+          const Text('We’re sorry — no professional accepted your booking', textAlign: TextAlign.center, style: TextStyle(color: KColors.red, fontSize: 16, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          Text(b.dispatchFailedMessage.isNotEmpty ? b.dispatchFailedMessage : 'Maaf kijiye, 5 minute tak koi professional aapki booking accept nahi kar saka. Kripya dobara booking karein ya support se sampark karein.', textAlign: TextAlign.center, style: const TextStyle(color: Colors.black54, fontSize: 13)),
+        ]),
+      );
+    }
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -264,10 +283,13 @@ class _TrackScreenState extends State<TrackScreen> {
             const SizedBox(height: 6),
             Text(
                 b.dispatchRadiusKm > 0
-                    ? '${b.dispatchRadiusKm} km ke andar ke professionals ko notification bheja gaya hai. Sabse pehle accept karne wale ko ye kaam milega.'
-                    : 'Nearby professionals have been notified. First to accept gets your job.',
+                    ? '${b.dispatchRadiusKm} km ke andar ke professionals ko ek-ek karke request bheji ja rahi hai.'
+                    : 'Nearby professionals are being contacted one by one.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white.withOpacity(.78), fontSize: 12.5)),
+            const SizedBox(height: 10),
+            Text('Search time left: ${_dispatchRemaining(b)}',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
           ] else ...[
             Icon(
               b.status == 'completed'
@@ -375,6 +397,50 @@ class _TrackScreenState extends State<TrackScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  String _dispatchRemaining(BookingItem b) {
+    final deadline = b.dispatchDeadlineAt ?? (b.createdAt + 5 * 60 * 1000);
+    final seconds = ((deadline - DateTime.now().millisecondsSinceEpoch) / 1000).ceil().clamp(0, 300);
+    return '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
+  }
+
+  Widget _liveMap(BookingItem b) {
+    final provider = LatLng(b.liveLat!, b.liveLng!);
+    final customerLat = b.address.lat;
+    final customerLng = b.address.lng;
+    final hasDestination = customerLat != null && customerLng != null && customerLat.abs() <= 90 && customerLng.abs() <= 180;
+    final destination = hasDestination ? LatLng(customerLat, customerLng) : provider;
+    final center = LatLng((provider.latitude + destination.latitude) / 2, (provider.longitude + destination.longitude) / 2);
+    final age = b.pingAt == null ? null : DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(b.pingAt!)).inSeconds.clamp(0, 9999);
+    return CardBox(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Professional live location', style: TextStyle(fontWeight: FontWeight.w900, color: KColors.navy)),
+        const SizedBox(height: 4),
+        Row(children: [
+          const Icon(Icons.my_location, color: KColors.green, size: 15),
+          const SizedBox(width: 5),
+          Expanded(child: Text(age == null ? 'Location received' : 'Updated $age sec ago', style: const TextStyle(fontSize: 11.5, color: Colors.black54))),
+          if (b.etaMinutes > 0 && (b.status == 'accepted' || b.status == 'enroute'))
+            Text('ETA ~${b.etaMinutes} min', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: KColors.green)),
+        ]),
+        const SizedBox(height: 10),
+        SizedBox(height: 250, child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: FlutterMap(
+            options: MapOptions(initialCenter: center, initialZoom: 14),
+            children: [
+              TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.kaamdaar.kaamdaar_customer'),
+              MarkerLayer(markers: [
+                Marker(point: provider, width: 46, height: 46, child: const Icon(Icons.two_wheeler, color: KColors.blue, size: 34)),
+                if (hasDestination) Marker(point: destination, width: 46, height: 46, child: const Icon(Icons.location_on, color: KColors.red, size: 38)),
+              ]),
+              RichAttributionWidget(attributions: [TextSourceAttribution('© OpenStreetMap contributors')]),
+            ],
+          ),
+        )),
+      ]),
     );
   }
 
