@@ -31,21 +31,30 @@ export async function GET(req: Request) {
   const lng = Number(lngRaw);
   const radiusRaw = Number(url.searchParams.get("radiusKm") ?? "");
 
-  const [providerRows, bookingRows] = await Promise.all([
+  // NB: Number(null) === 0 — an absent param must not be mistaken for (0, 0)
+  const hasPoint =
+    latRaw !== null && lngRaw !== null && Number.isFinite(lat) && Number.isFinite(lng);
+
+  const [providerRows, bookingRows, walletRows] = await Promise.all([
     all<Provider & { kycStatus?: string; activeBookingId?: string }>("providers"),
     all<{ providerId: string; status: string }>("bookings"),
+    all<{ providerId: string; balance?: number }>("wallets"),
   ]);
+  const minimumWallet = await minWallet();
   const busyIds = new Set(bookingRows
     .filter((booking) => ["accepted", "enroute", "arrived", "in_progress"].includes(booking.status))
     .map((booking) => booking.providerId)
     .filter(Boolean));
+  // Keep the nearby count identical to POST /api/bookings dispatch eligibility.
+  // A Pro without the required wallet balance must not be shown as notifiable.
   const providers = providerRows
     .filter((provider) => isInsideJaipur(provider))
     .filter((provider) => provider.verified === true && provider.availabilityStatus === "available")
-    .filter((provider) => !provider.activeBookingId && !busyIds.has(provider.id));
-  // NB: Number(null) === 0 — an absent param must not be mistaken for (0, 0)
-  const hasPoint =
-    latRaw !== null && lngRaw !== null && Number.isFinite(lat) && Number.isFinite(lng);
+    .filter((provider) => !provider.activeBookingId && !busyIds.has(provider.id))
+    .filter((provider) =>
+      !serviceId || !hasPoint ||
+      (walletRows.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimumWallet
+    );
 
   if (!serviceId && !hasPoint) {
     return NextResponse.json({ providers, radiusKm: null, ring: null, serviceCity: "Jaipur" });
