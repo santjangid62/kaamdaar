@@ -8,17 +8,21 @@ import { fill, useLang } from "../lib/i18n";
 import { refreshBookings } from "../lib/store";
 import type { Booking, BookingTab } from "../lib/types";
 
-function bucket(status: Booking["status"]): BookingTab {
-  if (status === "completed" || status === "cancelled") return "previous";
+type CustomerBookingTab = BookingTab | "cancelled";
+
+function bucket(status: Booking["status"]): CustomerBookingTab {
+  if (status === "cancelled") return "cancelled";
+  if (status === "completed") return "previous";
   if (status === "scheduled") return "upcoming";
   return "current";
 }
 
-function tabLabels(s: (typeof import("../lib/strings").en)["bookings"]): Record<BookingTab, string> {
+function tabLabels(s: (typeof import("../lib/strings").en)["bookings"]): Record<CustomerBookingTab, string> {
   return {
     current: s.tabs[0],
     upcoming: s.tabs[1],
     previous: s.tabs[2],
+    cancelled: "Cancelled",
   };
 }
 
@@ -48,7 +52,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
   const d = s.dispatch;
   const TAB_LABEL = tabLabels(s.bookings);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [tab, setTab] = useState<BookingTab>(initialTab ?? "current");
+  const [tab, setTab] = useState<CustomerBookingTab>(initialTab ?? "current");
   const [notice, setNotice] = useState<string | null>(null);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("default");
   const previousBookings = useRef<Map<string, Booking["status"]> | null>(null);
@@ -123,7 +127,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
   }
 
   const grouped = useMemo(() => {
-    const g: Record<BookingTab, Booking[]> = { current: [], upcoming: [], previous: [] };
+    const g: Record<CustomerBookingTab, Booking[]> = { current: [], upcoming: [], previous: [], cancelled: [] };
     bookings.forEach((b) => g[bucket(b.status)].push(b));
     g.current.sort((a, b) => {
       const aIsLive = Boolean(a.providerId) && LIVE_STATUSES.has(a.status);
@@ -137,7 +141,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
   }, [bookings]);
 
   // guard against an unknown tab reaching us from the URL
-  const active: BookingTab = grouped[tab] ? tab : "current";
+  const active: CustomerBookingTab = grouped[tab] ? tab : "current";
 
   if (!ready || !user) return null;
 
@@ -167,7 +171,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
       )}
 
       <div className="mt-4 flex gap-2 border-b border-slate-100 pb-3">
-        {(Object.keys(TAB_LABEL) as BookingTab[]).map((t) => (
+        {(Object.keys(TAB_LABEL) as CustomerBookingTab[]).map((t) => (
           <button
             key={t}
             type="button"
