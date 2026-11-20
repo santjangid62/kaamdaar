@@ -83,7 +83,7 @@ jobs:
       # Flutter's included Gradle build resolves Kotlin DSL artifacts through
       # its own settings file. Add Maven Central there as a fallback because
       # the Plugin Portal can return metadata without the Kotlin BOM artifacts.
-      - name: Ensure Maven Central is available to Flutter's Gradle plugin build
+      - name: Add Maven Central to Flutter included-build plugin resolution
         shell: bash
         run: |
           python3 - <<'PY'
@@ -91,19 +91,19 @@ jobs:
           from pathlib import Path
           path = Path(os.environ["FLUTTER_ROOT"]) / "packages/flutter_tools/gradle/settings.gradle.kts"
           content = path.read_text()
-          start = content.find("pluginManagement")
-          if start < 0:
-              raise SystemExit("Flutter Gradle pluginManagement block was not found")
-          repo_start = content.find("repositories {", start)
-          repo_end = content.find("}", repo_start)
-          if repo_start < 0 or repo_end < 0:
-              raise SystemExit("Flutter pluginManagement repositories block was not found")
-          repositories = content[repo_start:repo_end]
-          if "mavenCentral()" not in repositories:
-              insert_at = repo_start + len("repositories {")
-              content = content[:insert_at] + "\n        mavenCentral()" + content[insert_at:]
+          if "pluginManagement {" not in content:
+              plugin_repositories = """pluginManagement {
+              repositories {
+                  gradlePluginPortal()
+                  mavenCentral()
+                  google()
+              }
+          }
+
+          """
+              content = plugin_repositories + content
               path.write_text(content)
-          print(path.read_text()[start:path.read_text().find("}", repo_start) + 1])
+          print(path.read_text())
           PY
       - name: Install packages
         working-directory: apps/${{ matrix.app }}
