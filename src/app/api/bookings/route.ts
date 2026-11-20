@@ -223,6 +223,7 @@ export async function POST(req: Request) {
     dispatchDeadlineAt: now + 5 * 60_000,
     missedProviderIds: [],
     rejectedProviderIds: [],
+    providerOfferHistory: [],
     dispatchRadiusKm: match.radiusKm,
     dispatchedAt: now,
     originPoint: origin,
