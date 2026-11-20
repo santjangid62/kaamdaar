@@ -1,6 +1,5 @@
 import { all, claimDispatchAdvance, get } from "./db";
 import { minWallet } from "./settings";
-import { haversineKm } from "../lib/geo";
 import { isInsideJaipur } from "../lib/areas";
 import type { Booking, Provider } from "../lib/types";
 import { appendEvents, newEvent } from "./events";
