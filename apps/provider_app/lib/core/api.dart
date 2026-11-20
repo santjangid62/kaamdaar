@@ -113,6 +113,9 @@ class Api {
   static Future<String> sendOtp(String phone) async {
     _phoneVerificationId = null;
     if (_qaMobileAuthEnabled && kDebugMode) {
+      _qaBearerToken = null;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('kaamdaar.qa.mobile.token');
       await FirebaseAuth.instance.signOut();
       return '123456';
     }
