@@ -24,13 +24,18 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
   const currentIds = booking.notifiedIds ?? [];
   const currentExpired = currentIds.length > 0 && (booking.offerExpiresAt ?? 0) <= now;
   const missed = [...new Set(booking.missedProviderIds ?? [])];
+  const offerHistory = [...(booking.providerOfferHistory ?? [])];
   if (currentExpired && !missed.includes(currentIds[0])) missed.push(currentIds[0]);
+  if (currentExpired && !offerHistory.some((row) => row.providerId === currentIds[0] && row.outcome === "missed")) {
+    offerHistory.push({ providerId: currentIds[0], outcome: "missed", at: now });
+  }
 
   const baseEvents = booking.events ?? [];
   if (now >= deadline) {
     const failed = await claimDispatchAdvance(booking.id, booking.offerExpiresAt ?? 0, {
       notifiedIds: [],
       missedProviderIds: missed,
+      providerOfferHistory: offerHistory,
       dispatchFailedAt: now,
       dispatchFailedMessage: "Maaf kijiye, 5 minute tak koi professional aapki booking accept nahi kar saka. Kripya dobara booking karein ya support se sampark karein.",
       events: appendEvents(baseEvents, [
@@ -81,6 +86,7 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
     await claimDispatchAdvance(booking.id, booking.offerExpiresAt ?? 0, {
       notifiedIds: [],
       missedProviderIds: missed,
+      providerOfferHistory: offerHistory,
       dispatchCursor: cursor,
       offerExpiresAt: Math.min(deadline, now + RETRY_POLL_MS),
       events: events.length ? appendEvents(baseEvents, events) : baseEvents,
@@ -92,6 +98,7 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
   const claimed = await claimDispatchAdvance(booking.id, booking.offerExpiresAt ?? 0, {
     notifiedIds: [next.id],
     missedProviderIds: missed,
+    providerOfferHistory: offerHistory,
     dispatchCursor: cursor,
     dispatchedAt: now,
     offerExpiresAt: expiresAt,
