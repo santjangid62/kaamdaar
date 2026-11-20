@@ -1,6 +1,7 @@
 import { all, claimDispatchAdvance, get } from "./db";
 import { minWallet } from "./settings";
 import { isInsideJaipur } from "../lib/areas";
+import { matchProviders } from "../lib/match";
 import type { Booking, Provider } from "../lib/types";
 import { appendEvents, newEvent } from "./events";
 import { sendProviderJobOffer } from "./fcm";
@@ -63,21 +64,25 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
     .filter(Boolean));
   const rejected = new Set(booking.rejectedProviderIds ?? []);
   const attempted = new Set([...missed, ...rejected]);
-  const queue = booking.dispatchQueueIds ?? [];
-  let cursor = Math.max(0, booking.dispatchCursor ?? 0);
-  let next: Provider & { fcmTokens?: string[] } | undefined;
-
-  while (cursor < queue.length) {
-    const candidateId = queue[cursor++];
-    if (attempted.has(candidateId)) continue;
-    const candidate = providers.find((p) => p.id === candidateId);
-    if (!candidate || !isInsideJaipur(candidate) || !candidate.verified ||
-        candidate.availabilityStatus !== "available" || candidate.activeBookingId ||
-        busyIds.has(candidate.id) || !(candidate.services ?? []).includes(booking.serviceId) ||
-        (wallets.find((w) => w.providerId === candidate.id)?.balance ?? 0) < minimum) continue;
-    next = candidate;
-    break;
-  }
+  const origin = booking.originPoint ??
+    (typeof booking.address?.lat === "number" && typeof booking.address?.lng === "number"
+      ? { lat: booking.address.lat, lng: booking.address.lng }
+      : null);
+  // Rebuild the candidate list on every retry. A Pro who was offline/busy when
+  // the request was created can become eligible during the five-minute window.
+  const eligibleProviders = providers.filter((provider) =>
+    isInsideJaipur(provider) &&
+    provider.verified === true &&
+    provider.availabilityStatus === "available" &&
+    !provider.activeBookingId &&
+    !busyIds.has(provider.id) &&
+    (wallets.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimum
+  );
+  const match = matchProviders(eligibleProviders, booking.serviceId, origin);
+  const queue = match.matches.map((row) => row.provider.id);
+  const nextMatch = match.matches.find((row) => !attempted.has(row.provider.id));
+  const next = nextMatch?.provider as (Provider & { fcmTokens?: string[] }) | undefined;
+  const cursor = next ? queue.indexOf(next.id) + 1 : queue.length;
 
   const events = [
     ...(currentExpired ? [newEvent("system", "offer_missed", "Provider did not respond within 40 seconds")] : []),
