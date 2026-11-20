@@ -1014,10 +1014,23 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
     }
   }
 
+  ProviderOfferOutcome? _historyFor(BookingItem b) {
+    final id = _providerId;
+    if (id == null) return null;
+    for (final row in b.providerOfferHistory) {
+      if (row.providerId == id) return row;
+    }
+    return null;
+  }
+
   bool _isMissed(BookingItem b) {
+    final history = _historyFor(b);
+    if (history != null) return history.outcome == 'missed';
     final id = _providerId;
     return id != null && b.missedProviderIds.contains(id);
   }
+
+  int _outcomeAt(BookingItem b) => _historyFor(b)?.at ?? b.createdAt;
 
   List<BookingItem> get _filtered {
     final now = DateTime.now();
@@ -1031,22 +1044,22 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
     final q = _query.trim().toLowerCase();
     return _rows.where((b) {
       final mineMissed = _isMissed(b);
-      final created = DateTime.fromMillisecondsSinceEpoch(b.createdAt);
-      final periodOk = !created.isBefore(start);
+      final occurred = DateTime.fromMillisecondsSinceEpoch(_outcomeAt(b));
+      final periodOk = !occurred.isBefore(start);
       final outcomeOk = _outcome == 'all' || (_outcome == 'missed' && mineMissed) || (_outcome == 'rejected' && !mineMissed);
       final serviceOk = _service == 'all' || b.serviceName == _service;
       final searchOk = q.isEmpty || [b.id, b.serviceName, b.phone, b.address.oneLine].any((v) => v.toLowerCase().contains(q));
       return periodOk && outcomeOk && serviceOk && searchOk;
-    }).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }).toList()..sort((a, b) => _outcomeAt(b).compareTo(_outcomeAt(a)));
   }
 
   @override
   Widget build(BuildContext context) {
-    final today = _rows.where((b) => _isMissed(b) && DateTime.fromMillisecondsSinceEpoch(b.createdAt).year == DateTime.now().year &&
-      DateTime.fromMillisecondsSinceEpoch(b.createdAt).month == DateTime.now().month &&
-      DateTime.fromMillisecondsSinceEpoch(b.createdAt).day == DateTime.now().day).length;
-    final week = _rows.where((b) => _isMissed(b) && b.createdAt >= DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch).length;
-    final month = _rows.where((b) => _isMissed(b) && b.createdAt >= DateTime.now().subtract(const Duration(days: 30)).millisecondsSinceEpoch).length;
+    final today = _rows.where((b) => _isMissed(b) && DateTime.fromMillisecondsSinceEpoch(_outcomeAt(b)).year == DateTime.now().year &&
+      DateTime.fromMillisecondsSinceEpoch(_outcomeAt(b)).month == DateTime.now().month &&
+      DateTime.fromMillisecondsSinceEpoch(_outcomeAt(b)).day == DateTime.now().day).length;
+    final week = _rows.where((b) => _isMissed(b) && _outcomeAt(b) >= DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch).length;
+    final month = _rows.where((b) => _isMissed(b) && _outcomeAt(b) >= DateTime.now().subtract(const Duration(days: 30)).millisecondsSinceEpoch).length;
     final services = _rows.map((b) => b.serviceName).toSet().toList()..sort();
     return SafeArea(
       child: RefreshIndicator(
@@ -1109,7 +1122,7 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
                     else
                       ..._filtered.map((b) {
                         final missed = _isMissed(b);
-                        final d = DateTime.fromMillisecondsSinceEpoch(b.createdAt);
+                        final d = DateTime.fromMillisecondsSinceEpoch(_outcomeAt(b));
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 9),
                           child: CardBox(child: Row(children: [
