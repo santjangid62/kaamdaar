@@ -109,15 +109,15 @@ jobs:
         shell: bash
         run: |
           ./gradlew :app:signingReport | tee signing-report.txt
-          awk '/Variant: debug/{show=1} show && /SHA1:|SHA-1:/{print; show=0}' signing-report.txt > ../firebase-debug-sha1.txt
-          echo "Debug signing SHA-1 for Firebase Android app registration:"
-          cat ../firebase-debug-sha1.txt
+          awk '/Variant: debug/{show=1; next} show && /^Variant:/{exit} show && /(SHA1|SHA-1|SHA-256):/{print}' signing-report.txt > ../firebase-debug-fingerprints.txt
+          echo "Debug signing fingerprints for Firebase Android app registration:"
+          cat ../firebase-debug-fingerprints.txt
       - name: Upload QA APK and Firebase signing fingerprint
         uses: actions/upload-artifact@v4
         with:
           name: kaamdaar-${{ matrix.app }}-qa-apk
           path: |
             apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-debug.apk
-            apps/${{ matrix.app }}/firebase-debug-sha1.txt
+            apps/${{ matrix.app }}/firebase-debug-fingerprints.txt
           if-no-files-found: error
           retention-days: 14
