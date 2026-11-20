@@ -88,14 +88,7 @@ jobs:
         run: |
           SETTINGS="$FLUTTER_ROOT/packages/flutter_tools/gradle/settings.gradle.kts"
           if ! grep -q 'mavenCentral()' "$SETTINGS"; then
-            python3 - "$SETTINGS" <<'PY'
-          from pathlib import Path
-          import sys
-          path = Path(sys.argv[1])
-          content = path.read_text()
-          content = content.replace("repositories {", "repositories {\\n        mavenCentral()", 1)
-          path.write_text(content)
-          PY
+            sed -i '/repositories {/a\        mavenCentral()' "$SETTINGS"
           fi
           echo "Flutter Gradle plugin repositories:"
           sed -n '/repositories {/,/}/p' "$SETTINGS"
