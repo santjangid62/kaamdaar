@@ -86,12 +86,24 @@ jobs:
       - name: Ensure Maven Central is available to Flutter's Gradle plugin build
         shell: bash
         run: |
-          SETTINGS="$FLUTTER_ROOT/packages/flutter_tools/gradle/settings.gradle.kts"
-          if ! grep -q 'mavenCentral()' "$SETTINGS"; then
-            sed -i '/repositories {/a\        mavenCentral()' "$SETTINGS"
-          fi
-          echo "Flutter Gradle plugin repositories:"
-          sed -n '/repositories {/,/}/p' "$SETTINGS"
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("$FLUTTER_ROOT/packages/flutter_tools/gradle/settings.gradle.kts")
+          content = path.read_text()
+          start = content.find("pluginManagement")
+          if start < 0:
+              raise SystemExit("Flutter Gradle pluginManagement block was not found")
+          repo_start = content.find("repositories {", start)
+          repo_end = content.find("}", repo_start)
+          if repo_start < 0 or repo_end < 0:
+              raise SystemExit("Flutter pluginManagement repositories block was not found")
+          repositories = content[repo_start:repo_end]
+          if "mavenCentral()" not in repositories:
+              insert_at = repo_start + len("repositories {")
+              content = content[:insert_at] + "\\n        mavenCentral()" + content[insert_at:]
+              path.write_text(content)
+          print(path.read_text()[start:path.read_text().find("}", repo_start) + 1])
+          PY
       - name: Install packages
         working-directory: apps/${{ matrix.app }}
         run: flutter pub get
