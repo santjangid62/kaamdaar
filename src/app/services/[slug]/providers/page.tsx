@@ -86,6 +86,7 @@ function ProvidersFlow() {
   const [foundIdx, setFoundIdx] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [matchInfo, setMatchInfo] = useState<{ radiusKm: number; ring: "near" | "wide" | "none" }>({
     radiusKm: WIDE_RING_KM,
     ring: "none",
@@ -231,7 +232,11 @@ function ProvidersFlow() {
   }, [phase, bookingId, user, results]);
 
   const handleDispatch = useCallback(async () => {
-    if (!service || !center || !user || results.length === 0) return;
+    if (!service || !center || !user || results.length === 0) {
+      setDispatchError("Booking could not start. Please check your sign-in, location and nearby provider availability, then try again.");
+      return;
+    }
+    setDispatchError(null);
     trackBookingCheckoutOpened({ serviceId: service.id, providerId: results[0].provider.id });
     setBusy(true);
     try {
@@ -270,6 +275,10 @@ function ProvidersFlow() {
       setAccepted(null);
       setFoundIdx(0);
       setPhase("searching");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to send this booking request.";
+      setDispatchError(message);
+      console.error("[booking-dispatch] request failed", error);
     } finally {
       setBusy(false);
     }
@@ -421,6 +430,11 @@ function ProvidersFlow() {
           </div>
         )}
 
+        {dispatchError && phase === "idle" && (
+          <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+            {dispatchError}
+          </div>
+        )}
         {center && results.length > 0 && phase === "idle" && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-2.5 text-sm text-slate-600">
