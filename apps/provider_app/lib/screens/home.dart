@@ -55,6 +55,7 @@ class _ProviderShellState extends State<ProviderShell> {
         children: const [
           DashboardTab(),
           JobsTab(),
+          MissedBookingsTab(),
           WalletTab(),
           ProfileTab(),
         ],
@@ -71,6 +72,8 @@ class _ProviderShellState extends State<ProviderShell> {
               icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
               icon: Icon(Icons.work_outline), activeIcon: Icon(Icons.work), label: 'Jobs'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.event_busy_outlined), activeIcon: Icon(Icons.event_busy), label: 'Missed'),
           BottomNavigationBarItem(
               icon: Icon(Icons.account_balance_wallet_outlined),
               activeIcon: Icon(Icons.account_balance_wallet),
@@ -964,6 +967,178 @@ class _JobsTabState extends State<JobsTab> {
 }
 
 /* ------------------------------- wallet -------------------------------- */
+
+/// Server-backed missed/rejected history. Unlike the dashboard's quick
+/// local counter, this page survives reinstall/sign-in and syncs across devices.
+class MissedBookingsTab extends StatefulWidget {
+  const MissedBookingsTab({super.key});
+
+  @override
+  State<MissedBookingsTab> createState() => _MissedBookingsTabState();
+}
+
+class _MissedBookingsTabState extends State<MissedBookingsTab> {
+  List<BookingItem> _rows = [];
+  bool _loading = true;
+  String? _error;
+  String _period = 'today';
+  String _outcome = 'all';
+  String _service = 'all';
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (mounted) setState(() => _loading = true);
+    try {
+      final user = await Api.restoreSession();
+      if (user == null) throw Exception('Please sign in again.');
+      final me = await Api.me(user.phone);
+      if (me == null) throw Exception('Provider profile not found.');
+      final all = await Api.inbox(me.id);
+      if (!mounted) return;
+      setState(() {
+        _rows = all.where((b) => b.missedProviderIds.contains(me.id) || b.rejectedProviderIds.contains(me.id)).toList();
+        _error = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  bool _isMissed(BookingItem b) {
+    final me = ProviderState.provider;
+    return me != null && b.missedProviderIds.contains(me.id);
+  }
+
+  List<BookingItem> get _filtered {
+    final now = DateTime.now();
+    final start = _period == 'today'
+        ? DateTime(now.year, now.month, now.day)
+        : _period == '7days'
+            ? now.subtract(const Duration(days: 7))
+            : _period == '30days'
+                ? now.subtract(const Duration(days: 30))
+                : DateTime.fromMillisecondsSinceEpoch(0);
+    final q = _query.trim().toLowerCase();
+    return _rows.where((b) {
+      final mineMissed = _isMissed(b);
+      final created = DateTime.fromMillisecondsSinceEpoch(b.createdAt);
+      final periodOk = !created.isBefore(start);
+      final outcomeOk = _outcome == 'all' || (_outcome == 'missed' && mineMissed) || (_outcome == 'rejected' && !mineMissed);
+      final serviceOk = _service == 'all' || b.serviceName == _service;
+      final searchOk = q.isEmpty || [b.id, b.serviceName, b.phone, b.address.oneLine].any((v) => v.toLowerCase().contains(q));
+      return periodOk && outcomeOk && serviceOk && searchOk;
+    }).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final me = ProviderState.provider;
+    final today = _rows.where((b) => _isMissed(b) && DateTime.fromMillisecondsSinceEpoch(b.createdAt).year == DateTime.now().year &&
+      DateTime.fromMillisecondsSinceEpoch(b.createdAt).month == DateTime.now().month &&
+      DateTime.fromMillisecondsSinceEpoch(b.createdAt).day == DateTime.now().day).length;
+    final week = _rows.where((b) => _isMissed(b) && b.createdAt >= DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch).length;
+    final month = _rows.where((b) => _isMissed(b) && b.createdAt >= DateTime.now().subtract(const Duration(days: 30)).millisecondsSinceEpoch).length;
+    final services = _rows.map((b) => b.serviceName).toSet().toList()..sort();
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: _load,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator(color: PColors.green))
+            : _error != null
+                ? ListView(padding: const EdgeInsets.all(24), children: [
+                    const SizedBox(height: 70), Text(_error!, textAlign: TextAlign.center),
+                    const SizedBox(height: 12), GhostBtn(label: 'Retry', onPressed: _load, color: PColors.green),
+                  ])
+                : ListView(padding: const EdgeInsets.all(16), children: [
+                    const Text('Missed Bookings', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: PColors.ink)),
+                    const SizedBox(height: 4),
+                    const Text('40-second timeouts and bookings you rejected', style: TextStyle(fontSize: 12, color: Colors.black45)),
+                    const SizedBox(height: 14),
+                    Row(children: [
+                      Expanded(child: _missedStat('Today', '$today')),
+                      const SizedBox(width: 8), Expanded(child: _missedStat('7 days', '$week')),
+                      const SizedBox(width: 8), Expanded(child: _missedStat('30 days', '$month')),
+                    ]),
+                    const SizedBox(height: 14),
+                    CardBox(child: Column(children: [
+                      DropdownButtonFormField<String>(
+                        value: _period, decoration: const InputDecoration(labelText: 'Date range'),
+                        items: const [
+                          DropdownMenuItem(value: 'today', child: Text('Today')),
+                          DropdownMenuItem(value: '7days', child: Text('Last 7 days')),
+                          DropdownMenuItem(value: '30days', child: Text('Last 30 days')),
+                          DropdownMenuItem(value: 'all', child: Text('All time')),
+                        ],
+                        onChanged: (v) => setState(() => _period = v ?? 'today'),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: _outcome, decoration: const InputDecoration(labelText: 'Outcome'),
+                        items: const [
+                          DropdownMenuItem(value: 'all', child: Text('All')),
+                          DropdownMenuItem(value: 'missed', child: Text('Missed — no response')),
+                          DropdownMenuItem(value: 'rejected', child: Text('Rejected by me')),
+                        ],
+                        onChanged: (v) => setState(() => _outcome = v ?? 'all'),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: _service, decoration: const InputDecoration(labelText: 'Service'),
+                        items: [const DropdownMenuItem(value: 'all', child: Text('All services')),
+                          ...services.map((s) => DropdownMenuItem(value: s, child: Text(s)))],
+                        onChanged: (v) => setState(() => _service = v ?? 'all'),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search booking, service or customer'),
+                        onChanged: (v) => setState(() => _query = v),
+                      ),
+                    ])),
+                    const SizedBox(height: 12),
+                    if (_filtered.isEmpty)
+                      const CardBox(child: Padding(padding: EdgeInsets.all(18), child: Center(child: Text('No missed bookings match these filters.'))))
+                    else
+                      ..._filtered.map((b) {
+                        final missed = _isMissed(b);
+                        final d = DateTime.fromMillisecondsSinceEpoch(b.createdAt);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 9),
+                          child: CardBox(child: Row(children: [
+                            Icon(missed ? Icons.timer_off : Icons.block, color: missed ? PColors.red : PColors.amber),
+                            const SizedBox(width: 10),
+                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(b.serviceName, style: const TextStyle(fontWeight: FontWeight.w800)),
+                              Text('${b.id} · ${b.phone}', style: const TextStyle(fontSize: 11, color: Colors.black45)),
+                              Text('${d.day.toString().padLeft(2,'0')}/${d.month.toString().padLeft(2,'0')}/${d.year} · ${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}', style: const TextStyle(fontSize: 11, color: Colors.black45)),
+                            ])),
+                            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                              StatusChip(status: missed ? 'missed' : 'rejected'),
+                              Text(rupees(b.amount), style: const TextStyle(fontWeight: FontWeight.w900)),
+                            ]),
+                          ])),
+                        );
+                      }),
+                  ]),
+      ),
+    );
+  }
+
+  Widget _missedStat(String label, String value) => CardBox(
+    child: Column(children: [
+      Text(label, style: const TextStyle(fontSize: 10, color: Colors.black45)),
+      const SizedBox(height: 4),
+      Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: PColors.red)),
+    ]),
+  );
+}
 
 class WalletTab extends StatefulWidget {
   const WalletTab({super.key});
