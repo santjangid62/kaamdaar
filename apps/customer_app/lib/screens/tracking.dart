@@ -71,6 +71,7 @@ class _TrackScreenState extends State<TrackScreen> {
       final b = await Api.booking(user.id, widget.bookingId);
       if (!mounted) return;
       final previousStatus = _booking?.status;
+      final previouslyFailed = _booking?.dispatchFailedAt != null;
       setState(() {
         _booking = b;
         _error = b == null ? 'Booking not found.' : null;
@@ -78,7 +79,8 @@ class _TrackScreenState extends State<TrackScreen> {
           _startedAt = DateTime.fromMillisecondsSinceEpoch(b!.startedAt!);
         }
       });
-      if (previousStatus != null && previousStatus != b?.status && mounted) {
+      if (mounted && ((previousStatus != null && previousStatus != b?.status) ||
+          (!previouslyFailed && b?.dispatchFailedAt != null))) {
         final message = b?.dispatchFailedAt != null
             ? 'Maaf kijiye, 5 minute mein koi professional booking accept nahi kar saka.'
             : b?.status == 'accepted'
