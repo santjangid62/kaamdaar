@@ -176,6 +176,8 @@ export interface Booking {
   missedProviderIds?: string[];
   /** Provider IDs that explicitly rejected the offer. */
   rejectedProviderIds?: string[];
+  /** Per-provider outcome timestamps used for accurate daily/weekly missed metrics. */
+  providerOfferHistory?: Array<{ providerId: string; outcome: "missed" | "rejected"; at: number }>;
   /** Set when no provider accepts within five minutes. */
   dispatchFailedAt?: number;
   dispatchFailedMessage?: string;
