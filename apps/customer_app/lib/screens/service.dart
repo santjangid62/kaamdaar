@@ -1,6 +1,9 @@
 /// Service detail (Overview / Pricing / FAQ tabs) → booking review → dispatch.
 library;
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 
 import '../core/api.dart';
@@ -297,6 +300,37 @@ class _BookingScreenState extends State<BookingScreen> {
   SessionUser? _user;
   final _notes = TextEditingController();
   String _slot = 'ASAP';
+  DateTime _scheduledDate = DateTime.now().add(const Duration(days: 1));
+
+  String _hourLabel(int hour) {
+    final h = hour % 12 == 0 ? 12 : hour % 12;
+    return '$h:00 ${hour < 12 ? 'AM' : 'PM'}';
+  }
+
+  List<String> get _scheduledSlots {
+    final now = DateTime.now();
+    const starts = [9, 11, 13, 15, 17, 19];
+    return starts.where((hour) {
+      final start = DateTime(_scheduledDate.year, _scheduledDate.month, _scheduledDate.day, hour);
+      return start.isAfter(now.add(const Duration(minutes: 30)));
+    }).map((hour) => '${_hourLabel(hour)} - ${_hourLabel(hour + 2)}').toList();
+  }
+
+  Future<void> _chooseScheduledDate() async {
+    final today = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _scheduledDate.isAfter(today) ? _scheduledDate : today.add(const Duration(days: 1)),
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 30)),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _scheduledDate = DateTime(picked.year, picked.month, picked.day);
+      final slots = _scheduledSlots;
+      if (!slots.contains(_slot)) _slot = slots.isEmpty ? 'ASAP' : slots.first;
+    });
+  }
   bool _loading = true;
   bool _busy = false;
   String? _error;
@@ -393,7 +427,7 @@ class _BookingScreenState extends State<BookingScreen> {
         'providerName': '',
         'address': addr.toJson(),
         'mode': _slot == 'ASAP' ? 'instant' : 'scheduled',
-        'date': DateTime.now().toIso8601String().split('T').first,
+        'date': (_slot == 'ASAP' ? DateTime.now() : _scheduledDate).toIso8601String().split('T').first,
         'slot': _slot,
         'amount': _totalAmount,
         'selectedSubServiceIds': _selectedSubServiceIds.toList(),
@@ -466,12 +500,29 @@ class _BookingScreenState extends State<BookingScreen> {
         ),
       );
       final parts = ctrl.text.split(',').map((e) => e.trim()).toList();
+      var city = '';
+      var pincode = '';
+      var area = '';
+      try {
+        final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
+          'format': 'jsonv2', 'lat': '${position.latitude}', 'lon': '${position.longitude}',
+          'zoom': '18', 'addressdetails': '1',
+        });
+        final response = await http.get(uri, headers: {'User-Agent': 'Kaamdaar/1.0 (address lookup)'});
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final address = (data['address'] as Map?)?.cast<String, dynamic>() ?? {};
+          city = (address['city'] ?? address['town'] ?? address['village'] ?? address['state_district'] ?? '').toString();
+          pincode = (address['postcode'] ?? '').toString();
+          area = (address['suburb'] ?? address['neighbourhood'] ?? address['quarter'] ?? '').toString();
+        }
+      } catch (_) {}
       await Api.addAddress(user.id, {
         'label': 'Home',
         'line1': parts.first,
-        if (parts.length > 1) 'line2': parts.sublist(1).join(', '),
-        'city': 'Jaipur',
-        'pincode': '302017',
+        if (parts.length > 1 || area.isNotEmpty) 'line2': [if (parts.length > 1) parts.sublist(1).join(', '), if (area.isNotEmpty) area].join(', '),
+        'city': city.isEmpty ? 'Jaipur' : city,
+        'pincode': pincode,
         'lat': position.latitude,
         'lng': position.longitude,
       });
@@ -553,17 +604,40 @@ class _BookingScreenState extends State<BookingScreen> {
                 const Text('Date & Time',
                     style: TextStyle(fontWeight: FontWeight.w800, color: KColors.navy)),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: ['ASAP', '10:00 AM - 12:00 PM', '02:00 PM - 04:00 PM', '05:00 PM - 07:00 PM']
-                      .map((t) => ChoiceChip(
-                            label: Text(t),
-                            selected: _slot == t,
-                            selectedColor: KColors.flame.withOpacity(.2),
-                            onSelected: (_) => setState(() => _slot = t),
-                          ))
-                      .toList(),
-                ),
+                Wrap(spacing: 8, children: [
+                  ChoiceChip(
+                    label: const Text('Book Now'),
+                    selected: _slot == 'ASAP',
+                    selectedColor: KColors.flame.withOpacity(.2),
+                    onSelected: (_) => setState(() => _slot = 'ASAP'),
+                  ),
+                  ChoiceChip(
+                    label: const Text('Schedule'),
+                    selected: _slot != 'ASAP',
+                    selectedColor: KColors.flame.withOpacity(.2),
+                    onSelected: (_) => setState(() {
+                      final slots = _scheduledSlots;
+                      _slot = slots.isEmpty ? 'ASAP' : slots.first;
+                    }),
+                  ),
+                ]),
+                if (_slot != 'ASAP') ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: _chooseScheduledDate,
+                    icon: const Icon(Icons.calendar_month),
+                    label: Text('Date: ${_scheduledDate.day.toString().padLeft(2, '0')}/${_scheduledDate.month.toString().padLeft(2, '0')}/${_scheduledDate.year}'),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_scheduledSlots.isEmpty)
+                    const Text('Is date par koi future slot available nahi hai. Dusri date select karein.', style: TextStyle(color: KColors.red, fontSize: 12))
+                  else
+                    Wrap(spacing: 8, runSpacing: 8, children: _scheduledSlots.map((t) => ChoiceChip(
+                      label: Text(t), selected: _slot == t,
+                      selectedColor: KColors.flame.withOpacity(.2),
+                      onSelected: (_) => setState(() => _slot = t),
+                    )).toList()),
+                ],
                 const SizedBox(height: 16),
                 Row(
                   children: [
