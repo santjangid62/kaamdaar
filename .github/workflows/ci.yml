@@ -87,8 +87,9 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PY'
+          import os
           from pathlib import Path
-          path = Path("$FLUTTER_ROOT/packages/flutter_tools/gradle/settings.gradle.kts")
+          path = Path(os.environ["FLUTTER_ROOT"]) / "packages/flutter_tools/gradle/settings.gradle.kts"
           content = path.read_text()
           start = content.find("pluginManagement")
           if start < 0:
