@@ -20,6 +20,7 @@ export function normalizeIndianPhone(value: string): string {
 /**
  * QA-only signed bearer token. This is deliberately separate from Firebase
  * tokens and is accepted only while the server QA switch and secret exist.
+ * Vercel config scopes that switch and secret to the named Preview branch.
  */
 export function createQaMobileToken(phone: string, role: "customer" | "provider"): string {
   const secret = process.env.QA_MOBILE_AUTH_SECRET;
