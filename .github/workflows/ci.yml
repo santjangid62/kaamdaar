@@ -80,6 +80,25 @@ jobs:
         with:
           channel: stable
           cache: true
+      # Flutter's included Gradle build resolves Kotlin DSL artifacts through
+      # its own settings file. Add Maven Central there as a fallback because
+      # the Plugin Portal can return metadata without the Kotlin BOM artifacts.
+      - name: Ensure Maven Central is available to Flutter's Gradle plugin build
+        shell: bash
+        run: |
+          SETTINGS="$FLUTTER_ROOT/packages/flutter_tools/gradle/settings.gradle.kts"
+          if ! grep -q 'mavenCentral()' "$SETTINGS"; then
+            python3 - "$SETTINGS" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          content = path.read_text()
+          content = content.replace("repositories {", "repositories {\\n        mavenCentral()", 1)
+          path.write_text(content)
+          PY
+          fi
+          echo "Flutter Gradle plugin repositories:"
+          sed -n '/repositories {/,/}/p' "$SETTINGS"
       - name: Install packages
         working-directory: apps/${{ matrix.app }}
         run: flutter pub get
@@ -92,10 +111,20 @@ jobs:
           flutter build apk --debug
           --dart-define=API_BASE=https://kaamdaar-seven.vercel.app
           --dart-define=FIREBASE_PHONE_AUTH_TESTING=true
-      - name: Upload QA APK
+      - name: Export QA APK signing fingerprints
+        working-directory: apps/${{ matrix.app }}/android
+        shell: bash
+        run: |
+          ./gradlew :app:signingReport | tee signing-report.txt
+          awk '/Variant: debug/{show=1} show && /SHA1:|SHA-1:/{print; show=0}' signing-report.txt > ../firebase-debug-sha1.txt
+          echo "Debug signing SHA-1 for Firebase Android app registration:"
+          cat ../firebase-debug-sha1.txt
+      - name: Upload QA APK and Firebase signing fingerprint
         uses: actions/upload-artifact@v4
         with:
           name: kaamdaar-${{ matrix.app }}-qa-apk
-          path: apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-debug.apk
+          path: |
+            apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-debug.apk
+            apps/${{ matrix.app }}/firebase-debug-sha1.txt
           if-no-files-found: error
           retention-days: 14
