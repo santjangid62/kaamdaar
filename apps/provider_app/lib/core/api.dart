@@ -31,12 +31,27 @@ class Api {
     defaultValue: false,
   );
 
+  static const bool _qaMobileAuthEnabled = bool.fromEnvironment(
+    'QA_MOBILE_AUTH',
+    defaultValue: false,
+  );
+  static String? _qaBearerToken;
+
   static const String baseUrl = String.fromEnvironment(
     'API_BASE',
     defaultValue: 'https://kaamdaar-seven.vercel.app',
   );
 
   static Future<Map<String, String>> _headers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final qaToken = _qaBearerToken ?? prefs.getString('kaamdaar.qa.mobile.token');
+    if (_qaMobileAuthEnabled && qaToken != null && qaToken.isNotEmpty) {
+      _qaBearerToken = qaToken;
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $qaToken',
+      };
+    }
     final firebaseToken = await FirebaseAuth.instance.currentUser?.getIdToken();
     return {
       'Content-Type': 'application/json',
@@ -96,9 +111,13 @@ class Api {
   static String? _phoneVerificationId;
 
   static Future<String> sendOtp(String phone) async {
+    _phoneVerificationId = null;
+    if (_qaMobileAuthEnabled && kDebugMode) {
+      await FirebaseAuth.instance.signOut();
+      return '123456';
+    }
     final auth = FirebaseAuth.instance;
     await auth.signOut();
-    _phoneVerificationId = null;
     if (kDebugMode && _firebasePhoneAuthTesting) {
       await auth.setSettings(appVerificationDisabledForTesting: true);
     }
@@ -139,6 +158,26 @@ class Api {
   }
 
   static Future<SessionUser> verifyOtp(String phone, String code) async {
+    if (_qaMobileAuthEnabled && kDebugMode) {
+      final data = await post('/api/auth', {
+        'action': 'qa_verify', 'phone': e164(phone), 'otp': code.trim(),
+        'role': 'provider', 'platform': 'mobile_app',
+      });
+      final token = (data['sessionToken'] ?? '').toString();
+      if (token.isEmpty) throw ApiException('QA session token was not returned.');
+      _qaBearerToken = token;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('kaamdaar.qa.mobile.token', token);
+      final provider = data['provider'];
+      if (provider is! Map<String, dynamic>) throw ApiException('Provider profile was not returned');
+      final user = SessionUser(
+        id: (provider['id'] ?? '').toString(),
+        phone: (provider['phone'] ?? e164(phone)).toString(),
+        firstName: (provider['name'] ?? '').toString(),
+      );
+      await saveSession(user);
+      return user;
+    }
     final auth = FirebaseAuth.instance;
     final current = auth.currentUser;
     if (current == null || e164(current.phoneNumber ?? '') != e164(phone)) {
@@ -189,6 +228,8 @@ class Api {
     cached = null;
     final p = await SharedPreferences.getInstance();
     await p.remove(_kSession);
+    await p.remove('kaamdaar.qa.mobile.token');
+    _qaBearerToken = null;
   }
 
   static Future<bool> get onboarded async {
@@ -210,8 +251,8 @@ class Api {
     final firebaseUser = FirebaseAuth.instance.currentUser;
     final rawFirebasePhone = firebaseUser?.phoneNumber ?? '';
     final firebasePhone = rawFirebasePhone.isEmpty ? '' : e164(rawFirebasePhone);
-    final idToken = await firebaseUser?.getIdToken(true);
-    if (idToken != null && firebasePhone != e164(session.phone)) {
+    final idToken = _qaMobileAuthEnabled ? null : await firebaseUser?.getIdToken(true);
+    if (!_qaMobileAuthEnabled && idToken != null && firebasePhone != e164(session.phone)) {
       throw ApiException('Provider account does not match the verified phone number.');
     }
     await post('/api/providers/device-token', {
