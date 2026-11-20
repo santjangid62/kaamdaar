@@ -134,6 +134,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       return NextResponse.json({ error: "Provider identity mismatch" }, { status: 403 });
     }
     if (changes.status === "accepted") {
+      const offerExpiresAt = booking.offerExpiresAt ??
+        ((booking.dispatchedAt ?? booking.createdAt) + 40_000);
+      if (booking.status !== "dispatched" ||
+          !(booking.notifiedIds ?? []).includes(authenticatedProviderId) ||
+          Date.now() >= offerExpiresAt) {
+        return NextResponse.json({ error: "This provider offer is no longer active or has expired" }, { status: 409 });
+      }
       changes.providerId = authenticatedProviderId;
     } else if (booking.providerId !== authenticatedProviderId && !body.patch?.withdrawNotify) {
       return NextResponse.json({ error: "Only the assigned provider can update this job" }, { status: 403 });
@@ -223,9 +230,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     }
     withdraw = authenticatedProviderId;
   }
-  if (typeof withdraw === "string" && withdraw &&
-      booking.status === "dispatched" && booking.offerExpiresAt && Date.now() >= booking.offerExpiresAt) {
-    return NextResponse.json({ error: "This 40-second offer has expired and is now being marked as missed" }, { status: 409 });
+  if (typeof withdraw === "string" && withdraw) {
+    const offerExpiresAt = booking.offerExpiresAt ??
+      ((booking.dispatchedAt ?? booking.createdAt) + 40_000);
+    if (booking.status !== "dispatched" ||
+        !(booking.notifiedIds ?? []).includes(withdraw) ||
+        Date.now() >= offerExpiresAt) {
+      return NextResponse.json({ error: "This provider offer is no longer active or has expired" }, { status: 409 });
+    }
   }
   if (typeof withdraw === "string" && withdraw) {
     changes.notifiedIds = (booking.notifiedIds ?? []).filter((pid) => pid !== withdraw);
