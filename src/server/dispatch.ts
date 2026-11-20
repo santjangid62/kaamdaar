@@ -92,7 +92,9 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
       notifiedIds: [],
       missedProviderIds: missed,
       providerOfferHistory: offerHistory,
+      dispatchQueueIds: queue,
       dispatchCursor: cursor,
+      dispatchRadiusKm: match.radiusKm,
       offerExpiresAt: Math.min(deadline, now + RETRY_POLL_MS),
       events: events.length ? appendEvents(baseEvents, events) : baseEvents,
     });
@@ -104,10 +106,11 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
     notifiedIds: [next.id],
     missedProviderIds: missed,
     providerOfferHistory: offerHistory,
+    dispatchQueueIds: queue,
     dispatchCursor: cursor,
     dispatchedAt: now,
     offerExpiresAt: expiresAt,
-    dispatchRadiusKm: booking.dispatchRadiusKm ?? 5,
+    dispatchRadiusKm: match.radiusKm,
     events: appendEvents(baseEvents, [
       ...events,
       newEvent("system", "provider_notified", `${next.name} notified; response window 40 seconds`),
