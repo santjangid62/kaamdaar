@@ -93,21 +93,24 @@ export default function ProviderPortalPage() {
   const earnings = completed.filter(b => b.paymentStatus === "verified" || b.paidAt).reduce((sum, b) => sum + (b.amount || 0) - (b.commission || 0), 0);
   const reviews = provider?.reviews || [];
   const missedRecords = useMemo(() => bookings
-    .filter((b) => (b.missedProviderIds ?? []).includes(provider?.id || "") ||
-      (b.rejectedProviderIds ?? []).includes(provider?.id || ""))
-    .map((booking) => ({
-      booking,
-      outcome: (booking.missedProviderIds ?? []).includes(provider?.id || "") ? "missed" : "rejected",
-    })), [bookings, provider]);
+    .map((booking) => {
+      const history = (booking.providerOfferHistory ?? []).find((row) => row.providerId === (provider?.id || ""));
+      const outcome = history?.outcome ??
+        ((booking.missedProviderIds ?? []).includes(provider?.id || "") ? "missed" :
+          (booking.rejectedProviderIds ?? []).includes(provider?.id || "") ? "rejected" : null);
+      return outcome ? { booking, outcome, at: history?.at ?? booking.createdAt } : null;
+    })
+    .filter((row): row is { booking: Booking; outcome: "missed" | "rejected"; at: number } => row !== null),
+    [bookings, provider]);
   const missedToday = missedRecords.filter((r) => r.outcome === "missed" &&
-    new Date(r.booking.createdAt).toDateString() === new Date().toDateString()).length;
+    new Date(r.at).toDateString() === new Date().toDateString()).length;
   const missedWeek = missedRecords.filter((r) => r.outcome === "missed" &&
-    r.booking.createdAt >= Date.now() - 7 * 24 * 60 * 60 * 1000).length;
+    r.at >= Date.now() - 7 * 24 * 60 * 60 * 1000).length;
   const missedMonth = missedRecords.filter((r) => r.outcome === "missed" &&
-    r.booking.createdAt >= Date.now() - 30 * 24 * 60 * 60 * 1000).length;
+    r.at >= Date.now() - 30 * 24 * 60 * 60 * 1000).length;
   const rejectedToday = missedRecords.filter((r) => r.outcome === "rejected" &&
-    new Date(r.booking.createdAt).toDateString() === new Date().toDateString()).length;
-  const filteredMissedRecords = missedRecords.filter(({ booking, outcome }) => {
+    new Date(r.at).toDateString() === new Date().toDateString()).length;
+  const filteredMissedRecords = missedRecords.filter(({ booking, outcome, at }) => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
     const from = missedPeriod === "today" ? today.getTime()
@@ -115,7 +118,7 @@ export default function ProviderPortalPage() {
       : missedPeriod === "7days" ? Date.now() - 7 * 86400000
       : missedPeriod === "30days" ? Date.now() - 30 * 86400000 : 0;
     const before = missedPeriod === "yesterday" ? today.getTime() : Number.POSITIVE_INFINITY;
-    const periodOk = booking.createdAt >= from && booking.createdAt < before;
+    const periodOk = at >= from && at < before;
     const outcomeOk = missedOutcome === "all" || outcome === missedOutcome;
     const serviceOk = missedService === "all" || booking.serviceName === missedService;
     const q = missedSearch.trim().toLowerCase();
@@ -318,7 +321,7 @@ export default function ProviderPortalPage() {
             </div>
             <div className="mt-4 space-y-3">
               {filteredMissedRecords.map(({booking,outcome})=><article key={booking.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
-                <div className="min-w-0"><p className="font-bold">{booking.serviceName}</p><p className="mt-1 text-xs text-slate-500">{booking.id} · {date(booking.createdAt)}</p><p className="mt-1 text-xs text-slate-500">{booking.address?.label || booking.address?.line1 || "Jaipur"} · {booking.phone || "Customer"}</p></div>
+                <div className="min-w-0"><p className="font-bold">{booking.serviceName}</p><p className="mt-1 text-xs text-slate-500">{booking.id} · {date(at)}</p><p className="mt-1 text-xs text-slate-500">{booking.address?.label || booking.address?.line1 || "Jaipur"} · {booking.phone || "Customer"}</p></div>
                 <div className="text-right"><span className={`rounded-full px-3 py-1 text-xs font-bold ${outcome==="missed"?"bg-red-50 text-red-700":"bg-amber-50 text-amber-700"}`}>{outcome==="missed"?"Missed · 40 sec timeout":"Rejected"}</span><p className="mt-2 font-black">{money(booking.amount)}</p></div>
               </article>)}
               {filteredMissedRecords.length===0 && <p className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">Selected filters ke liye koi missed booking nahi mili.</p>}
