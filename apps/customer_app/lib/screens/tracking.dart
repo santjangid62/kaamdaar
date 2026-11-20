@@ -437,6 +437,7 @@ class _TrackScreenState extends State<TrackScreen> {
         SizedBox(height: 250, child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: FlutterMap(
+            key: ValueKey('provider-live-${b.liveLat}-${b.liveLng}'),
             options: MapOptions(initialCenter: center, initialZoom: 14),
             children: [
               TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.kaamdaar.kaamdaar_customer'),
