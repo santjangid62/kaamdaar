@@ -94,6 +94,7 @@ function ProvidersFlow() {
   const [matchLoading, setMatchLoading] = useState(true);
   const [dispatchRadiusKm, setDispatchRadiusKm] = useState<number>(WIDE_RING_KM);
   const [dispatchProgress, setDispatchProgress] = useState({ ringKm: 0, totalNotified: 0, currentNotified: 0, deadlineAt: 0 });
+  const [now, setNow] = useState(() => Date.now());
   const [accepted, setAccepted] = useState<NearbyProvider | null>(null);
   const [selectedSubServiceIds, setSelectedSubServiceIds] = useState<string[]>([]);
 
@@ -101,6 +102,12 @@ function ProvidersFlow() {
     () => (location ? { lat: location.lat, lng: location.lng } : null),
     [location],
   );
+
+  useEffect(() => {
+    if (phase !== "searching") return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [phase]);
 
   // Who gets this request is a backend decision: everyone serving it inside
   // the 3 km ring, widened to 5 km when that ring is empty, ranked by
