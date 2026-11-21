@@ -530,6 +530,40 @@ export async function claimDeviceSession<T extends Record<string, unknown>>(
   return result;
 }
 
+/** Consume a short-lived pairing code exactly once. */
+export async function consumeDevicePairingCode<T = Doc>(hash: string, now: number): Promise<T | null> {
+  if (MONGODB_URI) {
+    const collection = (await mongoDb()).collection<Document>("deviceSessions");
+    const consumed = await collection.findOneAndUpdate(
+      { pairingCodeHash: hash, pairingExpiresAt: { $gt: now }, expiresAt: { $gt: now }, revokedAt: null },
+      { $unset: { pairingCodeHash: "", pairingExpiresAt: "" }, $set: { lastSeenAt: now, updatedAt: now } },
+      { returnDocument: "after", includeResultMetadata: false },
+    );
+    return stripId<T>(consumed);
+  }
+  let result: T | null = null;
+  const run = async () => {
+    const store = await readStore();
+    const rows = store.deviceSessions ?? {};
+    const entry = Object.entries(rows).find(([, value]) =>
+      value.pairingCodeHash === hash && Number(value.pairingExpiresAt) > now &&
+      Number(value.expiresAt) > now && !value.revokedAt,
+    );
+    if (!entry) return;
+    const [id, current] = entry;
+    const next = { ...current, lastSeenAt: now, updatedAt: now } as Doc;
+    delete next.pairingCodeHash;
+    delete next.pairingExpiresAt;
+    rows[id] = next;
+    store.deviceSessions = rows;
+    await writeStore(store);
+    result = next as T;
+  };
+  queue = queue.then(run, run);
+  await queue;
+  return result;
+}
+
 /** Insert-or-update by explicit id (used by upserts such as settings). */
 export async function upsert<T extends Record<string, unknown>>(
   col: Collection,
