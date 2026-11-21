@@ -164,6 +164,10 @@ export interface Booking {
   notifiedIds?: string[];
   /** Radius this request was offered in — 3 km first, 5 km after widening. */
   dispatchRadiusKm?: number;
+  /** Current progressive search ring, from 1 through 5 km. */
+  dispatchRingKm?: number;
+  /** Cumulative number of providers notified across all rings. */
+  dispatchNotifiedTotal?: number;
   dispatchedAt?: number;
   /** Hard expiry for the current provider's 40-second dispatch offer. */
   offerExpiresAt?: number;
