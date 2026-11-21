@@ -61,26 +61,17 @@ export async function sendProviderJobOffer(
   if (secondsLeft <= 0) return;
 
   const message = {
-    notification: {
-      title: "New Kaamdaar job request",
-      body: `${booking.serviceName || booking.serviceId} • Accept within 40 seconds`,
-    },
     data: {
       type: "job_offer",
       bookingId: booking.id,
       expiresAt: String(booking.offerExpiresAt),
+      title: "New Kaamdaar job request",
+      body: `${booking.serviceName || booking.serviceId} • Accept within 40 seconds`,
     },
     android: {
       priority: "HIGH",
       ttl: `${secondsLeft}s`,
-      notification: { sound: "default", channel_id: "kaamdaar_job_alerts" },
-    },
-    apns: {
-      headers: {
-        "apns-priority": "10",
-        "apns-expiration": String(Math.floor(booking.offerExpiresAt / 1000)),
-      },
-      payload: { aps: { sound: "default" } },
+      collapseKey: `kaamdaar_job_${booking.id}`,
     },
   };
 
@@ -101,6 +92,45 @@ export async function sendProviderJobOffer(
       // Invalid tokens are left for the next cleanup pass; a push failure
       // must never prevent a customer booking from being created.
       console.error("[fcm] provider push failed", response.status, detail.slice(0, 500));
+    }
+  }));
+}
+
+
+/** Remove a previously displayed local job offer from the other Provider devices. */
+export async function cancelProviderJobOffer(
+  tokens: string[],
+  bookingId: string,
+): Promise<void> {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!raw || tokens.length === 0) return;
+  const account = JSON.parse(raw) as ServiceAccount;
+  const projectId = process.env.FIREBASE_PROJECT_ID || account.project_id;
+  if (!account.client_email || !account.private_key || !projectId) {
+    throw new Error("Firebase service account is missing required fields");
+  }
+  const bearer = await accessToken(account);
+  await Promise.all(tokens.map(async (token) => {
+    const response = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${bearer}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          message: {
+            token,
+            data: { type: "job_offer_cancelled", bookingId },
+            android: { priority: "HIGH", ttl: "60s" },
+          },
+        }),
+      },
+    );
+    if (!response.ok) {
+      const detail = await response.text();
+      console.error("[fcm] provider offer cancellation failed", response.status, detail.slice(0, 500));
     }
   }));
 }
