@@ -9,6 +9,7 @@ import type { Provider, User } from "../../../lib/types";
 import { createUserRegisteredNotification } from "../../../server/notifications";
 import { createQaMobileToken, normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/firebase-auth";
 import { recordAudit } from "../../../server/audit";
+import { claimDeviceSession, type DeviceLocation, type DeviceRole } from "../../../server/device-session";
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
@@ -25,6 +26,9 @@ export async function POST(req: Request) {
     role?: string;
     platform?: "web" | "mobile_app";
     otp?: string;
+    deviceId?: string;
+    deviceName?: string;
+    deviceLocation?: { label?: string; latitude?: number; longitude?: number };
   };
   try {
     body = (await req.json()) as typeof body;
@@ -34,6 +38,7 @@ export async function POST(req: Request) {
 
   let phone = normalizeIndianPhone(body.phone ?? "");
   let qaSessionToken: string | undefined;
+  let verifiedUid = "";
 
   if (body.action === "qa_verify") {
     // Explicit preview-only QA path. Production remains Firebase-only because
@@ -58,12 +63,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid QA phone number or test OTP" }, { status: 401 });
     }
     qaSessionToken = createQaMobileToken(phone, body.role);
+    verifiedUid = `qa:${body.role}:${phone}`;
   } else if (body.action === "verify") {
     if (!body.idToken) {
       return NextResponse.json({ error: "A valid Firebase verification token is required" }, { status: 401 });
     }
     try {
       const identity = await verifyFirebasePhoneToken(body.idToken);
+      verifiedUid = identity.uid;
       if (phone && phone !== identity.phone) {
         return NextResponse.json({ error: "Verified mobile number does not match" }, { status: 401 });
       }
@@ -92,6 +99,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "A valid Indian mobile number is required" }, { status: 400 });
   }
 
+  const issueDeviceSession = async (role: DeviceRole) => {
+    if (body.platform !== "mobile_app" || !body.deviceId || !body.deviceName) return null;
+    const location: DeviceLocation | undefined =
+      Number.isFinite(body.deviceLocation?.latitude) &&
+      Number.isFinite(body.deviceLocation?.longitude)
+        ? {
+            label: body.deviceLocation?.label?.slice(0, 180),
+            latitude: body.deviceLocation?.latitude,
+            longitude: body.deviceLocation?.longitude,
+            updatedAt: Date.now(),
+          }
+        : undefined;
+    const result = await claimDeviceSession({
+      role,
+      phone,
+      uid: verifiedUid || `legacy:${role}:${phone}`,
+      deviceId: body.deviceId,
+      deviceName: body.deviceName,
+      location,
+    });
+    if ("conflict" in result) {
+      return NextResponse.json(result.conflict, { status: 409 });
+    }
+    return { sessionToken: result.token, deviceSession: result.session };
+  };
+
   if (body.role === "provider") {
     const found = await find<Provider & { id: string; phone?: string; status?: string }>(
       "providers",
@@ -110,7 +143,12 @@ export async function POST(req: Request) {
     try {
       await recordAudit({ actor: provider.name || "provider", action: "login", module: "Authentication", title: "Provider login successful", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
     } catch (error) { console.error("[audit] provider login log could not be saved", error); }
-    return NextResponse.json({ provider, ...(qaSessionToken ? { sessionToken: qaSessionToken } : {}) });
+    const deviceSession = await issueDeviceSession("provider");
+    if (deviceSession instanceof NextResponse) return deviceSession;
+    return NextResponse.json({
+      provider,
+      ...(deviceSession ?? (qaSessionToken ? { sessionToken: qaSessionToken } : {})),
+    });
   }
 
   const existing = await find<User & { id: string; status?: string }>(
@@ -131,7 +169,13 @@ export async function POST(req: Request) {
     try {
       await recordAudit({ actor: "customer", action: "login", module: "Authentication", title: "Customer login successful", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
     } catch (error) { console.error("[audit] customer login log could not be saved", error); }
-    return NextResponse.json({ user: existing[0], isNew: false, ...(qaSessionToken ? { sessionToken: qaSessionToken } : {}) });
+    const deviceSession = await issueDeviceSession("customer");
+    if (deviceSession instanceof NextResponse) return deviceSession;
+    return NextResponse.json({
+      user: existing[0],
+      isNew: false,
+      ...(deviceSession ?? (qaSessionToken ? { sessionToken: qaSessionToken } : {})),
+    });
   }
 
   const user = await insert<User & Record<string, unknown>>("users", {
@@ -150,5 +194,11 @@ export async function POST(req: Request) {
   try {
     await recordAudit({ actor: "customer", action: "login", module: "Authentication", title: "New customer verified phone login", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
   } catch (error) { console.error("[audit] customer login log could not be saved", error); }
-  return NextResponse.json({ user, isNew: true, ...(qaSessionToken ? { sessionToken: qaSessionToken } : {}) });
+  const deviceSession = await issueDeviceSession("customer");
+  if (deviceSession instanceof NextResponse) return deviceSession;
+  return NextResponse.json({
+    user,
+    isNew: true,
+    ...(deviceSession ?? (qaSessionToken ? { sessionToken: qaSessionToken } : {})),
+  });
 }
