@@ -38,6 +38,7 @@ export type Collection =
   | "walletTxns"
   | "providerPayments"
   | "loginOtps"
+  | "deviceSessions"
   | "adminUsers"
   | "auditLogs"
   | "settings";
@@ -45,7 +46,7 @@ export type Collection =
 export const COLLECTIONS: Collection[] = [
   "users", "addresses", "bookings", "providers", "services", "categories", "subcategories",
   "reviews", "complaints", "banners", "faqs", "pages", "campaigns", "notifications",
-  "payouts", "wallets", "walletTxns", "providerPayments", "loginOtps", "adminUsers", "auditLogs", "settings",
+  "payouts", "wallets", "walletTxns", "providerPayments", "loginOtps", "deviceSessions", "adminUsers", "auditLogs", "settings",
 ];
 
 export type Store = Partial<Record<Collection, Record<string, Doc>>> & { seeded?: boolean };
@@ -475,6 +476,58 @@ export async function claimDispatchAdvance(
   queue = queue.then(run, run);
   await queue;
   return claimed;
+}
+
+/**
+ * Atomically claim the single active device slot for one account+role.
+ * Mongo's unique _id arbitrates concurrent first logins; the file engine
+ * serializes the read/compare/write for local development.
+ */
+export async function claimDeviceSession<T extends Record<string, unknown>>(
+  id: string,
+  doc: T & { deviceId: string },
+): Promise<{ claimed: boolean; session: (T & { id: string }) | null }> {
+  if (MONGODB_URI) {
+    const collection = (await mongoDb()).collection<Document>("deviceSessions");
+    const now = Date.now();
+    const record = { ...doc, _id: id, id, createdAt: now, updatedAt: now };
+    try {
+      await collection.insertOne(record);
+      return { claimed: true, session: stripId<T & { id: string }>(record) };
+    } catch (error) {
+      if ((error as { code?: number }).code !== 11000) throw error;
+      const current = await collection.findOne({ _id: id });
+      if (!current) throw error;
+      if (current.deviceId !== doc.deviceId) {
+        return { claimed: false, session: stripId<T & { id: string }>(current) };
+      }
+      const updated = await collection.findOneAndUpdate(
+        { _id: id, deviceId: doc.deviceId },
+        { $set: { ...doc, id, updatedAt: now } },
+        { returnDocument: "after", includeResultMetadata: false },
+      );
+      return { claimed: Boolean(updated), session: stripId<T & { id: string }>(updated) };
+    }
+  }
+
+  let result: { claimed: boolean; session: (T & { id: string }) | null } = { claimed: false, session: null };
+  const run = async () => {
+    const store = await readStore();
+    store.deviceSessions ??= {};
+    const current = store.deviceSessions[id] as (Doc & { deviceId?: string }) | undefined;
+    if (current && current.deviceId !== doc.deviceId) {
+      result = { claimed: false, session: current as T & { id: string } };
+      return;
+    }
+    const now = Date.now();
+    const next = { ...(current ?? {}), ...doc, id, createdAt: current?.createdAt ?? now, updatedAt: now } as Doc;
+    store.deviceSessions[id] = next;
+    await writeStore(store);
+    result = { claimed: true, session: next as T & { id: string } };
+  };
+  queue = queue.then(run, run);
+  await queue;
+  return result;
 }
 
 /** Insert-or-update by explicit id (used by upserts such as settings). */
