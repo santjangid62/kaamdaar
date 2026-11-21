@@ -356,7 +356,7 @@ export default function ProviderPortalPage() {
                 </>
               )}
               <button type="button" onClick={() => { setStep("phone"); setPairCode(""); setProvider(null); setError(""); }} className="w-full text-sm font-medium text-slate-500 hover:text-slate-800">
-                Use another mobile number
+                {deviceRequired ? "I have signed in on the app — verify again" : "Use another mobile number"}
               </button>
             </form>
           )}
