@@ -256,10 +256,17 @@ export async function consumeWebPairingCode(
 ): Promise<string | null> {
   if (!/^\d{6}$/.test(code)) return null;
   const id = lockId(role, phone);
+  const current = await get<DeviceSessionRecord>("deviceSessions", id);
+  if (!current || current.status !== "active") return null;
+  const qaPhonePairing = process.env.QA_MOBILE_AUTH_ENABLED === "true" &&
+    current.uid === `qa:${role}:${phone}`;
+  if (current.uid !== uid && !qaPhonePairing) return null;
   const codeHash = createHash("sha256")
     .update(`${role}:${phone}:${code}:${secret()}`)
     .digest("hex");
-  const consumed = await consumeDevicePairingCode(id, uid, codeHash, Date.now());
+  // In Preview, a QA OTP session has a synthetic UID while browser OTP uses
+  // Firebase. The same verified phone is accepted only on that QA branch.
+  const consumed = await consumeDevicePairingCode(id, current.uid, codeHash, Date.now());
   if (!consumed) return null;
   const session = consumed as unknown as DeviceSessionRecord;
   const exp = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
