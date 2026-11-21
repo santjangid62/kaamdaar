@@ -111,14 +111,23 @@ export async function POST(req: Request) {
             updatedAt: Date.now(),
           }
         : undefined;
-    const result = await claimDeviceSession({
-      role,
-      phone,
-      uid: verifiedUid || `legacy:${role}:${phone}`,
-      deviceId: body.deviceId,
-      deviceName: body.deviceName,
-      location,
-    });
+    let result: Awaited<ReturnType<typeof claimDeviceSession>>;
+    try {
+      result = await claimDeviceSession({
+        role,
+        phone,
+        uid: verifiedUid || `legacy:${role}:${phone}`,
+        deviceId: body.deviceId,
+        deviceName: body.deviceName,
+        location,
+      });
+    } catch (error) {
+      console.error("[auth] device session could not be created", error);
+      return NextResponse.json(
+        { error: "Secure device sessions are not configured on this Preview. Configure the branch-scoped QA_MOBILE_AUTH_SECRET before testing." },
+        { status: 503 },
+      );
+    }
     if ("conflict" in result) {
       return NextResponse.json(result.conflict, { status: 409 });
     }
