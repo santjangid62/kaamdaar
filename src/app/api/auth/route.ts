@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       ? process.env.QA_MOBILE_CUSTOMER_PHONE_HASHES || process.env.QA_MOBILE_CUSTOMER_PHONE_HASH
       : body.role === "provider"
         ? process.env.QA_MOBILE_PROVIDER_PHONE_HASHES || process.env.QA_MOBILE_PROVIDER_PHONE_HASH
-        : "")?.split(/[\\s,]+/).filter(Boolean) ?? [];
+        : "")?.split(/[\s,]+/).filter(Boolean) ?? [];
     const otpHash = createHash("sha256").update(body.otp ?? "").digest("hex");
     if (!phone || !expectedPhoneHashes.includes(phoneHash) ||
         otpHash !== process.env.QA_MOBILE_TEST_OTP_SHA256 ||
