@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { firebaseIdentityFromRequest } from "../../../../../server/firebase-auth";
-import { createWebPairingCode } from "../../../../../server/device-session";
+import { firebaseIdentityFromRequest } from "../../../../server/firebase-auth";
+import { createWebPairingCode } from "../../../../server/device-session";
 
 export async function POST(req: Request) {
   const identity = await firebaseIdentityFromRequest(req, { requireDeviceSession: true });
