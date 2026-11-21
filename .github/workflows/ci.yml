@@ -56,6 +56,19 @@ jobs:
           src/server/firebase-auth.ts
           src/server/device-session.ts
           src/app/api/auth/device-session/route.ts
+          src/app/api/auth/device-pair/route.ts
+          src/app/api/auth/device-pair/complete/route.ts
+          src/app/provider/page.tsx
+          src/lib/store.ts
+          src/components/AppProvider.tsx
+          src/app/api/users/resolve/route.ts
+          'src/app/api/users/[id]/route.ts'
+          'src/app/api/users/[id]/addresses/route.ts'
+          'src/app/api/users/[id]/addresses/[addressId]/route.ts'
+          src/app/api/bookings/[id]/customer-location/route.ts
+          src/app/api/reviews/route.ts
+          src/app/api/complaints/route.ts
+          'src/app/api/wallets/[providerId]/route.ts'
           apps/provider_app/lib/core/api.dart
           apps/customer_app/lib/core/api.dart
       - name: Next.js production build
