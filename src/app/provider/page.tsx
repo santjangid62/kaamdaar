@@ -163,6 +163,7 @@ export default function ProviderPortalPage() {
     try {
       if (!isFirebaseConfigured) throw new Error("Firebase web configuration is missing.");
       const auth = getFirebaseAuth();
+      await auth.signOut();
       const verifier = recaptcha || new RecaptchaVerifier(auth, "provider-recaptcha", { size: "invisible" });
       setRecaptcha(verifier);
       const result = await signInWithPhoneNumber(auth, `+91${phone.replace(/\D/g, "").slice(-10)}`, verifier);
