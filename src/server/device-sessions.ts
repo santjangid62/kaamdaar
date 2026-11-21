@@ -1,5 +1,5 @@
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { claimDeviceSession, get, patch } from "./db";
+import { createHmac, createHash, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
+import { claimDeviceSession, consumeDevicePairingCode, get, patch } from "./db";
 
 export type AccountRole = "customer" | "provider";
 export type DeviceSessionRecord = {
@@ -20,6 +20,8 @@ export type DeviceSessionRecord = {
   sessionId: string;
   expiresAt: number;
   revokedAt: number | null;
+  pairingCodeHash?: string;
+  pairingExpiresAt?: number;
 };
 
 export type DeviceConflict = {
@@ -166,4 +168,36 @@ export async function revokeDeviceSession(role: AccountRole, accountId: string):
   const current = await get<DeviceSessionRecord>("deviceSessions", key);
   if (!current) return;
   await patch("deviceSessions", key, { revokedAt: Date.now() });
+}
+
+/** Create a six-digit, three-minute pairing code on the active native session. */
+export async function createDevicePairingCode(role: AccountRole, accountId: string, sessionId: string): Promise<{ code: string; expiresAt: number } | null> {
+  const key = accountKey(role, accountId);
+  const current = await get<DeviceSessionRecord>("deviceSessions", key);
+  if (!current || current.sessionId !== sessionId || current.revokedAt || current.expiresAt <= Date.now()) return null;
+  const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
+  const expiresAt = Date.now() + 3 * 60 * 1000;
+  const hash = createHmac("sha256", secret()).update(`pair:${code}`).digest("hex");
+  await patch("deviceSessions", key, { pairingCodeHash: hash, pairingExpiresAt: expiresAt });
+  return { code, expiresAt };
+}
+
+/** Consume a pairing code once and mint a short-lived browser cookie token. */
+export async function consumeDevicePairingCodeAndCreateWebToken(code: string): Promise<{ token: string; session: DeviceSessionRecord } | null> {
+  if (!/^\\d{6}$/.test(code)) return null;
+  const hash = createHmac("sha256", secret()).update(`pair:${code}`).digest("hex");
+  const session = await consumeDevicePairingCode<DeviceSessionRecord>(hash, Date.now());
+  if (!session || session.revokedAt || session.expiresAt <= Date.now()) return null;
+  const expiresAt = Math.min(session.expiresAt, Date.now() + 12 * 60 * 60 * 1000);
+  const payload = Buffer.from(JSON.stringify({
+    accountKey: session.id,
+    accountId: session.accountId,
+    role: session.role,
+    phone: session.phone,
+    uid: session.uid,
+    sessionId: session.sessionId,
+    exp: Math.floor(expiresAt / 1000),
+  })).toString("base64url");
+  const unsigned = `ks1.${payload}`;
+  return { token: `${unsigned}.${sign(unsigned)}`, session };
 }
