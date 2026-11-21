@@ -92,7 +92,6 @@ function ProvidersFlow() {
     ring: "none",
   });
   const [matchLoading, setMatchLoading] = useState(true);
-  const [dispatchRadiusKm, setDispatchRadiusKm] = useState<number>(WIDE_RING_KM);
   const [dispatchProgress, setDispatchProgress] = useState({ ringKm: 0, totalNotified: 0, currentNotified: 0, deadlineAt: 0 });
   const [now, setNow] = useState(() => Date.now());
   const [accepted, setAccepted] = useState<NearbyProvider | null>(null);
@@ -224,7 +223,6 @@ function ProvidersFlow() {
       if (stopped) return;
       const live = rows.find((b) => b.id === bookingId);
       if (!live) return;
-      if (live.dispatchRadiusKm) setDispatchRadiusKm(live.dispatchRadiusKm);
       setDispatchProgress({ ringKm: live.dispatchRingKm ?? live.dispatchRadiusKm ?? 0, totalNotified: live.dispatchNotifiedTotal ?? live.notifiedIds?.length ?? 0, currentNotified: live.notifiedIds?.length ?? 0, deadlineAt: live.dispatchDeadlineAt ?? (live.createdAt + 5 * 60_000) });
       if (live.dispatchFailedAt) { setPhase("failed"); return; }
       if (live.providerId && live.status !== "dispatched") {
@@ -284,7 +282,6 @@ function ProvidersFlow() {
         etaMinutes: etaMinutes(results[0]?.distanceKm ?? 0),
       } as Omit<Booking, "id">);
       setBookingId(created.id);
-      setDispatchRadiusKm(created.dispatchRingKm ?? created.dispatchRadiusKm ?? 1);
       setDispatchProgress({ ringKm: created.dispatchRingKm ?? created.dispatchRadiusKm ?? 1, totalNotified: created.dispatchNotifiedTotal ?? created.notifiedIds?.length ?? 0, currentNotified: created.notifiedIds?.length ?? 0, deadlineAt: created.dispatchDeadlineAt ?? (created.createdAt + 5 * 60_000) });
       setAccepted(null);
       setFoundIdx(0);
