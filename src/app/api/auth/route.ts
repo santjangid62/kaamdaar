@@ -41,16 +41,18 @@ export async function POST(req: Request) {
     if (process.env.QA_MOBILE_AUTH_ENABLED !== "true" ||
         !process.env.QA_MOBILE_AUTH_SECRET ||
         !process.env.QA_MOBILE_TEST_OTP_SHA256 ||
-        !process.env.QA_MOBILE_CUSTOMER_PHONE_HASH ||
-        !process.env.QA_MOBILE_PROVIDER_PHONE_HASH) {
+        !(process.env.QA_MOBILE_CUSTOMER_PHONE_HASHES || process.env.QA_MOBILE_CUSTOMER_PHONE_HASH) ||
+        !(process.env.QA_MOBILE_PROVIDER_PHONE_HASHES || process.env.QA_MOBILE_PROVIDER_PHONE_HASH)) {
       return NextResponse.json({ error: "QA mobile login is not enabled on this backend" }, { status: 403 });
     }
     const phoneHash = createHash("sha256").update(phone).digest("hex");
-    const expectedPhoneHash = body.role === "customer"
-      ? process.env.QA_MOBILE_CUSTOMER_PHONE_HASH
-      : body.role === "provider" ? process.env.QA_MOBILE_PROVIDER_PHONE_HASH : "";
+    const expectedPhoneHashes = (body.role === "customer"
+      ? process.env.QA_MOBILE_CUSTOMER_PHONE_HASHES || process.env.QA_MOBILE_CUSTOMER_PHONE_HASH
+      : body.role === "provider"
+        ? process.env.QA_MOBILE_PROVIDER_PHONE_HASHES || process.env.QA_MOBILE_PROVIDER_PHONE_HASH
+        : "")?.split(/[\\s,]+/).filter(Boolean) ?? [];
     const otpHash = createHash("sha256").update(body.otp ?? "").digest("hex");
-    if (!phone || phoneHash !== expectedPhoneHash ||
+    if (!phone || !expectedPhoneHashes.includes(phoneHash) ||
         otpHash !== process.env.QA_MOBILE_TEST_OTP_SHA256 ||
         (body.role !== "customer" && body.role !== "provider")) {
       return NextResponse.json({ error: "Invalid QA phone number or test OTP" }, { status: 401 });
