@@ -13,6 +13,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'models.dart';
 
@@ -25,6 +26,7 @@ class ApiException implements Exception {
 }
 
 class Api {
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   // Enabled only for explicitly-built QA debug APKs. Production release builds
   // keep Firebase app verification enabled.
   static const bool _firebasePhoneAuthTesting = bool.fromEnvironment(
@@ -45,7 +47,7 @@ class Api {
 
   static Future<Map<String, String>> _headers() async {
     final prefs = await SharedPreferences.getInstance();
-    final sessionToken = prefs.getString('kaamdaar.device.session.token');
+    final sessionToken = await _secureStorage.read(key: 'kaamdaar.device.session.token');
     if (sessionToken != null && sessionToken.isNotEmpty) {
       return {
         'Content-Type': 'application/json',
@@ -192,7 +194,7 @@ class Api {
       final token = (data['sessionToken'] ?? '').toString();
       if (token.isEmpty) throw ApiException('QA session token was not returned.');
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('kaamdaar.device.session.token', token);
+      await _secureStorage.write(key: 'kaamdaar.device.session.token', value: token);
       final user = SessionUser.fromJson((data['user'] as Map<String, dynamic>?) ?? const {});
       await saveSession(user);
       return (user: user, isNew: data['isNew'] == true);
@@ -214,7 +216,7 @@ class Api {
     final sessionToken = (data['sessionToken'] ?? '').toString();
     if (sessionToken.isEmpty) throw ApiException('Secure device session was not returned.');
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('kaamdaar.device.session.token', sessionToken);
+    await _secureStorage.write(key: 'kaamdaar.device.session.token', value: sessionToken);
     final user = SessionUser.fromJson((data['user'] as Map<String, dynamic>?) ?? const {});
     await saveSession(user);
     _phoneVerificationId = null;
@@ -252,14 +254,14 @@ class Api {
     if (cached != null) return cached;
     final p = await SharedPreferences.getInstance();
     final raw = p.getString(_kSession);
-    final token = p.getString('kaamdaar.device.session.token');
+    final token = await _secureStorage.read(key: 'kaamdaar.device.session.token');
     if (raw == null || token == null || token.isEmpty) return null;
     try {
       await get('/api/auth/session');
     } on ApiException catch (error) {
       if (error.status == 401) {
         await p.remove(_kSession);
-        await p.remove('kaamdaar.device.session.token');
+        await _secureStorage.delete(key: 'kaamdaar.device.session.token');
         return null;
       }
     } catch (_) {
@@ -355,7 +357,8 @@ class Api {
 
   static Future<void> deleteAddress(String userId, String addressId) async {
     final r = await http.delete(Uri.parse(
-        '$baseUrl/api/users/${Uri.encodeComponent(userId)}/addresses/${Uri.encodeComponent(addressId)}'));
+        '$baseUrl/api/users/${Uri.encodeComponent(userId)}/addresses/${Uri.encodeComponent(addressId)}'),
+        headers: await _headers());
     if (r.statusCode >= 400) {
       throw ApiException('Could not remove address', r.statusCode);
     }
