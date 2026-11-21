@@ -115,7 +115,7 @@ export async function firebaseIdentityFromRequest(
   options: { requireDeviceSession?: boolean } = {},
 ): Promise<RequestIdentity | null> {
   const authorization = request.headers.get("authorization") ?? "";
-  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match?.[1]) return null;
   const token = match[1];
   try {
