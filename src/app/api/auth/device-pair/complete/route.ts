@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../../../../server/firebase-auth";
-import { consumeWebPairingCode, type DeviceRole } from "../../../../../../server/device-session";
+import { normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../../../server/firebase-auth";
+import { consumeWebPairingCode, type DeviceRole } from "../../../../../server/device-session";
 
 export async function POST(req: Request) {
   let body: { idToken?: string; code?: string; role?: string };
