@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     otp?: string;
     deviceId?: string;
     deviceName?: string;
-    deviceLocation?: { label?: string; latitude?: number; longitude?: number };
+    deviceLocation?: { label?: string; latitude?: number; longitude?: number; updatedAt?: number };
   };
   try {
     body = (await req.json()) as typeof body;
@@ -108,7 +108,7 @@ export async function POST(req: Request) {
             label: body.deviceLocation?.label?.slice(0, 180),
             latitude: body.deviceLocation?.latitude,
             longitude: body.deviceLocation?.longitude,
-            updatedAt: Date.now(),
+            updatedAt: Number.isFinite(body.deviceLocation?.updatedAt) ? body.deviceLocation!.updatedAt! : Date.now(),
           }
         : undefined;
     let result: Awaited<ReturnType<typeof claimDeviceSession>>;
