@@ -451,7 +451,7 @@ function LoginFlow() {
                   onClick={() => { setStep("phone"); setPairCode(""); setPendingUser(null); setExistingDevice(null); setDeviceRequired(false); setError(null); }}
                   className="w-full pt-2 text-sm font-semibold text-slate-500 hover:text-blue-600"
                 >
-                  Use another mobile number
+                  {deviceRequired ? "I have signed in on the app — verify again" : "Use another mobile number"}
                 </button>
               </form>
             )}
