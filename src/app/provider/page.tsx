@@ -61,11 +61,26 @@ export default function ProviderPortalPage() {
   }, []);
 
   const resolveProvider = useCallback(async () => {
+    // First restore an existing paired browser session. This avoids asking for
+    // a new one-time code on every page refresh.
+    const paired = await fetch("/api/providers/me", { credentials: "same-origin", cache: "no-store" });
+    if (paired.ok) {
+      const pairedData = await paired.json();
+      if (pairedData.provider) {
+        setProvider(pairedData.provider as Provider);
+        setStep("dashboard");
+        await refresh(pairedData.provider as Provider);
+        return;
+      }
+    }
+
     const user = getFirebaseAuth().currentUser;
     if (!user) return;
     const idToken = await user.getIdToken(true);
     const res = await fetch("/api/auth", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "verify", phone: user.phoneNumber, idToken, role: "provider", platform: "web" }),
     });
     const data = await res.json();
