@@ -1,5 +1,7 @@
 package com.kaamdaar.kaamdaar_provider
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import io.flutter.embedding.android.FlutterActivity
@@ -15,6 +17,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        createJobAlertChannel()
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kaamdaar/alerts")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -29,6 +32,28 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun createJobAlertChannel() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "kaamdaar_job_alerts",
+                "Kaamdaar new job requests",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Audible alerts for incoming provider service requests"
+                enableVibration(true)
+                setSound(
+                    android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+            }
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }
     }
 
     private fun startAlarm() {
