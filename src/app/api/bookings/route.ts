@@ -144,9 +144,9 @@ export async function POST(req: Request) {
   }));
   const combinedServiceName = selectedRows.map((s) => s.name).join(" + ");
 
-  // The customer never picks a Pro and never supplies the notify list: the
-  // server finds everyone who serves this service near the address (3 km,
-  // widening to 5 km) and offers the job to all of them. First accept wins.
+  // The customer never picks a Pro and never supplies the notify list. The
+  // server builds a 5 km service-provider queue and progressively notifies
+  // each 1 km ring for up to five minutes. First accept wins.
   const origin = resolveOrigin(body);
   if (!origin) {
     return NextResponse.json(
