@@ -7,7 +7,7 @@
  * device lock by IP address or browser fingerprint.
  */
 import { createHash, createHmac, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
-import { consumeDevicePairingCode, get, insert, patch, remove, setDevicePairingCode } from "./db";
+import { consumeDevicePairingCode, get, insert, patch, recordDevicePairingFailure, remove, setDevicePairingCode } from "./db";
 
 export type DeviceRole = "customer" | "provider";
 
@@ -267,8 +267,12 @@ export async function consumeWebPairingCode(
     .digest("hex");
   // In Preview, a QA OTP session has a synthetic UID while browser OTP uses
   // Firebase. The same verified phone is accepted only on that QA branch.
-  const consumed = await consumeDevicePairingCode(id, current.uid, codeHash, Date.now());
-  if (!consumed) return null;
+  const now = Date.now();
+  const consumed = await consumeDevicePairingCode(id, current.uid, codeHash, now);
+  if (!consumed) {
+    await recordDevicePairingFailure(id, now);
+    return null;
+  }
   const session = consumed as unknown as DeviceSessionRecord;
   const exp = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
   return encode({
