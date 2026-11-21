@@ -112,7 +112,7 @@ class Api {
         headers: await _headers(), body: jsonEncode(body));
     final data = await _decode(r);
     if (r.statusCode >= 400) {
-      throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
+      throw ApiException(_apiError(data), r.statusCode);
     }
     return data;
   }
@@ -121,7 +121,7 @@ class Api {
     final r = await http.get(Uri.parse('$baseUrl$path'), headers: await _headers());
     final data = await _decode(r);
     if (r.statusCode >= 400) {
-      throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
+      throw ApiException(_apiError(data), r.statusCode);
     }
     return data;
   }
@@ -131,7 +131,7 @@ class Api {
         headers: await _headers(), body: jsonEncode(body));
     final data = await _decode(r);
     if (r.statusCode >= 400) {
-      throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
+      throw ApiException(_apiError(data), r.statusCode);
     }
     return data;
   }
