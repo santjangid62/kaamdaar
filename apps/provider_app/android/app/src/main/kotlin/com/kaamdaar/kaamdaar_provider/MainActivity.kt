@@ -37,14 +37,14 @@ class MainActivity : FlutterActivity() {
     private fun createJobAlertChannel() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                "kaamdaar_job_alerts",
+                "kaamdaar_job_alerts_v2",
                 "Kaamdaar new job requests",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Audible alerts for incoming provider service requests"
                 enableVibration(true)
                 setSound(
-                    android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
+                    android.net.Uri.parse("android.resource://$packageName/raw/job_alert"),
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
