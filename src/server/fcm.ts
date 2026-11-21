@@ -66,7 +66,7 @@ export async function sendProviderJobOffer(
       bookingId: booking.id,
       expiresAt: String(booking.offerExpiresAt),
       title: "New Kaamdaar job request",
-      body: `${booking.serviceName || booking.serviceId} • Accept within 40 seconds`,
+      body: `${booking.serviceName || booking.serviceId} • Accept before the offer timer ends`,
     },
     android: {
       priority: "HIGH",
