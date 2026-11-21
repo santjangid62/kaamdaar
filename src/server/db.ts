@@ -151,7 +151,7 @@ const mongoEngine = {
     const collection = (await mongoDb()).collection(col);
     // Support legacy/imported rows whose Mongo _id is an ObjectId but whose
     // application-level id field is the stable string identifier.
-    const doc = await collection.findOne({ _id: id } as Document)
+    const doc = await collection.findOne({ _id: id } as never)
       ?? await collection.findOne({ id } as Document);
     return stripId<T>(doc);
   },
@@ -161,7 +161,7 @@ const mongoEngine = {
     const now = Date.now();
     const raw = withId(doc, id, now, now);
     try {
-      await (await mongoDb()).collection(col).insertOne(raw);
+      await (await mongoDb()).collection(col).insertOne(raw as never);
     } catch (e) {
       if ((e as { code?: number }).code === 11000) err(`duplicate id ${id} in ${col}`);
       throw e;
@@ -175,7 +175,7 @@ const mongoEngine = {
     const collection = (await mongoDb()).collection(col);
     const update = { $set: { ...safe, updatedAt: Date.now() } };
     const options = { returnDocument: "after" as const, includeResultMetadata: false };
-    const res = await collection.findOneAndUpdate({ _id: id } as Document, update, options)
+    const res = await collection.findOneAndUpdate({ _id: id } as never, update, options)
       ?? await collection.findOneAndUpdate({ id } as Document, update, options);
     return stripId<T>(res as Document | null);
   },
