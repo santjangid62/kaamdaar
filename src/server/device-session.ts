@@ -158,7 +158,7 @@ export async function claimDeviceSession(input: {
   });
   if (!session) throw new Error("The device session disappeared; please sign in again");
 
-  const exp = Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60;
+  const exp = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
   const token = encode({
     iss: "kaamdaar-device-session",
     sub: uid,
@@ -261,7 +261,7 @@ export async function consumeWebPairingCode(
   const consumed = await consumeDevicePairingCode(id, uid, codeHash, Date.now());
   if (!consumed) return null;
   const session = consumed as unknown as DeviceSessionRecord;
-  const exp = Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60;
+  const exp = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
   return encode({
     iss: "kaamdaar-device-session",
     sub: session.uid,
