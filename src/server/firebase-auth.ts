@@ -107,13 +107,13 @@ export type RequestIdentity = {
 };
 
 /**
- * Resolve a signed-in identity from a Bearer token. During staged rollout,
- * legacy Firebase tokens remain accepted by default; protected customer and
- * provider routes can pass requireDeviceSession=true to reject them.
+ * Resolve a signed-in identity from a device-bound bearer token or paired
+ * HttpOnly browser cookie. Firebase ID tokens are accepted only by OTP
+ * verification endpoints, never as a protected-API session.
  */
 export async function firebaseIdentityFromRequest(
   request: Request,
-  options: { requireDeviceSession?: boolean } = {},
+  options: { requireDeviceSession?: boolean } = { requireDeviceSession: true },
 ): Promise<RequestIdentity | null> {
   const authorization = request.headers.get("authorization") ?? "";
   const match = authorization.match(/^Bearer\s+(.+)$/i);
