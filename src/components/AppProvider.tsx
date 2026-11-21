@@ -115,6 +115,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLocating(true);
     setLocationError(null);
     setLocationPromptVisible(true);
+    // Do not leave a previous/stale address visible while a fresh GPS fix is
+    // being acquired. If the new fix fails, the UI must show the error rather
+    // than presenting an old location as if it were current.
+    locationRef.current = null;
+    setLoc(null);
+    try {
+      window.localStorage.removeItem(LOC_KEY);
+    } catch {
+      /* ignore storage restrictions */
+    }
     try {
       const point = await browserLocation();
       const geo = await reverseGeocode(point);
