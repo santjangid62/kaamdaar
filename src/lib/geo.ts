@@ -74,9 +74,14 @@ export async function browserLocation(timeoutMs = 30000): Promise<GeoPoint> {
     };
 
     const timer = window.setTimeout(() => {
-      if (fixes.length) {
+      if (fixes.length >= 3) {
         const best = fixes.reduce((a, b) => b.accuracy < a.accuracy ? b : a);
-        finish(undefined, { lat: best.lat, lng: best.lng, accuracy: best.accuracy });
+        const agreeing = fixes.filter((sample) => haversineKm(best, sample) <= 0.1);
+        if (agreeing.length >= 3) {
+          finish(undefined, { lat: best.lat, lng: best.lng, accuracy: best.accuracy });
+          return;
+        }
+        finish(new Error("inconsistent-location"));
       } else {
         finish(new Error(sawLowAccuracy ? "low-accuracy" : "timeout"));
       }
