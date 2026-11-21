@@ -641,7 +641,7 @@ class _TrackScreenState extends State<TrackScreen> {
         children: [
           const Text('Need help with this booking?', style: TextStyle(fontWeight: FontWeight.w900, color: KColors.navy)),
           const SizedBox(height: 5),
-          const Text('Raise a complaint and attach photos or a PDF as evidence (up to 3 files).',
+          const Text('Raise a complaint and attach photos as evidence (up to 3 files).',
               style: TextStyle(fontSize: 11.5, color: Colors.black54)),
           const SizedBox(height: 10),
           TextField(
