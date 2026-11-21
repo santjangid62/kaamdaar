@@ -245,7 +245,20 @@ class Api {
     if (cached != null) return cached;
     final p = await SharedPreferences.getInstance();
     final raw = p.getString(_kSession);
-    if (raw == null) return null;
+    final token = p.getString('kaamdaar.device.session.token');
+    if (raw == null || token == null || token.isEmpty) return null;
+    try {
+      await get('/api/auth/session');
+    } on ApiException catch (error) {
+      if (error.status == 401) {
+        await p.remove(_kSession);
+        await p.remove('kaamdaar.device.session.token');
+        return null;
+      }
+    } catch (_) {
+      // Keep the local session on temporary network failure; protected API
+      // calls still validate the server session before returning account data.
+    }
     final j = jsonDecode(raw);
     if (j is! Map<String, dynamic>) return null;
     cached = SessionUser.fromJson(j);
@@ -253,6 +266,11 @@ class Api {
   }
 
   static Future<void> clearSession() async {
+    try {
+      await http.delete(Uri.parse('$baseUrl/api/auth/session'), headers: await _headers());
+    } catch (_) {
+      // Local logout must still complete if the network is unavailable.
+    }
     cached = null;
     final p = await SharedPreferences.getInstance();
     await p.remove(_kSession);
