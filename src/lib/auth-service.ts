@@ -55,7 +55,7 @@ export async function sendOtp(phone: string): Promise<void> {
 export async function verifyOtp(
   phone: string,
   code: string,
-): Promise<{ user: User; isNew: boolean; pairingRequired: boolean }> {
+): Promise<{ user: User; isNew: boolean; pairingRequired: boolean; deviceRequired: boolean; existingDevice: { deviceName: string; loginAt: number; lastSeenAt: number; location: { label?: string; latitude?: number; longitude?: number; updatedAt: number } | null } | null }> {
   if (!isFirebaseConfigured || !confirmation) {
     throw new Error("OTP session expired. Request a new code.");
   }
@@ -72,6 +72,8 @@ export async function verifyOtp(
     user: data.user as User,
     isNew: data.isNew === true,
     pairingRequired: data.pairingRequired === true,
+    deviceRequired: data.deviceRequired === true,
+    existingDevice: data.existingDevice ?? null,
   };
 }
 
