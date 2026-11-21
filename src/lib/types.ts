@@ -200,6 +200,17 @@ export interface Booking {
   cancelledAt?: number;
   cancelledBy?: "customer" | "provider" | "admin" | "system";
   cancellationReason?: string;
+  /** Provider cancellation requests remain pending until an Admin reviews them. */
+  cancellationRequest?: {
+    requestedAt: number;
+    requestedBy: string;
+    providerName: string;
+    reason: string;
+    status: "pending" | "approved" | "rejected";
+    reviewedAt?: number;
+    reviewedBy?: string;
+    reviewNote?: string;
+  };
   /** 10% company commission deducted from the Pro's wallet on payment. */
   commission?: number;
   /** Estimated minutes to reach the user, shown while enroute. */
