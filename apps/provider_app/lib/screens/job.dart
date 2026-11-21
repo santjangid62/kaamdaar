@@ -225,22 +225,41 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final reason = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel this job?'),
+        title: const Text('Request job cancellation?'),
         content: TextField(controller: controller, maxLines: 3, decoration: const InputDecoration(labelText: 'Cancellation reason (required)')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Keep job')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: PColors.red),
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Confirm cancellation'),
+            child: const Text('Send to Admin'),
           ),
         ],
       ),
     );
     controller.dispose();
-    if (reason == null || reason.trim().length < 3) return;
-    await _patch({'status': 'cancelled', 'cancellationReason': reason.trim()});
-    await _refresh();
+    if (reason == null) return;
+    if (reason.trim().length < 10) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Please enter a genuine reason (at least 10 characters).'),
+        ));
+      }
+      return;
+    }
+    try {
+      await _patch({'status': 'cancelled', 'cancellationReason': reason.trim()});
+      await _refresh();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Cancellation request sent to Kaamdaar Admin. Your booking stays active until Admin reviews it.'),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
   }
 
   Widget _cancelAction(BookingItem b) {
@@ -301,6 +320,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       if (entered == null || entered.length < 6) return;
       reference = entered;
     }
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
       await _patch({
@@ -308,11 +328,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         'paymentMethod': method,
         'paymentReference': reference,
       });
+      if (!mounted) return;
       await _refresh();
       if (!mounted) return;
       if (_booking?.paymentStatus == 'reported') {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Payment report Admin ko bhej di gayi hai. Verification pending hai.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
