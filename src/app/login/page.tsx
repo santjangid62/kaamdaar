@@ -38,6 +38,8 @@ function LoginFlow() {
   const [pairCode, setPairCode] = useState("");
   const [pendingUser, setPendingUser] = useState<User | null>(null);
   const [pendingIsNew, setPendingIsNew] = useState(false);
+  const [deviceRequired, setDeviceRequired] = useState(false);
+  const [existingDevice, setExistingDevice] = useState<Awaited<ReturnType<typeof verifyOtp>>["existingDevice"]>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const otpAttempted = useRef("");
@@ -81,6 +83,8 @@ function LoginFlow() {
       if (result.pairingRequired) {
         setPendingUser(result.user);
         setPendingIsNew(result.isNew);
+        setDeviceRequired(result.deviceRequired);
+        setExistingDevice(result.existingDevice);
         setPairCode("");
         setStep("pairing");
         setBusy(false);
@@ -406,10 +410,19 @@ function LoginFlow() {
               </form>
             ) : (
               <form onSubmit={handlePairingSubmit} className="mt-6 space-y-4">
-                <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
-                  Open Kaamdaar on the same phone, go to Profile, choose “Pair Web Browser”, and enter the one-time code shown there. The code expires after five minutes and can only be used once.
-                </div>
-                <label className="block">
+                {deviceRequired ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                    No active Customer App device was found for this number. First sign in to the Kaamdaar Customer App on this phone, then return here and verify again.
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+                      This account is active on **{existingDevice?.deviceName ?? "the authorized app device"}**. Pair only on that same phone: open the Customer App → Profile → Pair Web Browser, then enter its one-time code. The code expires in five minutes and can only be used once.
+                      <div className="mt-2 text-xs text-blue-800">
+                        Login: {existingDevice?.loginAt ? new Date(existingDevice.loginAt).toLocaleString() : "Unknown"} · Last seen: {existingDevice?.lastSeenAt ? new Date(existingDevice.lastSeenAt).toLocaleString() : "Unknown"} · Location: {existingDevice?.location?.label ?? "Unavailable"}
+                      </div>
+                    </div>
+                    <label className="block">
                   <span className="mb-1.5 block text-sm font-semibold text-slate-700">6-digit app pairing code</span>
                   <input
                     autoFocus
@@ -427,13 +440,15 @@ function LoginFlow() {
                     <ShieldCheck className="h-4 w-4 shrink-0" /> {error}
                   </p>
                 )}
-                <button type="submit" disabled={busy || pairCode.length !== 6} className="btn-primary w-full justify-center py-3.5">
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                  Pair and continue
-                </button>
+                    <button type="submit" disabled={busy || pairCode.length !== 6} className="btn-primary w-full justify-center py-3.5">
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                      Pair and continue
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
-                  onClick={() => { setStep("phone"); setPairCode(""); setPendingUser(null); setError(null); }}
+                  onClick={() => { setStep("phone"); setPairCode(""); setPendingUser(null); setExistingDevice(null); setDeviceRequired(false); setError(null); }}
                   className="w-full pt-2 text-sm font-semibold text-slate-500 hover:text-blue-600"
                 >
                   Use another mobile number
