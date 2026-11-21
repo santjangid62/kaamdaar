@@ -708,7 +708,7 @@ export async function consumeDevicePairingCode(
   let consumed: Doc | null = null;
   const run = async () => {
     const store = await readStore();
-    const current = store.deviceSessions?.[id] as (Doc & { uid?: string; pairCodeHash?: string; pairCodeExpiresAt?: number; pairAttempts?: number; status?: string }) | undefined;
+    const current = store.deviceSessions?.[id] as (Doc & { uid?: string; pairCodeHash?: string; pairCodeExpiresAt?: number; pairCodeCreatedAt?: number; pairAttempts?: number; status?: string }) | undefined;
     if (!current || current.status !== "active" || current.uid !== expectedUid || current.pairCodeHash !== codeHash ||
         typeof current.pairCodeExpiresAt !== "number" || current.pairCodeExpiresAt <= now || (current.pairAttempts ?? 0) >= 5) return;
     const next = { ...current, updatedAt: now };
