@@ -4,7 +4,7 @@
  */
 import { get, insert, upsert, uid } from "./db";
 
-export const MIN_WALLET_BALANCE = 500;
+export const MIN_WALLET_BALANCE = 200;
 // Legacy providers without a wallet row start at zero; newly added providers receive a one-time onboarding credit via ensureProviderWallet.
 export const DEFAULT_WALLET_BALANCE = 0;
 
@@ -30,7 +30,7 @@ export interface WalletTxn {
   createdAt: number;
 }
 
-/** Create the one-time ₹500 provider onboarding credit; never repeat it for an existing wallet. */
+/** Create the one-time provider onboarding credit; never repeat it for an existing wallet. */
 export async function ensureProviderWallet(providerId: string): Promise<WalletRow> {
   const existing = await get<WalletRow>("wallets", providerId);
   if (existing) return existing;
