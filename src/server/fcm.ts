@@ -73,7 +73,7 @@ export async function sendProviderJobOffer(
     android: {
       priority: "HIGH",
       ttl: `${secondsLeft}s`,
-      notification: { sound: "default" },
+      notification: { sound: "default", channel_id: "kaamdaar_job_alerts" },
     },
     apns: {
       headers: {
