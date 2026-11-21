@@ -16,6 +16,13 @@ type WalletData = { wallet: { balance: number }; txns: Array<{
   id: string; amount: number; kind: string; note: string; balanceAfter: number; createdAt: number;
 }> };
 
+type ExistingDeviceInfo = {
+  deviceName: string;
+  loginAt: number;
+  lastSeenAt: number;
+  location: { label?: string } | null;
+};
+
 const ACTIVE = ["accepted", "scheduled", "enroute", "arrived", "in_progress", "pending_confirm"];
 const money = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n || 0);
 const date = (n: number) => n ? new Date(n).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—";
@@ -37,6 +44,8 @@ export default function ProviderPortalPage() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [pairCode, setPairCode] = useState("");
+  const [deviceRequired, setDeviceRequired] = useState(false);
+  const [existingDevice, setExistingDevice] = useState<ExistingDeviceInfo | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [recaptcha, setRecaptcha] = useState<RecaptchaVerifier | null>(null);
   const [provider, setProvider] = useState<Provider | null>(null);
@@ -87,6 +96,8 @@ export default function ProviderPortalPage() {
     if (!res.ok || !data.provider) throw new Error(data.error || "Provider account not found.");
     setProvider(data.provider as Provider);
     if (data.pairingRequired) {
+      setDeviceRequired(data.deviceRequired === true);
+      setExistingDevice((data.existingDevice ?? null) as ExistingDeviceInfo | null);
       setPairCode("");
       setStep("pairing");
       return;
@@ -313,26 +324,37 @@ export default function ProviderPortalPage() {
             </form>
           ) : (
             <form onSubmit={completePairing} className="space-y-5">
-              <p className="rounded-xl bg-blue-50 p-3 text-sm leading-6 text-blue-900">
-                Open the Provider App on this same phone, go to Profile → Pair Web Browser, and enter the one-time code. It expires in five minutes and works once.
-              </p>
-              <label className="block text-sm font-semibold text-slate-800">
-                6-digit app pairing code
-                <input
-                  value={pairCode}
-                  onChange={e => setPairCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  required
-                  minLength={6}
-                  maxLength={6}
-                  placeholder="Enter pairing code"
-                  className="mt-2 w-full rounded-xl border border-slate-200 p-3.5 text-center text-2xl tracking-[0.5em] outline-none focus:border-orange-500"
-                />
-              </label>
-              <button disabled={busy || pairCode.length !== 6} className="w-full rounded-xl bg-[#FF7A00] p-3.5 font-bold text-[#0B1F3A] transition hover:bg-[#ff9430] disabled:opacity-50">
-                {busy ? "Pairing…" : "Pair and continue"}
-              </button>
+              {deviceRequired ? (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+                  No active Provider App device was found for this number. First sign in to the Provider App on this phone, then return here and verify again.
+                </p>
+              ) : (
+                <>
+                  <p className="rounded-xl bg-blue-50 p-3 text-sm leading-6 text-blue-900">
+                    This account is active on <strong>{existingDevice?.deviceName ?? "the authorized app device"}</strong>. Pair only on that same phone: open Provider App → Profile → Pair Web Browser, and enter the one-time code. It expires in five minutes and works once.
+                    <span className="mt-2 block text-xs text-blue-800">
+                      Login: {existingDevice?.loginAt ? new Date(existingDevice.loginAt).toLocaleString() : "Unknown"} · Last seen: {existingDevice?.lastSeenAt ? new Date(existingDevice.lastSeenAt).toLocaleString() : "Unknown"} · Location: {existingDevice?.location?.label ?? "Unavailable"}
+                    </span>
+                  </p>
+                  <label className="block text-sm font-semibold text-slate-800">
+                    6-digit app pairing code
+                    <input
+                      value={pairCode}
+                      onChange={e => setPairCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      required
+                      minLength={6}
+                      maxLength={6}
+                      placeholder="Enter pairing code"
+                      className="mt-2 w-full rounded-xl border border-slate-200 p-3.5 text-center text-2xl tracking-[0.5em] outline-none focus:border-orange-500"
+                    />
+                  </label>
+                  <button disabled={busy || pairCode.length !== 6} className="w-full rounded-xl bg-[#FF7A00] p-3.5 font-bold text-[#0B1F3A] transition hover:bg-[#ff9430] disabled:opacity-50">
+                    {busy ? "Pairing…" : "Pair and continue"}
+                  </button>
+                </>
+              )}
               <button type="button" onClick={() => { setStep("phone"); setPairCode(""); setProvider(null); setError(""); }} className="w-full text-sm font-medium text-slate-500 hover:text-slate-800">
                 Use another mobile number
               </button>
