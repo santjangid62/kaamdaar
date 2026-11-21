@@ -147,6 +147,7 @@ export async function POST(req: Request) {
     if (deviceSession instanceof NextResponse) return deviceSession;
     return NextResponse.json({
       provider,
+      pairingRequired: body.platform === "web",
       ...(deviceSession ?? (qaSessionToken ? { sessionToken: qaSessionToken } : {})),
     });
   }
@@ -174,6 +175,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       user: existing[0],
       isNew: false,
+      pairingRequired: body.platform === "web",
       ...(deviceSession ?? (qaSessionToken ? { sessionToken: qaSessionToken } : {})),
     });
   }
@@ -199,6 +201,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     user,
     isNew: true,
+    pairingRequired: body.platform === "web",
     ...(deviceSession ?? (qaSessionToken ? { sessionToken: qaSessionToken } : {})),
   });
 }
