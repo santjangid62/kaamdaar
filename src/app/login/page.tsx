@@ -417,7 +417,7 @@ function LoginFlow() {
                 ) : (
                   <>
                     <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
-                      This account is active on **{existingDevice?.deviceName ?? "the authorized app device"}**. Pair only on that same phone: open the Customer App → Profile → Pair Web Browser, then enter its one-time code. The code expires in five minutes and can only be used once.
+                      This account is active on <strong>{existingDevice?.deviceName ?? "the authorized app device"}</strong>. Pair only on that same phone: open the Customer App → Profile → Pair Web Browser, then enter its one-time code. The code expires in five minutes and can only be used once.
                       <div className="mt-2 text-xs text-blue-800">
                         Login: {existingDevice?.loginAt ? new Date(existingDevice.loginAt).toLocaleString() : "Unknown"} · Last seen: {existingDevice?.lastSeenAt ? new Date(existingDevice.lastSeenAt).toLocaleString() : "Unknown"} · Location: {existingDevice?.location?.label ?? "Unavailable"}
                       </div>
