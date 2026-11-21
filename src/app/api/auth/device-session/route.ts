@@ -17,7 +17,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const identity = await firebaseIdentityFromRequest(req, { requireDeviceSession: true });
-  const released = identity?.role && identity.deviceId
+  // A browser logout clears only that browser cookie. The native app
+  // owns the device lock; releasing it invalidates every paired browser.
+  const released = identity?.clientType === "native" && identity.role && identity.deviceId
     ? await releaseDeviceSession(identity.role, identity.phone, identity.deviceId)
     : false;
   const response = NextResponse.json({ released });
