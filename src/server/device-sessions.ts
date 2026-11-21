@@ -1,4 +1,4 @@
-import { createHmac, createHash, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { claimDeviceSession, consumeDevicePairingCode, get, patch } from "./db";
 
 export type AccountRole = "customer" | "provider";
