@@ -28,7 +28,8 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
     const outstanding = [...new Set(booking.notifiedIds ?? [])];
     const rejected = new Set(booking.rejectedProviderIds ?? []);
     const missed = new Set(booking.missedProviderIds ?? []);
-    const allResponded = outstanding.length > 0 && outstanding.every((id) => rejected.has(id) || missed.has(id));
+    const ringIds = [...new Set(booking.dispatchRingIds ?? outstanding)];
+    const allResponded = ringIds.length > 0 && ringIds.every((id) => rejected.has(id) || missed.has(id));
 
     if (now < expiresAt && !allResponded) return;
     // Keep the final 4–5 km ring open until the full five-minute deadline,
@@ -143,6 +144,7 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
       dispatchRingKm: nextRing,
       dispatchRadiusKm: nextRing,
       notifiedIds: ringProviders.map((provider) => provider.id),
+      dispatchRingIds: ringProviders.map((provider) => provider.id),
       dispatchNotifiedTotal: Number(booking.dispatchNotifiedTotal ?? 0) + ringProviders.length,
       offerExpiresAt: ringExpiry,
       dispatchCursor: nextRing,
