@@ -300,13 +300,25 @@ class _TrackScreenState extends State<TrackScreen> {
             const SizedBox(height: 6),
             Text(
                 b.dispatchRadiusKm > 0
-                    ? '${b.dispatchRadiusKm} km ke andar ke professionals ko ek-ek karke request bheji ja rahi hai.'
-                    : 'Nearby professionals are being contacted one by one.',
+                    ? '${b.dispatchRingKm.clamp(1, 5)} km ring ke providers ko request bheji ja rahi hai.'
+                    : 'Nearby professionals are being contacted ring by ring.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white.withOpacity(.78), fontSize: 12.5)),
             const SizedBox(height: 10),
             Text('Search time left: ${_dispatchRemaining(b)}',
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+            const SizedBox(height: 8),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.radar, color: Colors.white70, size: 16),
+              const SizedBox(width: 6),
+              Text('Search radius: ${b.dispatchRingKm.clamp(1, 5)} / 5 km',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+              const SizedBox(width: 14),
+              const Icon(Icons.notifications_active_outlined, color: Colors.white70, size: 16),
+              const SizedBox(width: 5),
+              Text('${b.dispatchNotifiedTotal} providers notified',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+            ]),
           ] else ...[
             Icon(
               b.status == 'completed'
