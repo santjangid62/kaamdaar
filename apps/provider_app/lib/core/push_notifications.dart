@@ -131,6 +131,9 @@ class ProviderPushNotifications {
           await JobAlertCenter.instance.cancelOffer(bookingId);
         }
       } else if (message.data['type'] == 'job_offer') {
+        // Show an audible OS notification even while the Provider app is open;
+        // the in-app offer screen separately starts the repeating siren.
+        await _showBackgroundOffer(message);
         await JobAlertCenter.instance.checkNow();
       }
     });
