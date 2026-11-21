@@ -1,55 +1,183 @@
-import { all, claimDispatchAdvance, get } from "./db";
-import type { Booking } from "../lib/types";
+import { all, claimDispatchAdvance, get, insert, uid } from "./db";
+import type { Booking, Provider } from "../lib/types";
 import { appendEvents, newEvent } from "./events";
-import { cancelProviderJobOffer } from "./fcm";
-import type { Provider } from "../lib/types";
+import { cancelProviderJobOffer, sendProviderJobOffer } from "./fcm";
+import { haversineKm } from "../lib/geo";
+import { minWallet } from "./settings";
+
+const MAX_RADIUS_KM = 5;
+const RING_WINDOW_MS = 60_000;
+const TOTAL_SEARCH_MS = 5 * 60_000;
+const LIVE_LOCATION_MAX_AGE_MS = 2 * 60_000;
 
 /**
- * Broadcast dispatch has one shared 40-second response window. All eligible
- * providers are notified together; the first atomic claim wins. This function
- * only closes the offer after its shared deadline — it never reassigns it
- * sequentially to another provider.
+ * Progressive provider dispatch. Each one-kilometre ring gets up to 60 seconds;
+ * empty rings still consume their minute so the customer receives the full
+ * five-minute search window. All providers inside the active ring are notified
+ * together; first atomic accept wins. Every poll advances the state machine.
  */
 export async function advanceProviderDispatch(bookingId: string): Promise<void> {
-  const booking = await get<Booking>("bookings", bookingId);
-  if (!booking || booking.status !== "dispatched" || booking.providerId) return;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const booking = await get<Booking>("bookings", bookingId);
+    if (!booking || booking.status !== "dispatched" || booking.providerId || booking.dispatchFailedAt) return;
 
-  const now = Date.now();
-  const expiresAt = booking.offerExpiresAt ?? ((booking.dispatchedAt ?? booking.createdAt) + 40_000);
-  if (now < expiresAt) return;
+    const now = Date.now();
+    const startedAt = booking.dispatchStartedAt ?? booking.dispatchedAt ?? booking.createdAt;
+    const deadline = booking.dispatchDeadlineAt ?? startedAt + TOTAL_SEARCH_MS;
+    const expiresAt = booking.offerExpiresAt ?? startedAt;
+    const outstanding = [...new Set(booking.notifiedIds ?? [])];
+    const rejected = new Set(booking.rejectedProviderIds ?? []);
+    const missed = new Set(booking.missedProviderIds ?? []);
+    const allResponded = outstanding.length > 0 && outstanding.every((id) => rejected.has(id) || missed.has(id));
 
-  const outstanding = [...new Set(booking.notifiedIds ?? [])];
-  const missed = [...new Set([...(booking.missedProviderIds ?? []), ...outstanding])];
-  const history = [...(booking.providerOfferHistory ?? [])];
-  for (const providerId of outstanding) {
-    if (!history.some((row) => row.providerId === providerId && row.outcome === "missed")) {
-      history.push({ providerId, outcome: "missed", at: now });
+    if (now < expiresAt && !allResponded) return;
+
+    const providers = await all<Provider & {
+      fcmTokens?: string[];
+      activeBookingId?: string;
+      locationUpdatedAt?: number;
+    }>("providers");
+    const wallets = await all<{ providerId: string; balance: number }>("wallets");
+    const activeBookings = await all<Booking>("bookings");
+    const minimum = await minWallet();
+    const busyIds = new Set(activeBookings
+      .filter((row) => row.id !== booking.id && ["accepted", "enroute", "arrived", "in_progress"].includes(row.status))
+      .map((row) => row.providerId)
+      .filter(Boolean));
+    const providerById = new Map(providers.map((provider) => [provider.id, provider]));
+    const previousHistory = [...(booking.providerOfferHistory ?? [])];
+    const nextMissed = new Set(missed);
+    const expiredNow = now >= expiresAt && !allResponded;
+    if (expiredNow) {
+      for (const providerId of outstanding) {
+        if (!rejected.has(providerId)) {
+          nextMissed.add(providerId);
+          if (!previousHistory.some((row) => row.providerId === providerId && row.outcome === "missed")) {
+            previousHistory.push({ providerId, outcome: "missed", at: now });
+          }
+        }
+      }
     }
-  }
 
-  const events = [
-    ...(outstanding.length
-      ? [newEvent("system", "offer_missed", `${outstanding.length} provider offer(s) expired after 40 seconds`)]
-      : []),
-    newEvent("system", "dispatch_failed", "No notified provider accepted within the 40-second offer window"),
-  ];
-  const closed = await claimDispatchAdvance(booking.id, booking.offerExpiresAt ?? 0, {
-    notifiedIds: [],
-    missedProviderIds: missed,
-    providerOfferHistory: history,
-    dispatchFailedAt: now,
-    dispatchFailedMessage: "Maaf kijiye, 40 seconds ke andar koi professional booking accept nahi kar saka. Kripya dobara booking karein.",
-    events: appendEvents(booking.events, events),
-  });
-  if (closed && outstanding.length) {
-    const providers = await all<Provider & { fcmTokens?: string[] }>("providers");
-    const tokens = providers
-      .filter((provider) => outstanding.includes(provider.id))
-      .flatMap((provider) => provider.fcmTokens ?? []);
-    try {
-      await cancelProviderJobOffer(tokens, booking.id);
-    } catch (error) {
-      console.error("[fcm] expired-offer cancellation push failed", error);
+    const nextRing = Math.max(1, Number(booking.dispatchRingKm ?? 0) + 1);
+    if (nextRing > MAX_RADIUS_KM || now >= deadline) {
+      const failed = await claimDispatchAdvance(booking.id, expiresAt, {
+        notifiedIds: [],
+        missedProviderIds: [...nextMissed],
+        providerOfferHistory: previousHistory,
+        dispatchFailedAt: now,
+        dispatchFailedMessage: "No provider is accepting your request right now. Please try again after some time.",
+        events: appendEvents(booking.events, [
+          ...(outstanding.length && expiredNow
+            ? [newEvent("system", "offer_missed", `${outstanding.length} provider offer(s) expired in the final search ring`)]
+            : []),
+          newEvent("system", "dispatch_failed", "Five-minute provider search completed across the full 5 km radius; no provider accepted"),
+        ]),
+      });
+      if (failed) {
+        const users = await all<{ id: string; phone?: string }>("users");
+        const customer = users.find((user) => user.id === booking.userId);
+        await insert("notifications", {
+          id: uid("ntf"),
+          type: "booking_provider_unavailable",
+          title: "No provider is accepting your request right now",
+          message: "Please try again after some time.",
+          userId: booking.userId,
+          userName: customer?.phone ?? booking.phone ?? "Customer",
+          phone: customer?.phone ?? booking.phone ?? "",
+          platform: "Booking update",
+          bookingId: booking.id,
+          readAt: null,
+          createdAt: now,
+        });
+        if (outstanding.length) {
+          const tokens = providers.filter((p) => outstanding.includes(p.id)).flatMap((p) => p.fcmTokens ?? []);
+          try { await cancelProviderJobOffer(tokens, booking.id); }
+          catch (error) { console.error("[fcm] final-ring offer cancellation failed", error); }
+        }
+      }
+      return;
     }
+
+    // Re-evaluate providers when each ring opens: they must still be online,
+    // verified, not busy, wallet-funded, have a recent GPS fix and an FCM token.
+    const previouslyContacted = new Set([
+      ...(booking.notifiedIds ?? []),
+      ...(booking.missedProviderIds ?? []),
+      ...(booking.rejectedProviderIds ?? []),
+    ]);
+    const queue = booking.dispatchQueueIds ?? [];
+    const ringProviders = queue
+      .map((id) => providerById.get(id))
+      .filter((provider): provider is Provider & { fcmTokens?: string[]; activeBookingId?: string; locationUpdatedAt?: number } => Boolean(provider))
+      .filter((provider) => {
+        const distance = booking.originPoint ? haversineKm(booking.originPoint, provider) : Infinity;
+        const inRing = distance > nextRing - 1 && distance <= nextRing;
+        const live = provider.locationUpdatedAt != null && now - provider.locationUpdatedAt <= LIVE_LOCATION_MAX_AGE_MS;
+        const wallet = wallets.find((row) => row.providerId === provider.id)?.balance ?? 0;
+        return inRing &&
+          !previouslyContacted.has(provider.id) &&
+          provider.verified === true &&
+          provider.availabilityStatus === "available" &&
+          !provider.activeBookingId &&
+          !busyIds.has(provider.id) &&
+          live &&
+          wallet >= minimum &&
+          (provider.fcmTokens ?? []).length > 0 &&
+          (provider.services ?? []).includes(booking.serviceId);
+      });
+
+    const ringExpiry = Math.min(now + RING_WINDOW_MS, deadline);
+    const oldRecipients = expiredNow ? outstanding.filter((id) => !rejected.has(id)) : [];
+    const ringEvent = newEvent(
+      "system",
+      "dispatch_ring",
+      ringProviders.length
+        ? `Ring ${nextRing} km opened; ${ringProviders.length} eligible provider(s) notified`
+        : `Ring ${nextRing} km opened; no live eligible provider found`,
+    );
+    const advanced = await claimDispatchAdvance(booking.id, expiresAt, {
+      dispatchRingKm: nextRing,
+      dispatchRadiusKm: nextRing,
+      notifiedIds: ringProviders.map((provider) => provider.id),
+      dispatchNotifiedTotal: Number(booking.dispatchNotifiedTotal ?? 0) + ringProviders.length,
+      offerExpiresAt: ringExpiry,
+      dispatchCursor: nextRing,
+      missedProviderIds: [...nextMissed],
+      providerOfferHistory: previousHistory,
+      events: appendEvents(booking.events, [
+        ...(oldRecipients.length
+          ? [newEvent("system", "offer_missed", `${oldRecipients.length} provider offer(s) expired after 60 seconds`)]
+          : []),
+        ringEvent,
+      ]),
+    });
+
+    if (!advanced) return;
+
+    if (oldRecipients.length) {
+      const tokens = providers.filter((p) => oldRecipients.includes(p.id)).flatMap((p) => p.fcmTokens ?? []);
+      try { await cancelProviderJobOffer(tokens, booking.id); }
+      catch (error) { console.error("[fcm] expired-ring offer cancellation failed", error); }
+    }
+
+    if (ringProviders.length) {
+      const tokens = ringProviders.flatMap((provider) => provider.fcmTokens ?? []);
+      try {
+        await sendProviderJobOffer(tokens, {
+          id: booking.id,
+          serviceName: booking.serviceName,
+          serviceId: booking.serviceId,
+          offerExpiresAt: ringExpiry,
+        });
+      } catch (error) {
+        console.error("[fcm] progressive provider offer could not be sent", error);
+      }
+      return;
+    }
+
+    // Empty ring: continue immediately to the next ring, but keep its time
+    // budget by moving the next ring's expiry to this ring's minute boundary.
+    if (ringExpiry > now) return;
   }
 }
