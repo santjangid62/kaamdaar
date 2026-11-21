@@ -55,7 +55,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
   const [tab, setTab] = useState<CustomerBookingTab>(initialTab ?? "current");
   const [notice, setNotice] = useState<string | null>(null);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("default");
-  const previousBookings = useRef<Map<string, Booking["status"]> | null>(null);
+  const previousBookings = useRef<Map<string, { status: Booking["status"]; dispatchFailedAt?: number }> | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -80,9 +80,13 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
         const previous = previousBookings.current;
         if (previous) {
           for (const booking of latest) {
-            const oldStatus = previous.get(booking.id);
-            if (oldStatus && oldStatus !== booking.status) {
-              const message = `${booking.serviceName}: ${s.bookings.status[booking.status]}`;
+            const old = previous.get(booking.id);
+            const newlyFailed = Boolean(old && !old.dispatchFailedAt && booking.dispatchFailedAt);
+            const statusChanged = Boolean(old && old.status !== booking.status);
+            if (newlyFailed || statusChanged) {
+              const message = newlyFailed
+                ? "No provider is accepting your request right now. Please try again after some time."
+                : `${booking.serviceName}: ${s.bookings.status[booking.status]}`;
               setNotice(message);
               if (noticeTimer.current) clearTimeout(noticeTimer.current);
               noticeTimer.current = setTimeout(() => setNotice(null), 7000);
@@ -97,7 +101,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
             }
           }
         }
-        previousBookings.current = new Map(latest.map((booking) => [booking.id, booking.status]));
+        previousBookings.current = new Map(latest.map((booking) => [booking.id, { status: booking.status, dispatchFailedAt: booking.dispatchFailedAt }]));
         setBookings(latest);
       } catch {
         // Keep the last good booking list during network/auth restoration.
