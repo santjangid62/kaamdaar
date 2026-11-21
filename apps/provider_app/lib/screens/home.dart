@@ -114,6 +114,7 @@ class _DashboardTabState extends State<DashboardTab> {
   String _locationLabel = 'Detecting your location…';
   Timer? _ticker;
   Timer? _poll;
+  Timer? _locationPoll;
 
   @override
   void initState() {
@@ -124,12 +125,18 @@ class _DashboardTabState extends State<DashboardTab> {
       if (mounted && _offers.isNotEmpty) setState(() {});
     });
     _poll = Timer.periodic(const Duration(seconds: 5), (_) => _load(silent: true));
+    // Keep the server-side provider GPS fresh so progressive dispatch only
+    // targets Pros who are genuinely online and recently located.
+    _locationPoll = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (_available) _detectProviderLocation();
+    });
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
     _poll?.cancel();
+    _locationPoll?.cancel();
     super.dispose();
   }
 
