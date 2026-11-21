@@ -108,7 +108,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   await ready();
   const identity = await firebaseIdentityFromRequest(req);
-  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  if (!identity || identity.role !== "customer") {
+    return NextResponse.json({ error: "A valid Customer device session is required" }, { status: 401 });
+  }
   let body: Partial<Booking>;
   try {
     body = (await req.json()) as Partial<Booking>;
