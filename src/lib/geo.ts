@@ -45,50 +45,42 @@ function requestFix(opts: PositionOptions): Promise<Fix> {
 }
 
 /**
- * Prefer a fresh high-accuracy fix. Retry with a network-assisted/cached fix
- * for timeouts or unavailable GPS, but never retry after an explicit denial.
+ * Accept only a fresh, high-confidence GPS result. Desktop browsers can return
+ * Wi-Fi/network estimates several kilometres away while reporting a plausible
+ * address; collect independent fresh fixes and require both good accuracy and
+ * spatial agreement before using the point for service dispatch.
  */
-export async function browserLocation(timeoutMs = 15000): Promise<GeoPoint> {
-  const hiAccuracy: PositionOptions = {
+export async function browserLocation(timeoutMs = 12000): Promise<GeoPoint> {
+  const opts: PositionOptions = {
     enableHighAccuracy: true,
     timeout: timeoutMs,
     maximumAge: 0,
   };
 
-  let best: Fix | null = null;
+  const fixes: Fix[] = [];
   let firstError: unknown = null;
-  try {
-    best = await requestFix(hiAccuracy);
-  } catch (error) {
-    firstError = error;
-    if (error instanceof Error && error.message === "permission-denied") throw error;
-  }
-
-  if (best && best.accuracy > 50) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const second = await requestFix(hiAccuracy);
-      if (second.accuracy < best.accuracy) best = second;
-    } catch {
-      // Keep the first valid reading when a refinement attempt fails.
-    }
-  }
-
-  if (!best) {
-    try {
-      best = await requestFix({
-        enableHighAccuracy: false,
-        timeout: timeoutMs,
-        maximumAge: 5 * 60_000,
-      });
+      fixes.push(await requestFix(opts));
     } catch (error) {
+      firstError ??= error;
       if (error instanceof Error && error.message === "permission-denied") throw error;
-      if (error instanceof Error && error.message === "timeout") throw error;
-      if (firstError instanceof Error && firstError.message === "timeout") throw firstError;
-      throw new Error("position-unavailable");
     }
   }
 
-  if (best.accuracy > 100) throw new Error("low-accuracy");
+  if (!fixes.length) {
+    if (firstError instanceof Error && firstError.message === "timeout") throw firstError;
+    throw new Error("position-unavailable");
+  }
+
+  const accurate = fixes.filter((fix) => fix.accuracy <= 50);
+  if (!accurate.length) throw new Error("low-accuracy");
+
+  // Do not accept a drifting or contradictory position estimate.
+  const best = accurate.reduce((a, b) => (b.accuracy < a.accuracy ? b : a));
+  const consistent = accurate.every((fix) => haversineKm(best, fix) <= 0.25);
+  if (!consistent) throw new Error("inconsistent-location");
+
   return { lat: best.lat, lng: best.lng, accuracy: best.accuracy };
 }
 
