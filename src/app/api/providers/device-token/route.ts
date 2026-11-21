@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { find, patch, ready } from "../../../../server/db";
 import type { Provider } from "../../../../lib/types";
-import { firebaseIdentityFromRequest, normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../../server/firebase-auth";
+import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
 
 export async function POST(req: Request) {
   await ready();
-  let body: { providerId?: string; token?: string; platform?: string; idToken?: string };
+  let body: { providerId?: string; token?: string; platform?: string };
   try {
     body = await req.json();
   } catch {
@@ -19,17 +19,10 @@ export async function POST(req: Request) {
   }
   let verifiedPhone: string;
   const requestIdentity = await firebaseIdentityFromRequest(req);
-  if (requestIdentity) {
-    verifiedPhone = requestIdentity.phone;
-  } else if (body.idToken) {
-    try {
-      ({ phone: verifiedPhone } = await verifyFirebasePhoneToken(body.idToken));
-    } catch {
-      return NextResponse.json({ error: "Sign-in session is invalid. Please sign in again." }, { status: 401 });
-    }
-  } else {
-    return NextResponse.json({ error: "A valid sign-in session is required to register a device" }, { status: 401 });
+  if (!requestIdentity) {
+    return NextResponse.json({ error: "A valid authorized device session is required to register notifications" }, { status: 401 });
   }
+  verifiedPhone = requestIdentity.phone;
 
   const matches = await find<Provider & { id: string; phone?: string; status?: string; fcmTokens?: string[] }>(
     "providers",
