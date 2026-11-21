@@ -439,13 +439,13 @@ function ProvidersFlow() {
             {dispatchError}
           </div>
         )}
-        {center && results.length > 0 && phase === "idle" && (
+        {center && phase === "idle" && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-2.5 text-sm text-slate-600">
               <Navigation className="mt-0.5 h-4 w-4 shrink-0 text-flame-600" />
               <p>
                 <span className="mt-0.5 block text-xs text-slate-400">
-                  {formatDistance(results[0].distanceKm)} · {s.dispatch.radiusBadge.replace("{km}", String(matchInfo.radiusKm))}
+                  {results[0] ? `${formatDistance(results[0].distanceKm)} · ${s.dispatch.radiusBadge.replace("{km}", String(matchInfo.radiusKm))}` : "No provider is online nearby yet — we will keep searching up to 5 km for 5 minutes."}
                 </span>
               </p>
             </div>
@@ -478,17 +478,18 @@ function ProvidersFlow() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="font-bold text-slate-900">{s.dispatch.searching}</p>
-              <p className="truncate text-sm text-slate-500">
-                {s.dispatch.searchingNote} · {dispatchRadiusKm} km
-              </p>
+              <p className="text-sm text-slate-500">Ring {Math.max(1, dispatchProgress.ringKm)} / 5 km · {dispatchProgress.totalNotified} providers notified · {dispatchProgress.currentNotified} in this ring</p>
+              <p className="text-xs font-semibold text-slate-500">Time remaining: {mmss(Math.max(0, dispatchProgress.deadlineAt - now))}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setPhase("idle")}
-              className="btn-ghost px-3 py-2 text-sm"
-            >
+            <button type="button" disabled={busy} onClick={() => void (async () => { if (!user || !bookingId) return; setBusy(true); try { await updateBooking(user.id, bookingId, { status: "cancelled" }); setPhase("idle"); setBookingId(null); } finally { setBusy(false); } })()} className="btn-ghost px-3 py-2 text-sm">
               <X className="h-4 w-4" /> {s.dispatch.cancelRequest}
             </button>
+          </div>
+        )}
+        {phase === "failed" && (
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4">
+            <p className="font-bold text-red-900">No provider is accepting your request right now.</p>
+            <p className="mt-1 text-sm text-red-800">Please try again after some time.</p>
           </div>
         )}
 
