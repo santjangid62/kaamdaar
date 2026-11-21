@@ -89,7 +89,8 @@ function decode(token: string): SessionPayload | null {
     if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as SessionPayload;
     if (payload.iss !== "kaamdaar-device-session" ||
-        !payload.sub || !payload.phone || !payload.deviceId || !payload.sessionId ||\n        (payload.clientType !== "native" && payload.clientType !== "web") ||
+        !payload.sub || !payload.phone || !payload.deviceId || !payload.sessionId ||
+        (payload.clientType !== "native" && payload.clientType !== "web") ||
         (payload.role !== "customer" && payload.role !== "provider") ||
         !Number.isFinite(payload.exp) || payload.exp <= Math.floor(Date.now() / 1000)) return null;
     return payload;
