@@ -3,13 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
-  signInWithPhoneNumber, RecaptchaVerifier, type ConfirmationResult,
-} from "firebase/auth";
-import {
   Bell, BriefcaseBusiness, CalendarX, CheckCircle2, IndianRupee, LogOut,
   RefreshCw, Search, ShieldCheck, Star, Wallet, XCircle, Smartphone,
 } from "lucide-react";
-import { getFirebaseAuth, isFirebaseConfigured } from "../../lib/firebase";
 import type { Booking, Provider } from "../../lib/types";
 
 type WalletData = { wallet: { balance: number }; txns: Array<{
@@ -21,11 +17,10 @@ const money = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency",
 const date = (n: number) => n ? new Date(n).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getFirebaseAuth().currentUser?.getIdToken();
-  if (!token) throw new Error("Session expired. Please login again.");
   const response = await fetch(path, {
     ...init,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) },
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
     cache: "no-store",
   });
   const body = await response.json().catch(() => ({}));
@@ -34,11 +29,8 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export default function ProviderPortalPage() {
-  const [step, setStep] = useState<"phone" | "otp" | "dashboard">("phone");
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
-  const [recaptcha, setRecaptcha] = useState<RecaptchaVerifier | null>(null);
+  const [step, setStep] = useState<"pair" | "dashboard">("pair");
+  const [pairCode, setPairCode] = useState("");
   const [provider, setProvider] = useState<Provider | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [walletData, setWalletData] = useState<WalletData | null>(null);
@@ -61,23 +53,22 @@ export default function ProviderPortalPage() {
   }, []);
 
   const resolveProvider = useCallback(async () => {
-    const user = getFirebaseAuth().currentUser;
-    if (!user) return;
-    const idToken = await user.getIdToken(true);
-    const res = await fetch("/api/auth", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "verify", phone: user.phoneNumber, idToken, role: "provider", platform: "web" }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.provider) throw new Error(data.error || "Provider account not found.");
-    setProvider(data.provider as Provider);
+    const session = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
+    const sessionData = await session.json().catch(() => ({}));
+    if (!session.ok || sessionData.role !== "provider" || !sessionData.phone) {
+      throw new Error("Open the Provider App, go to Profile, and pair this browser using a fresh code.");
+    }
+    const data = await api<{ provider: Provider | null }>(
+      `/api/providers/me?phone=${encodeURIComponent(String(sessionData.phone))}`,
+    );
+    if (!data.provider) throw new Error("Provider account not found for this paired phone.");
+    setProvider(data.provider);
     setStep("dashboard");
-    await refresh(data.provider as Provider);
+    await refresh(data.provider);
   }, [refresh]);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) return;
-    void resolveProvider().catch(() => {});
+    void resolveProvider().catch((e) => setError(e instanceof Error ? e.message : "Please pair this browser."));
   }, [resolveProvider]);
 
   useEffect(() => {
@@ -127,29 +118,17 @@ export default function ProviderPortalPage() {
     return periodOk && outcomeOk && serviceOk && searchOk;
   });
 
-  async function sendCode(e: React.FormEvent) {
+  async function pairBrowser(e: React.FormEvent) {
     e.preventDefault(); setError(""); setBusy(true);
     try {
-      if (!isFirebaseConfigured) throw new Error("Firebase web configuration is missing.");
-      const auth = getFirebaseAuth();
-      const verifier = recaptcha || new RecaptchaVerifier(auth, "provider-recaptcha", { size: "invisible" });
-      setRecaptcha(verifier);
-      const result = await signInWithPhoneNumber(auth, `+91${phone.replace(/\D/g, "").slice(-10)}`, verifier);
-      setConfirmation(result); setStep("otp");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "OTP could not be sent.");
-      try { recaptcha?.clear(); } catch {}
-      setRecaptcha(null);
-    } finally { setBusy(false); }
-  }
-
-  async function verifyCode(e: React.FormEvent) {
-    e.preventDefault(); setError(""); setBusy(true);
-    try {
-      if (!confirmation) throw new Error("OTP session expired. Please request a new code.");
-      await confirmation.confirm(otp);
+      const response = await fetch("/api/auth/pair", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "same-origin", body: JSON.stringify({ code: pairCode.replace(/\D/g, "").slice(0, 6) }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.role !== "provider") throw new Error(data.error || "This code is not for a Provider account.");
       await resolveProvider();
-    } catch (e) { setError(e instanceof Error ? e.message : "OTP verification failed."); }
+    } catch (e) { setError(e instanceof Error ? e.message : "Browser pairing failed."); }
     finally { setBusy(false); }
   }
 
@@ -197,8 +176,8 @@ export default function ProviderPortalPage() {
   }
 
   async function logout() {
-    await getFirebaseAuth().signOut();
-    setProvider(null); setBookings([]); setWalletData(null); setStep("phone"); setTab("overview");
+    await fetch("/api/auth/session", { method: "DELETE", credentials: "same-origin" });
+    setProvider(null); setBookings([]); setWalletData(null); setStep("pair"); setTab("overview");
   }
 
   if (step !== "dashboard" || !provider) {
@@ -215,54 +194,19 @@ export default function ProviderPortalPage() {
           />
         </div>
         <div className="rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
-          {step === "phone" ? (
-            <form onSubmit={sendCode} className="space-y-5">
-              <label className="block text-sm font-semibold text-slate-800">
-                Mobile Number
-                <div className="mt-2 flex overflow-hidden rounded-xl border border-slate-200 focus-within:border-orange-500">
-                  <span className="flex items-center border-r border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-600">+91</span>
-                  <input
-                    value={phone}
-                    onChange={e=>setPhone(e.target.value.replace(/\D/g,"").slice(-10))}
-                    inputMode="numeric"
-                    autoComplete="tel-national"
-                    required
-                    minLength={10}
-                    maxLength={10}
-                    placeholder="Enter mobile number"
-                    className="min-w-0 flex-1 p-3 text-base outline-none"
-                  />
-                </div>
-              </label>
-              <button disabled={busy || phone.length!==10} className="w-full rounded-xl bg-[#FF7A00] p-3.5 font-bold text-[#0B1F3A] transition hover:bg-[#ff9430] disabled:opacity-50">
-                {busy?"Sending OTP…":"Continue"}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={verifyCode} className="space-y-5">
-              <label className="block text-sm font-semibold text-slate-800">
-                Enter OTP
-                <input
-                  value={otp}
-                  onChange={e=>setOtp(e.target.value.replace(/\D/g,"").slice(0,6))}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  required
-                  minLength={6}
-                  maxLength={6}
-                  placeholder="6-digit OTP"
-                  className="mt-2 w-full rounded-xl border border-slate-200 p-3.5 text-center text-2xl tracking-[0.5em] outline-none focus:border-orange-500"
-                />
-              </label>
-              <button disabled={busy || otp.length!==6} className="w-full rounded-xl bg-[#FF7A00] p-3.5 font-bold text-[#0B1F3A] transition hover:bg-[#ff9430] disabled:opacity-50">
-                {busy?"Verifying…":"Verify & Login"}
-              </button>
-              <button type="button" onClick={()=>{setStep("phone");setConfirmation(null);setOtp("");setError("");}} className="w-full text-sm font-medium text-slate-500 hover:text-slate-800">
-                Change mobile number
-              </button>
-            </form>
-          )}
-          <div id="provider-recaptcha"/>
+          <form onSubmit={pairBrowser} className="space-y-5">
+            <div className="text-sm leading-6 text-slate-600">Provider Web अब आपके अधिकृत Provider App के साथ pair होकर खुलेगा। अपने Provider App में Profile → Pair Web Browser चुनें और वहाँ दिख रहा 6-digit code यहाँ डालें।</div>
+            <label className="block text-sm font-semibold text-slate-800">
+              One-time pairing code
+              <input value={pairCode} onChange={e=>setPairCode(e.target.value.replace(/\D/g,"").slice(0,6))}
+                inputMode="numeric" autoComplete="one-time-code" required minLength={6} maxLength={6}
+                placeholder="6-digit code"
+                className="mt-2 w-full rounded-xl border border-slate-200 p-3.5 text-center text-2xl tracking-[0.5em] outline-none focus:border-orange-500" />
+            </label>
+            <button disabled={busy || pairCode.length!==6} className="w-full rounded-xl bg-[#FF7A00] p-3.5 font-bold text-[#0B1F3A] transition hover:bg-[#ff9430] disabled:opacity-50">
+              {busy?"Pairing…":"Pair & Open Provider Web"}
+            </button>
+          </form>
           {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         </div>
       </div>
