@@ -819,15 +819,23 @@ class _JobsTabState extends State<JobsTab> {
   List<BookingItem> _jobs = [];
   ProviderItem? _me;
   bool _loading = true;
+  Timer? _walletRefresh;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _walletRefresh = Timer.periodic(const Duration(seconds: 10), (_) => _load(silent: true));
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _walletRefresh?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent && mounted) setState(() => _loading = true);
     try {
       final user = await Api.restoreSession();
       if (user == null) return;
@@ -1190,7 +1198,7 @@ class _WalletTabState extends State<WalletTab> {
       });
     } catch (_) {
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _loading) setState(() => _loading = false);
     }
   }
 
@@ -1285,7 +1293,7 @@ class _WalletTabState extends State<WalletTab> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text('Minimum balance ₹500 — 10% commission is debited after every paid job.',
+                  Text('Minimum balance ₹200 — 10% commission is debited after every paid job.',
                       style: TextStyle(
                           color: Colors.white.withValues(alpha: .8), fontSize: 10.5)),
                 ],
