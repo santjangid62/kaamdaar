@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import {
   ArrowRight,
   MapPin,
@@ -45,7 +46,11 @@ export default function AreasWeServe() {
   const serviceLabels = useServiceLabels();
 
   const t = (en: string, hi: string) => (lang === "hi" ? hi : en);
-  const areas = nearbyAreas(location, radiusKm, providers);
+  const allAreas = nearbyAreas(location, radiusKm, providers).filter((area) => area.pros > 0);
+  const [page, setPage] = useState(0);
+  const pageSize = 6;
+  const pageCount = Math.ceil(allAreas.length / pageSize);
+  const areas = allAreas.slice(page * pageSize, (page + 1) * pageSize);
   const serviceById = new Map(services.map((service) => [service.id, service]));
   const prosNear = new Set(areas.flatMap((a) => a.providers.map((p) => p.id))).size;
 
@@ -192,7 +197,7 @@ export default function AreasWeServe() {
                 )}
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {areas.map((a) => {
                   const live = a.pros > 0;
                   const chips = areaServices(a.providers);
@@ -309,6 +314,16 @@ export default function AreasWeServe() {
                   );
                 })}
               </div>
+            )}
+
+            {pageCount > 1 && (
+              <nav aria-label="Service areas pagination" className="mt-6 flex items-center justify-center gap-2">
+                <button type="button" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-40">Previous</button>
+                {Array.from({ length: pageCount }, (_, index) => (
+                  <button key={index} type="button" aria-current={page === index ? "page" : undefined} onClick={() => setPage(index)} className={`h-9 min-w-9 rounded-lg px-3 text-xs font-bold ${page === index ? "bg-blue-600 text-white" : "border border-slate-200 text-slate-600 hover:bg-blue-50"}`}>{index + 1}</button>
+                ))}
+                <button type="button" disabled={page >= pageCount - 1} onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-40">Next</button>
+              </nav>
             )}
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/70 pt-4">

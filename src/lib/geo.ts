@@ -45,50 +45,79 @@ function requestFix(opts: PositionOptions): Promise<Fix> {
 }
 
 /**
- * Prefer a fresh high-accuracy fix. Retry with a network-assisted/cached fix
- * for timeouts or unavailable GPS, but never retry after an explicit denial.
+ * Collect live updates from the browser location provider rather than making
+ * several immediately-resolved getCurrentPosition calls (which can repeat the
+ * same cached Wi-Fi/IP estimate). Only accept a high-confidence fix.
+ *
+ * Desktop browsers without a real location source may not be able to provide
+ * this accuracy; in that case we fail closed instead of showing a false area.
  */
-export async function browserLocation(timeoutMs = 15000): Promise<GeoPoint> {
-  const hiAccuracy: PositionOptions = {
-    enableHighAccuracy: true,
-    timeout: timeoutMs,
-    maximumAge: 0,
-  };
-
-  let best: Fix | null = null;
-  let firstError: unknown = null;
-  try {
-    best = await requestFix(hiAccuracy);
-  } catch (error) {
-    firstError = error;
-    if (error instanceof Error && error.message === "permission-denied") throw error;
+export async function browserLocation(timeoutMs = 30000): Promise<GeoPoint> {
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
+    throw new Error("position-unavailable");
   }
 
-  if (best && best.accuracy > 50) {
-    try {
-      const second = await requestFix(hiAccuracy);
-      if (second.accuracy < best.accuracy) best = second;
-    } catch {
-      // Keep the first valid reading when a refinement attempt fails.
-    }
-  }
+  return new Promise((resolve, reject) => {
+    const fixes: Fix[] = [];
+    let watchId: number | null = null;
+    let settled = false;
+    let sawLowAccuracy = false;
 
-  if (!best) {
-    try {
-      best = await requestFix({
-        enableHighAccuracy: false,
-        timeout: timeoutMs,
-        maximumAge: 5 * 60_000,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message === "permission-denied") throw error;
-      if (error instanceof Error && error.message === "timeout") throw error;
-      if (firstError instanceof Error && firstError.message === "timeout") throw firstError;
-      throw new Error("position-unavailable");
-    }
-  }
+    const finish = (error?: Error, point?: GeoPoint) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (error) reject(error);
+      else if (point) resolve(point);
+      else reject(new Error("position-unavailable"));
+    };
 
-  return { lat: best.lat, lng: best.lng, accuracy: best.accuracy };
+    const timer = window.setTimeout(() => {
+      if (fixes.length >= 2) {
+        const best = fixes.reduce((a, b) => b.accuracy < a.accuracy ? b : a);
+        const agreeing = fixes.filter((sample) => haversineKm(best, sample) <= 0.3);
+        if (agreeing.length >= 2) {
+          finish(undefined, { lat: best.lat, lng: best.lng, accuracy: best.accuracy });
+          return;
+        }
+        finish(new Error("inconsistent-location"));
+      } else {
+        finish(new Error(sawLowAccuracy ? "low-accuracy" : "timeout"));
+      }
+    }, timeoutMs);
+
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const fix: Fix = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy ?? 9999,
+        };
+        if (fix.accuracy > 200) {
+          sawLowAccuracy = true;
+          return;
+        }
+
+        fixes.push(fix);
+        const best = fixes.reduce((a, b) => b.accuracy < a.accuracy ? b : a);
+        const agreeing = fixes.filter((sample) => haversineKm(best, sample) <= 0.1);
+        if (agreeing.length >= 3) {
+          finish(undefined, {
+            lat: best.lat,
+            lng: best.lng,
+            accuracy: best.accuracy,
+          });
+        }
+      },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) finish(new Error("permission-denied"));
+        else if (error.code === error.TIMEOUT) finish(new Error("timeout"));
+        else finish(new Error("position-unavailable"));
+      },
+      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 },
+    );
+  });
 }
 
 /** Reverse geocode to a readable label. Falls back gracefully when offline/blocked. */
