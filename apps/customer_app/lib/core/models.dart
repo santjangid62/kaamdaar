@@ -281,6 +281,8 @@ class BookingItem {
   final List<String> notifiedIds;
   /// Radius this request was offered in — 3 km first, 5 km after widening.
   final int dispatchRadiusKm;
+  final int dispatchRingKm;
+  final int dispatchNotifiedTotal;
   final int? offerExpiresAt;
   final int? dispatchDeadlineAt;
   final int? dispatchFailedAt;
@@ -320,6 +322,8 @@ class BookingItem {
         createdAt: _int(j["createdAt"]),
         notifiedIds: _strList(j["notifiedIds"]),
         dispatchRadiusKm: _int(j["dispatchRadiusKm"]),
+        dispatchRingKm: _int(j["dispatchRingKm"]),
+        dispatchNotifiedTotal: _int(j["dispatchNotifiedTotal"]),
         offerExpiresAt: _optInt(j["offerExpiresAt"]),
         dispatchDeadlineAt: _optInt(j["dispatchDeadlineAt"]),
         dispatchFailedAt: _optInt(j["dispatchFailedAt"]),
@@ -363,6 +367,8 @@ class BookingItem {
     this.createdAt = 0,
     this.notifiedIds = const [],
     this.dispatchRadiusKm = 0,
+    this.dispatchRingKm = 0,
+    this.dispatchNotifiedTotal = 0,
     this.offerExpiresAt,
     this.dispatchDeadlineAt,
     this.dispatchFailedAt,
