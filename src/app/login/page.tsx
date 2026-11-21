@@ -16,10 +16,11 @@ import {
 import { useApp } from "../../components/AppProvider";
 import { fill, useLang } from "../../lib/i18n";
 import { isFirebaseConfigured } from "../../lib/firebase";
-import { sendOtp, verifyOtp } from "../../lib/auth-service";
+import { completeWebPairing, sendOtp, verifyOtp } from "../../lib/auth-service";
+import type { User } from "../../lib/types";
 import { isValidIndianMobile, toE164Indian } from "../../lib/validation";
 
-type Step = "phone" | "otp";
+type Step = "phone" | "otp" | "pairing";
 
 function LoginFlow() {
   const router = useRouter();
@@ -34,6 +35,9 @@ function LoginFlow() {
   const [step, setStep] = useState<Step>("phone");
   const [digits, setDigits] = useState("");
   const [code, setCode] = useState("");
+  const [pairCode, setPairCode] = useState("");
+  const [pendingUser, setPendingUser] = useState<User | null>(null);
+  const [pendingIsNew, setPendingIsNew] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const otpAttempted = useRef("");
@@ -73,17 +77,49 @@ function LoginFlow() {
     setError(null);
     setBusy(true);
     try {
-      const { user: record, isNew } = await verifyOtp(phone, otp);
+      const result = await verifyOtp(phone, otp);
+      if (result.pairingRequired) {
+        setPendingUser(result.user);
+        setPendingIsNew(result.isNew);
+        setPairCode("");
+        setStep("pairing");
+        setBusy(false);
+        return;
+      }
       handledRedirect.current = true;
-      signIn(record);
+      signIn(result.user);
       // returning users land on their dashboard, first-timers complete their
       // profile before browsing
-      router.replace(isNew ? "/profile?setup=1" : "/dashboard");
+      router.replace(result.isNew ? "/profile?setup=1" : "/dashboard");
     } catch (error) {
       otpAttempted.current = "";
       setError(error instanceof Error ? error.message : s.login.verifyFail);
       setBusy(false);
     }
+  }
+
+  async function runPairing(rawCode: string) {
+    setError(null);
+    if (!pendingUser || rawCode.trim().length !== 6) {
+      setError("Enter the six-digit code shown in the Kaamdaar app.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await completeWebPairing(phone, rawCode.trim(), "customer");
+      handledRedirect.current = true;
+      signIn(pendingUser);
+      router.replace(pendingIsNew ? "/profile?setup=1" : "/dashboard");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Browser pairing failed.");
+      setBusy(false);
+    }
+  }
+
+  function handlePairingSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    void runPairing(pairCode);
   }
 
   function handleVerify(e: React.FormEvent) {
@@ -186,9 +222,10 @@ function LoginFlow() {
             {[
               { key: "phone", label: brand.step1, n: 1 },
               { key: "otp", label: brand.step2, n: 2 },
+              { key: "pairing", label: "Pair App", n: 3 },
             ].map((st, i) => {
               const active = step === st.key;
-              const done = st.key === "phone" && step === "otp";
+              const done = st.key === "phone" ? step !== "phone" : st.key === "otp" && step === "pairing";
               return (
                 <div key={st.key} className="flex flex-1 items-center gap-3">
                   {i > 0 && (
@@ -232,10 +269,10 @@ function LoginFlow() {
               />
               <div>
                 <h2 className="text-2xl font-black tracking-tight text-navy sm:text-[1.75rem]">
-                  {step === "phone" ? s.login.title : s.login.verify}
+                  {step === "phone" ? s.login.title : step === "otp" ? s.login.verify : "Pair this browser"}
                 </h2>
                 <p className="mt-0.5 text-sm font-medium text-slate-500 sm:text-base">
-                  {step === "phone" ? s.login.onlyPhone : fill(s.login.sentTo, { phone })}
+                  {step === "phone" ? s.login.onlyPhone : step === "otp" ? fill(s.login.sentTo, { phone }) : `Enter the code from the Kaamdaar app for ${phone}`}
                 </p>
               </div>
             </div>
@@ -294,7 +331,7 @@ function LoginFlow() {
                   {s.login.termsLine.after}
                 </p>
               </form>
-            ) : (
+            ) : step === "otp" ? (
               <form onSubmit={handleVerify} className="mt-6 space-y-4">
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-semibold text-slate-700">
@@ -366,6 +403,41 @@ function LoginFlow() {
                     {s.login.resend}
                   </button>
                 </div>
+              </form>
+            ) : (
+              <form onSubmit={handlePairingSubmit} className="mt-6 space-y-4">
+                <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+                  Open Kaamdaar on the same phone, go to Profile, choose “Pair Web Browser”, and enter the one-time code shown there. The code expires after five minutes and can only be used once.
+                </div>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-semibold text-slate-700">6-digit app pairing code</span>
+                  <input
+                    autoFocus
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={pairCode}
+                    onChange={(e) => { setError(null); setPairCode(e.target.value.replace(/\\D/g, "").slice(0, 6)); }}
+                    placeholder="••••••"
+                    className="h-16 w-full rounded-xl border-2 border-slate-200 bg-slate-50 px-3 text-center font-mono text-[26px] font-bold tracking-[0.55em] text-navy shadow-inner outline-none transition placeholder:tracking-[0.55em] placeholder:text-slate-300 focus:border-flame focus:bg-white focus:shadow-none focus:ring-4 focus:ring-flame-100"
+                  />
+                </label>
+                {error && (
+                  <p className="flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+                    <ShieldCheck className="h-4 w-4 shrink-0" /> {error}
+                  </p>
+                )}
+                <button type="submit" disabled={busy || pairCode.length !== 6} className="btn-primary w-full justify-center py-3.5">
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  Pair and continue
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setStep("phone"); setPairCode(""); setPendingUser(null); setError(null); }}
+                  className="w-full pt-2 text-sm font-semibold text-slate-500 hover:text-blue-600"
+                >
+                  Use another mobile number
+                </button>
               </form>
             )}
           </div>
