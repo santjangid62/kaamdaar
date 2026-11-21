@@ -116,3 +116,26 @@ function rank(
     ring,
   };
 }
+
+
+/** All eligible service Pros within five kilometres, ordered by nearest ring first. */
+export function matchProvidersInRings(
+  providers: Provider[],
+  serviceId: string,
+  center: GeoPoint | null,
+): RankedMatch[] {
+  if (!center || !serviceId) return [];
+  return providers
+    .filter((provider) => (provider.services ?? []).includes(serviceId))
+    .map((provider) => ({
+      provider,
+      distanceKm: haversineKm(center, provider),
+      score: 0,
+    }))
+    .filter((match) => Number.isFinite(match.distanceKm) && match.distanceKm <= WIDE_RING_KM)
+    .map((match) => ({
+      ...match,
+      score: matchScore(match.provider, match.distanceKm, WIDE_RING_KM),
+    }))
+    .sort((a, b) => a.distanceKm - b.distanceKm || b.score - a.score);
+}

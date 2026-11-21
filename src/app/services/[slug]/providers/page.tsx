@@ -24,7 +24,7 @@ import {
   trackBookingCheckoutOpened,
   trackServiceProvidersViewed,
 } from "../../../../lib/analytics";
-import { formatDistance } from "../../../../lib/geo";
+import { browserLocation, formatDistance, reverseGeocode } from "../../../../lib/geo";
 import { etaMinutes } from "../../../../lib/dispatch";
 import { WIDE_RING_KM } from "../../../../lib/match";
 import type { NearbyProvider } from "../../../../lib/providers";
@@ -38,7 +38,7 @@ import type {
   Service,
 } from "../../../../lib/types";
 
-type Phase = "idle" | "searching" | "found";
+type Phase = "idle" | "searching" | "found" | "failed";
 
 /** A Pro who accepted can sit outside the rendered ring snapshot — rebuild the
  *  card from the profile frozen into the booking. */
@@ -92,7 +92,8 @@ function ProvidersFlow() {
     ring: "none",
   });
   const [matchLoading, setMatchLoading] = useState(true);
-  const [dispatchRadiusKm, setDispatchRadiusKm] = useState<number>(WIDE_RING_KM);
+  const [dispatchProgress, setDispatchProgress] = useState({ ringKm: 0, totalNotified: 0, currentNotified: 0, deadlineAt: 0 });
+  const [now, setNow] = useState(() => Date.now());
   const [accepted, setAccepted] = useState<NearbyProvider | null>(null);
   const [selectedSubServiceIds, setSelectedSubServiceIds] = useState<string[]>([]);
 
@@ -100,6 +101,12 @@ function ProvidersFlow() {
     () => (location ? { lat: location.lat, lng: location.lng } : null),
     [location],
   );
+
+  useEffect(() => {
+    if (phase !== "searching") return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [phase]);
 
   // Who gets this request is a backend decision: everyone serving it inside
   // the 3 km ring, widened to 5 km when that ring is empty, ranked by
@@ -127,7 +134,6 @@ function ProvidersFlow() {
           radiusKm: data.radiusKm ?? WIDE_RING_KM,
           ring: data.ring ?? "none",
         });
-        setDispatchRadiusKm(data.radiusKm ?? WIDE_RING_KM);
       } catch {
         // Keep the last good ring: a transient read error must never look like
         // "0 Pros nearby" and contradict a Pro who just accepted.
@@ -216,7 +222,8 @@ function ProvidersFlow() {
       if (stopped) return;
       const live = rows.find((b) => b.id === bookingId);
       if (!live) return;
-      if (live.dispatchRadiusKm) setDispatchRadiusKm(live.dispatchRadiusKm);
+      setDispatchProgress({ ringKm: live.dispatchRingKm ?? live.dispatchRadiusKm ?? 0, totalNotified: live.dispatchNotifiedTotal ?? live.notifiedIds?.length ?? 0, currentNotified: live.notifiedIds?.length ?? 0, deadlineAt: live.dispatchDeadlineAt ?? (live.createdAt + 5 * 60_000) });
+      if (live.dispatchFailedAt) { setPhase("failed"); return; }
       if (live.providerId && live.status !== "dispatched") {
         const match = results.find((r) => r.provider.id === live.providerId);
         setAccepted(match ?? fromProfile(live.providerProfile));
@@ -231,25 +238,29 @@ function ProvidersFlow() {
     };
   }, [phase, bookingId, user, results]);
 
-  const handleDispatch = useCallback(async () => {
-    if (!service || !center || !user || results.length === 0) {
-      setDispatchError("Booking could not start. Please check your sign-in, location and nearby provider availability, then try again.");
+  const handleDispatch = async () => {
+    if (!service || !center || !user) {
+      setDispatchError("Booking could not start. Please check your sign-in and allow current location access, then try again.");
       return;
     }
     setDispatchError(null);
-    trackBookingCheckoutOpened({ serviceId: service.id, providerId: results[0].provider.id });
+    trackBookingCheckoutOpened({ serviceId: service.id, providerId: results[0]?.provider.id ?? "" });
     setBusy(true);
     try {
+      const scheduled = Boolean(dateParam && dateParam !== todayIso());
+      const dispatchOrigin = scheduled ? center : await browserLocation();
+      const dispatchPlace = scheduled
+        ? { label: location?.label ?? "Selected service address", city: location?.city ?? "", pincode: "" }
+        : await reverseGeocode(dispatchOrigin);
       const addr: Address = {
         id: "live",
-        label: location?.label.split(",")[0] ?? "Location",
-        line1: location?.label ?? "Current location",
-        city: location?.city ?? "",
-        pincode: "",
-        lat: center.lat,
-        lng: center.lng,
+        label: dispatchPlace.label.split(",")[0] || "Current location",
+        line1: dispatchPlace.label,
+        city: dispatchPlace.city || location?.city || "",
+        pincode: dispatchPlace.pincode ?? "",
+        lat: dispatchOrigin.lat,
+        lng: dispatchOrigin.lng,
       };
-      const scheduled = Boolean(dateParam && dateParam !== todayIso());
       const created = await createBooking({
         userId: user.id,
         phone: user.phone,
@@ -266,12 +277,11 @@ function ProvidersFlow() {
         status: "dispatched",
         createdAt: Date.now(),
         dispatchedAt: Date.now(),
-        originPoint: center,
-        etaMinutes: etaMinutes(results[0].distanceKm),
+        originPoint: dispatchOrigin,
+        etaMinutes: etaMinutes(results[0]?.distanceKm ?? 0),
       } as Omit<Booking, "id">);
       setBookingId(created.id);
-      // the server already notified the ring and stamped the radius it used
-      setDispatchRadiusKm(created.dispatchRadiusKm ?? matchInfo.radiusKm);
+      setDispatchProgress({ ringKm: created.dispatchRingKm ?? created.dispatchRadiusKm ?? 1, totalNotified: created.dispatchNotifiedTotal ?? created.notifiedIds?.length ?? 0, currentNotified: created.notifiedIds?.length ?? 0, deadlineAt: created.dispatchDeadlineAt ?? (created.createdAt + 5 * 60_000) });
       setAccepted(null);
       setFoundIdx(0);
       setPhase("searching");
@@ -282,7 +292,7 @@ function ProvidersFlow() {
     } finally {
       setBusy(false);
     }
-  }, [service, center, user, results, location, dateParam, timeParam, labels, bookingTotal, selectedSubServiceIds]);
+  };
 
   const handleUserAccept = useCallback(async () => {
     if (!user || !bookingId) return;
@@ -435,13 +445,13 @@ function ProvidersFlow() {
             {dispatchError}
           </div>
         )}
-        {center && results.length > 0 && phase === "idle" && (
+        {center && phase === "idle" && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-2.5 text-sm text-slate-600">
               <Navigation className="mt-0.5 h-4 w-4 shrink-0 text-flame-600" />
               <p>
                 <span className="mt-0.5 block text-xs text-slate-400">
-                  {formatDistance(results[0].distanceKm)} · {s.dispatch.radiusBadge.replace("{km}", String(matchInfo.radiusKm))}
+                  {results[0] ? `${formatDistance(results[0].distanceKm)} · ${s.dispatch.radiusBadge.replace("{km}", String(matchInfo.radiusKm))}` : "No provider is online nearby yet — we will keep searching up to 5 km for 5 minutes."}
                 </span>
               </p>
             </div>
@@ -474,17 +484,18 @@ function ProvidersFlow() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="font-bold text-slate-900">{s.dispatch.searching}</p>
-              <p className="truncate text-sm text-slate-500">
-                {s.dispatch.searchingNote} · {dispatchRadiusKm} km
-              </p>
+              <p className="text-sm text-slate-500">Ring {Math.max(1, dispatchProgress.ringKm)} / 5 km · {dispatchProgress.totalNotified} providers notified · {dispatchProgress.currentNotified} in this ring</p>
+              <p className="text-xs font-semibold text-slate-500">Time remaining: {new Date(Math.max(0, dispatchProgress.deadlineAt - now)).toISOString().slice(14, 19)}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setPhase("idle")}
-              className="btn-ghost px-3 py-2 text-sm"
-            >
+            <button type="button" disabled={busy} onClick={() => void (async () => { if (!user || !bookingId) return; setBusy(true); try { await updateBooking(user.id, bookingId, { status: "cancelled" }); setPhase("idle"); setBookingId(null); } finally { setBusy(false); } })()} className="btn-ghost px-3 py-2 text-sm">
               <X className="h-4 w-4" /> {s.dispatch.cancelRequest}
             </button>
+          </div>
+        )}
+        {phase === "failed" && (
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4">
+            <p className="font-bold text-red-900">No provider is accepting your request right now.</p>
+            <p className="mt-1 text-sm text-red-800">Please try again after some time.</p>
           </div>
         )}
 

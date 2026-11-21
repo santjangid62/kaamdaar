@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { touchDeviceSession, validateDeviceSession } from "./device-sessions";
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
@@ -99,12 +100,24 @@ export async function verifyFirebasePhoneToken(idToken: string): Promise<{ phone
 /** Resolve a verified Firebase identity from a Bearer token on an API request. */
 export async function firebaseIdentityFromRequest(
   request: Request,
-): Promise<{ phone: string; uid: string } | null> {
+): Promise<{ phone: string; uid: string; role?: "customer" | "provider"; accountId?: string; sessionId?: string; deviceId?: string } | null> {
   const authorization = request.headers.get("authorization") ?? "";
   const match = authorization.match(/^Bearer\s+(.+)$/i);
-  if (!match?.[1]) return null;
+  const cookieToken = (request.headers.get("cookie") ?? "").split(";")
+    .map((part) => part.trim()).find((part) => part.startsWith("kaamdaar_session="))
+    ?.slice("kaamdaar_session=".length);
+  const token = cookieToken || match?.[1] || "";
+  if (!token) return null;
   try {
-    return await verifyFirebasePhoneToken(match[1]);
+    if (token.startsWith("ks1.")) {
+      const identity = await validateDeviceSession(token);
+      if (identity) await touchDeviceSession(`${identity.role}:${identity.accountId}`, identity.sessionId);
+      return identity;
+    }
+    // Firebase ID tokens prove phone ownership, but they do not prove which
+    // physical installation is active. Protected APIs accept only sessions
+    // minted after the account's device slot has been claimed.
+    return null;
   } catch {
     return null;
   }

@@ -1,131 +1,190 @@
-import { all, claimDispatchAdvance, get } from "./db";
-import { minWallet } from "./settings";
-import { isInsideJaipur } from "../lib/areas";
-import { matchProviders } from "../lib/match";
+import { all, claimDispatchAdvance, get, insert, uid } from "./db";
 import type { Booking, Provider } from "../lib/types";
 import { appendEvents, newEvent } from "./events";
-import { sendProviderJobOffer } from "./fcm";
+import { cancelProviderJobOffer, sendProviderJobOffer } from "./fcm";
+import { haversineKm } from "../lib/geo";
+import { minWallet } from "./settings";
 
-const OFFER_MS = 40_000;
-const DISPATCH_WINDOW_MS = 5 * 60_000;
-const RETRY_POLL_MS = 5_000;
+const MAX_RADIUS_KM = 5;
+const RING_WINDOW_MS = 60_000;
+const TOTAL_SEARCH_MS = 5 * 60_000;
+const LIVE_LOCATION_MAX_AGE_MS = 2 * 60_000;
 
 /**
- * Advance a sequential provider offer. Called by customer/provider inbox polling
- * and immediately after a provider rejects. Mongo compare-and-set prevents two
- * polling requests from advancing the same offer twice.
+ * Progressive provider dispatch. Each non-empty one-kilometre ring gets up to
+ * 60 seconds; empty rings are skipped immediately. The fifth ring remains open
+ * until the five-minute deadline. All providers inside the active ring are notified
+ * together; first atomic accept wins. Every poll advances the state machine.
  */
 export async function advanceProviderDispatch(bookingId: string): Promise<void> {
-  const booking = await get<Booking>("bookings", bookingId);
-  if (!booking || booking.status !== "dispatched" || booking.providerId) return;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const booking = await get<Booking>("bookings", bookingId);
+    if (!booking || booking.status !== "dispatched" || booking.providerId || booking.dispatchFailedAt) return;
 
-  const now = Date.now();
-  const startedAt = booking.dispatchStartedAt ?? booking.dispatchedAt ?? booking.createdAt;
-  const deadline = booking.dispatchDeadlineAt ?? (startedAt + DISPATCH_WINDOW_MS);
-  const currentIds = booking.notifiedIds ?? [];
-  const currentExpired = currentIds.length > 0 && (booking.offerExpiresAt ?? 0) <= now;
-  const missed = [...new Set(booking.missedProviderIds ?? [])];
-  const offerHistory = [...(booking.providerOfferHistory ?? [])];
-  if (currentExpired && !missed.includes(currentIds[0])) missed.push(currentIds[0]);
-  if (currentExpired && !offerHistory.some((row) => row.providerId === currentIds[0] && row.outcome === "missed")) {
-    offerHistory.push({ providerId: currentIds[0], outcome: "missed", at: now });
-  }
+    const now = Date.now();
+    const startedAt = booking.dispatchStartedAt ?? booking.dispatchedAt ?? booking.createdAt;
+    const deadline = booking.dispatchDeadlineAt ?? startedAt + TOTAL_SEARCH_MS;
+    const expiresAt = booking.offerExpiresAt ?? startedAt;
+    const outstanding = [...new Set(booking.notifiedIds ?? [])];
+    const rejected = new Set(booking.rejectedProviderIds ?? []);
+    const missed = new Set(booking.missedProviderIds ?? []);
+    const ringIds = [...new Set(booking.dispatchRingIds ?? outstanding)];
+    const allResponded = ringIds.length > 0 && ringIds.every((id) => rejected.has(id) || missed.has(id));
 
-  const baseEvents = booking.events ?? [];
-  if (now >= deadline) {
-    const failed = await claimDispatchAdvance(booking.id, booking.offerExpiresAt ?? 0, {
-      notifiedIds: [],
-      missedProviderIds: missed,
-      providerOfferHistory: offerHistory,
-      dispatchFailedAt: now,
-      dispatchFailedMessage: "Maaf kijiye, 5 minute tak koi professional aapki booking accept nahi kar saka. Kripya dobara booking karein ya support se sampark karein.",
-      events: appendEvents(baseEvents, [
-        ...(currentExpired ? [newEvent("system", "offer_missed", "Provider did not respond within 40 seconds")] : []),
-        newEvent("system", "dispatch_failed", "No professional accepted within the 5-minute dispatch window"),
+    if (now < expiresAt && !allResponded) return;
+    // Keep the final 4–5 km ring open until the full five-minute deadline,
+    // even if every provider in that last ring rejects early.
+    if (allResponded && Number(booking.dispatchRingKm ?? 0) >= MAX_RADIUS_KM && now < deadline) return;
+
+    const providers = await all<Provider & {
+      fcmTokens?: string[];
+      activeBookingId?: string;
+      locationUpdatedAt?: number;
+    }>("providers");
+    const wallets = await all<{ providerId: string; balance: number }>("wallets");
+    const activeBookings = await all<Booking>("bookings");
+    const minimum = await minWallet();
+    const busyIds = new Set(activeBookings
+      .filter((row) => row.id !== booking.id && ["accepted", "enroute", "arrived", "in_progress"].includes(row.status))
+      .map((row) => row.providerId)
+      .filter(Boolean));
+    const providerById = new Map(providers.map((provider) => [provider.id, provider]));
+    const previousHistory = [...(booking.providerOfferHistory ?? [])];
+    const nextMissed = new Set(missed);
+    const expiredNow = now >= expiresAt && !allResponded;
+    if (expiredNow) {
+      for (const providerId of outstanding) {
+        if (!rejected.has(providerId)) {
+          nextMissed.add(providerId);
+          if (!previousHistory.some((row) => row.providerId === providerId && row.outcome === "missed")) {
+            previousHistory.push({ providerId, outcome: "missed", at: now });
+          }
+        }
+      }
+    }
+
+    const nextRing = Math.max(1, Number(booking.dispatchRingKm ?? 0) + 1);
+    if (nextRing > MAX_RADIUS_KM || now >= deadline) {
+      const failed = await claimDispatchAdvance(booking.id, expiresAt, {
+        notifiedIds: [],
+        missedProviderIds: [...nextMissed],
+        providerOfferHistory: previousHistory,
+        dispatchFailedAt: now,
+        dispatchFailedMessage: "No provider is accepting your request right now. Please try again after some time.",
+        events: appendEvents(booking.events, [
+          ...(outstanding.length && expiredNow
+            ? [newEvent("system", "offer_missed", `${outstanding.length} provider offer(s) expired in the final search ring`)]
+            : []),
+          newEvent("system", "dispatch_failed", "Five-minute provider search completed across the full 5 km radius; no provider accepted"),
+        ]),
+      });
+      if (failed) {
+        const users = await all<{ id: string; phone?: string }>("users");
+        const customer = users.find((user) => user.id === booking.userId);
+        await insert("notifications", {
+          id: uid("ntf"),
+          type: "booking_provider_unavailable",
+          title: "No provider is accepting your request right now",
+          message: "Please try again after some time.",
+          userId: booking.userId,
+          userName: customer?.phone ?? booking.phone ?? "Customer",
+          phone: customer?.phone ?? booking.phone ?? "",
+          platform: "Booking update",
+          bookingId: booking.id,
+          readAt: null,
+          createdAt: now,
+        });
+        if (outstanding.length) {
+          const tokens = providers.filter((p) => outstanding.includes(p.id)).flatMap((p) => p.fcmTokens ?? []);
+          try { await cancelProviderJobOffer(tokens, booking.id); }
+          catch (error) { console.error("[fcm] final-ring offer cancellation failed", error); }
+        }
+      }
+      return;
+    }
+
+    // Re-evaluate providers when each ring opens: they must still be online,
+    // verified, not busy, wallet-funded, have a recent GPS fix and an FCM token.
+    const previouslyContacted = new Set([
+      ...(booking.notifiedIds ?? []),
+      ...(booking.missedProviderIds ?? []),
+      ...(booking.rejectedProviderIds ?? []),
+    ]);
+    const queue = booking.dispatchQueueIds ?? [];
+    const ringProviders = queue
+      .map((id) => providerById.get(id))
+      .filter((provider): provider is Provider & { fcmTokens?: string[]; activeBookingId?: string; locationUpdatedAt?: number } => Boolean(provider))
+      .filter((provider) => {
+        const distance = booking.originPoint ? haversineKm(booking.originPoint, provider) : Infinity;
+        const inRing = distance >= nextRing - 1 && distance <= nextRing;
+        const live = provider.locationUpdatedAt != null && now - provider.locationUpdatedAt <= LIVE_LOCATION_MAX_AGE_MS;
+        const wallet = wallets.find((row) => row.providerId === provider.id)?.balance ?? 0;
+        return inRing &&
+          !previouslyContacted.has(provider.id) &&
+          provider.verified === true &&
+          provider.availabilityStatus === "available" &&
+          !provider.activeBookingId &&
+          !busyIds.has(provider.id) &&
+          live &&
+          wallet >= minimum &&
+          (provider.fcmTokens ?? []).length > 0 &&
+          (provider.services ?? []).includes(booking.serviceId);
+      });
+
+    const ringExpiry = nextRing === MAX_RADIUS_KM
+      ? deadline
+      : ringProviders.length ? Math.min(now + RING_WINDOW_MS, deadline) : now;
+    const oldRecipients = expiredNow ? outstanding.filter((id) => !rejected.has(id)) : [];
+    const ringEvent = newEvent(
+      "system",
+      "dispatch_ring",
+      ringProviders.length
+        ? `Ring ${nextRing} km opened; ${ringProviders.length} eligible provider(s) notified`
+        : `Ring ${nextRing} km opened; no live eligible provider found`,
+    );
+    const advanced = await claimDispatchAdvance(booking.id, expiresAt, {
+      dispatchRingKm: nextRing,
+      dispatchRadiusKm: nextRing,
+      notifiedIds: ringProviders.map((provider) => provider.id),
+      dispatchRingIds: ringProviders.map((provider) => provider.id),
+      dispatchNotifiedTotal: Number(booking.dispatchNotifiedTotal ?? 0) + ringProviders.length,
+      offerExpiresAt: ringExpiry,
+      dispatchCursor: nextRing,
+      missedProviderIds: [...nextMissed],
+      providerOfferHistory: previousHistory,
+      events: appendEvents(booking.events, [
+        ...(oldRecipients.length
+          ? [newEvent("system", "offer_missed", `${oldRecipients.length} provider offer(s) expired after 60 seconds`)]
+          : []),
+        ringEvent,
       ]),
     });
-    void failed;
-    return;
-  }
 
-  // An active offer is still waiting for its 40-second response window.
-  if (currentIds.length > 0 && !currentExpired) return;
-  if (!currentIds.length && (booking.offerExpiresAt ?? 0) > now) return;
+    if (!advanced) return;
 
-  const [providers, wallets, bookings] = await Promise.all([
-    all<Provider & { fcmTokens?: string[]; activeBookingId?: string }>("providers"),
-    all<{ providerId: string; balance: number }>("wallets"),
-    all<Booking>("bookings"),
-  ]);
-  const minimum = await minWallet();
-  const busyIds = new Set(bookings
-    .filter((row) => row.id !== booking.id && ["accepted", "enroute", "arrived", "in_progress"].includes(row.status))
-    .map((row) => row.providerId)
-    .filter(Boolean));
-  const rejected = new Set(booking.rejectedProviderIds ?? []);
-  const attempted = new Set([...missed, ...rejected]);
-  const origin = booking.originPoint ??
-    (typeof booking.address?.lat === "number" && typeof booking.address?.lng === "number"
-      ? { lat: booking.address.lat, lng: booking.address.lng }
-      : null);
-  // Rebuild the candidate list on every retry. A Pro who was offline/busy when
-  // the request was created can become eligible during the five-minute window.
-  const eligibleProviders = providers.filter((provider) =>
-    isInsideJaipur(provider) &&
-    provider.verified === true &&
-    provider.availabilityStatus === "available" &&
-    !provider.activeBookingId &&
-    !busyIds.has(provider.id) &&
-    (wallets.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimum
-  );
-  const match = matchProviders(eligibleProviders, booking.serviceId, origin);
-  const queue = match.matches.map((row) => row.provider.id);
-  const nextMatch = match.matches.find((row) => !attempted.has(row.provider.id));
-  const next = nextMatch?.provider as (Provider & { fcmTokens?: string[] }) | undefined;
-  const cursor = next ? queue.indexOf(next.id) + 1 : queue.length;
+    if (oldRecipients.length) {
+      const tokens = providers.filter((p) => oldRecipients.includes(p.id)).flatMap((p) => p.fcmTokens ?? []);
+      try { await cancelProviderJobOffer(tokens, booking.id); }
+      catch (error) { console.error("[fcm] expired-ring offer cancellation failed", error); }
+    }
 
-  const events = [
-    ...(currentExpired ? [newEvent("system", "offer_missed", "Provider did not respond within 40 seconds")] : []),
-  ];
-  if (!next) {
-    await claimDispatchAdvance(booking.id, booking.offerExpiresAt ?? 0, {
-      notifiedIds: [],
-      missedProviderIds: missed,
-      providerOfferHistory: offerHistory,
-      dispatchQueueIds: queue,
-      dispatchCursor: cursor,
-      dispatchRadiusKm: match.radiusKm,
-      offerExpiresAt: Math.min(deadline, now + RETRY_POLL_MS),
-      events: events.length ? appendEvents(baseEvents, events) : baseEvents,
-    });
-    return;
-  }
+    if (ringProviders.length) {
+      const tokens = ringProviders.flatMap((provider) => provider.fcmTokens ?? []);
+      try {
+        await sendProviderJobOffer(tokens, {
+          id: booking.id,
+          serviceName: booking.serviceName,
+          serviceId: booking.serviceId,
+          offerExpiresAt: ringExpiry,
+        });
+      } catch (error) {
+        console.error("[fcm] progressive provider offer could not be sent", error);
+      }
+      return;
+    }
 
-  const expiresAt = Math.min(deadline, now + OFFER_MS);
-  const claimed = await claimDispatchAdvance(booking.id, booking.offerExpiresAt ?? 0, {
-    notifiedIds: [next.id],
-    missedProviderIds: missed,
-    providerOfferHistory: offerHistory,
-    dispatchQueueIds: queue,
-    dispatchCursor: cursor,
-    dispatchedAt: now,
-    offerExpiresAt: expiresAt,
-    dispatchRadiusKm: match.radiusKm,
-    events: appendEvents(baseEvents, [
-      ...events,
-      newEvent("system", "provider_notified", `${next.name} notified; response window 40 seconds`),
-    ]),
-  });
-  if (!claimed) return;
-
-  try {
-    await sendProviderJobOffer(next.fcmTokens ?? [], {
-      id: booking.id,
-      serviceName: booking.serviceName,
-      serviceId: booking.serviceId,
-      offerExpiresAt: expiresAt,
-    });
-  } catch (error) {
-    console.error("[fcm] sequential provider offer failed", error);
+    // Empty rings are skipped immediately; ring five always waits for the
+    // common five-minute deadline so the total search duration is preserved.
+    if (ringExpiry > now) return;
   }
 }

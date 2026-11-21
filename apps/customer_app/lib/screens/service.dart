@@ -440,21 +440,60 @@ class _BookingScreenState extends State<BookingScreen> {
       _error = null;
     });
     try {
-      // The backend ranks eligible Pros within its 3 km / 5 km rings and
-      // offers the request to one Pro at a time. The app never chooses a Pro.
-      // Never substitute a hard-coded Jaipur coordinate: it can dispatch a
-      // real job to professionals around the wrong address. The backend will
-      // validate the saved address pin before creating the booking.
-      final lat = addr.lat;
-      final lng = addr.lng;
+      // Instant requests use a fresh device GPS fix at booking time.
+      // Scheduled requests keep the explicitly selected saved-address pin.
+      double? lat = addr.lat;
+      double? lng = addr.lng;
+      final bookingAddress = addr.toJson();
+      if (!_scheduleSelected) {
+        if (!await Geolocator.isLocationServiceEnabled()) {
+          throw Exception('Booking ke liye phone ka GPS/location ON karein.');
+        }
+        var permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+        if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+          throw Exception('Nearby providers dhoondhne ke liye location permission Allow karein.');
+        }
+        final current = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.bestForNavigation,
+            timeLimit: Duration(seconds: 20),
+          ),
+        );
+        if (current.accuracy > 100) {
+          throw Exception('GPS accuracy abhi low hai (±${current.accuracy.round()} m). Open area mein jaakar dobara try karein.');
+        }
+        lat = current.latitude;
+        lng = current.longitude;
+        bookingAddress['lat'] = lat;
+        bookingAddress['lng'] = lng;
+        bookingAddress['label'] = 'Current location';
+        try {
+          final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
+            'format': 'jsonv2', 'lat': '${current.latitude}', 'lon': '${current.longitude}',
+            'zoom': '18', 'addressdetails': '1', 'accept-language': 'en',
+          });
+          final response = await http.get(uri, headers: {'User-Agent': 'Kaamdaar/1.0 (location lookup)'});
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body) as Map<String, dynamic>;
+            final a = (data['address'] as Map?)?.cast<String, dynamic>() ?? {};
+            final street = [a['house_number'], a['road']].where((v) => v != null && '$v'.isNotEmpty).join(' ');
+            final locality = a['suburb'] ?? a['neighbourhood'] ?? a['quarter'] ?? a['village'] ?? a['town'] ?? '';
+            final city = a['city'] ?? a['town'] ?? a['village'] ?? a['state_district'] ?? addr.city;
+            bookingAddress['line1'] = [street, locality].where((v) => '$v'.isNotEmpty).join(', ');
+            bookingAddress['city'] = city;
+            bookingAddress['pincode'] = a['postcode'] ?? addr.pincode;
+          }
+        } catch (_) {
+          bookingAddress['line1'] = 'Current GPS location';
+        }
+      }
       if (lat == null || lng == null ||
           !lat.isFinite || !lng.isFinite ||
           lat.abs() > 90 || lng.abs() > 180) {
-        setState(() {
-          _busy = false;
-          _error = 'Is address ka map location save nahi hai. Map pin ke saath address update karke dobara booking karein.';
-        });
-        return;
+        throw Exception('Selected address ka map location save nahi hai. Map pin ke saath address update karein.');
       }
       final booking = await Api.createBooking({
         'userId': user.id,
@@ -463,7 +502,7 @@ class _BookingScreenState extends State<BookingScreen> {
         'serviceName': widget.service.name,
         'providerId': '',
         'providerName': '',
-        'address': addr.toJson(),
+        'address': bookingAddress,
         'mode': _scheduleSelected ? 'scheduled' : 'instant',
         'date': _dateIso(_scheduleSelected ? _scheduledDate : DateTime.now()),
         'slot': _scheduleSelected ? _slot : 'ASAP',

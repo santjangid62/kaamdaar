@@ -41,6 +41,16 @@ export async function GET(req: Request) {
     all<{ providerId: string; status: string }>("bookings"),
     all<{ providerId: string; balance?: number }>("wallets"),
   ]);
+  // The unfiltered roster powers the public "Areas We Serve" section.
+  // Include providers who are currently busy/offline or have served before;
+  // dispatch eligibility is applied only to service-specific matching below.
+  if (!serviceId && !hasPoint) {
+    const coverageRoster = providerRows
+      .filter((provider) => isInsideJaipur(provider))
+      .filter((provider) => Number.isFinite(provider.lat) && Number.isFinite(provider.lng));
+    return NextResponse.json({ providers: coverageRoster, radiusKm: null, ring: null, serviceCity: "Jaipur" });
+  }
+
   const minimumWallet = await minWallet();
   const busyIds = new Set(bookingRows
     .filter((booking) => ["accepted", "enroute", "arrived", "in_progress"].includes(booking.status))
@@ -56,10 +66,6 @@ export async function GET(req: Request) {
       !serviceId || !hasPoint ||
       (walletRows.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimumWallet
     );
-
-  if (!serviceId && !hasPoint) {
-    return NextResponse.json({ providers, radiusKm: null, ring: null, serviceCity: "Jaipur" });
-  }
 
   if (hasPoint && !isInsideJaipur({ lat, lng })) {
     return NextResponse.json({

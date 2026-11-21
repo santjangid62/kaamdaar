@@ -114,6 +114,7 @@ class _DashboardTabState extends State<DashboardTab> {
   String _locationLabel = 'Detecting your location…';
   Timer? _ticker;
   Timer? _poll;
+  Timer? _locationPoll;
 
   @override
   void initState() {
@@ -124,16 +125,22 @@ class _DashboardTabState extends State<DashboardTab> {
       if (mounted && _offers.isNotEmpty) setState(() {});
     });
     _poll = Timer.periodic(const Duration(seconds: 5), (_) => _load(silent: true));
+    // Keep the server-side provider GPS fresh so progressive dispatch only
+    // targets Pros who are genuinely online and recently located.
+    _locationPoll = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (_available) _detectProviderLocation(reverseGeocode: false);
+    });
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
     _poll?.cancel();
+    _locationPoll?.cancel();
     super.dispose();
   }
 
-  Future<void> _detectProviderLocation() async {
+  Future<void> _detectProviderLocation({bool reverseGeocode = true}) async {
     try {
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
@@ -153,11 +160,11 @@ class _DashboardTabState extends State<DashboardTab> {
           if (retry.accuracy < position.accuracy) position = retry;
         } catch (_) {}
       }
-      final locationIsPrecise = position.accuracy <= 150;
+      final locationIsPrecise = position.accuracy <= 100;
       var label = locationIsPrecise
           ? 'Current location'
           : 'GPS accuracy low (±${position.accuracy.round()} m) — move outdoors and tap to retry';
-      if (locationIsPrecise) try {
+      if (locationIsPrecise && reverseGeocode) try {
         final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
           'format': 'jsonv2', 'lat': '${position.latitude}', 'lon': '${position.longitude}',
           'zoom': '18', 'addressdetails': '1', 'accept-language': 'en',
@@ -662,9 +669,9 @@ class _OfferCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final seconds = ((booking.createdAt + 60000 - DateTime.now().millisecondsSinceEpoch) /
+    final seconds = (((booking.offerExpiresAt ?? (booking.createdAt + 60000)) - DateTime.now().millisecondsSinceEpoch) /
             1000)
-        .clamp(0, 60)
+        .clamp(0, 300)
         .round();
     final me = booking.amount;
     return CardBox(
@@ -819,15 +826,23 @@ class _JobsTabState extends State<JobsTab> {
   List<BookingItem> _jobs = [];
   ProviderItem? _me;
   bool _loading = true;
+  Timer? _walletRefresh;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _walletRefresh = Timer.periodic(const Duration(seconds: 10), (_) => _load(silent: true));
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _walletRefresh?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent && mounted) setState(() => _loading = true);
     try {
       final user = await Api.restoreSession();
       if (user == null) return;
@@ -1074,7 +1089,7 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
                 : ListView(padding: const EdgeInsets.all(16), children: [
                     const Text('Missed Bookings', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: PColors.ink)),
                     const SizedBox(height: 4),
-                    const Text('40-second timeouts and bookings you rejected', style: TextStyle(fontSize: 12, color: Colors.black45)),
+                    const Text('60-second ring timeouts and bookings you rejected', style: TextStyle(fontSize: 12, color: Colors.black45)),
                     const SizedBox(height: 14),
                     Row(children: [
                       Expanded(child: _missedStat('Today', '$today')),
@@ -1190,7 +1205,7 @@ class _WalletTabState extends State<WalletTab> {
       });
     } catch (_) {
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _loading) setState(() => _loading = false);
     }
   }
 
@@ -1285,7 +1300,7 @@ class _WalletTabState extends State<WalletTab> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text('Minimum balance ₹500 — 10% commission is debited after every paid job.',
+                  Text('Minimum balance ₹200 — 10% commission is debited after every paid job.',
                       style: TextStyle(
                           color: Colors.white.withValues(alpha: .8), fontSize: 10.5)),
                 ],
@@ -1380,6 +1395,32 @@ class _ProfileTabState extends State<ProfileTab> {
     } catch (_) {
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _pairBrowser() async {
+    try {
+      final result = await Api.createPairingCode();
+      final code = (result['code'] ?? '').toString();
+      if (!mounted || code.isEmpty) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Pair this browser'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Enter this one-time code on the Kaamdaar website. It expires in 3 minutes.'),
+              const SizedBox(height: 18),
+              SelectableText(code, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 8)),
+            ],
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
     }
   }
 
@@ -1505,6 +1546,7 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
           ),
           const SizedBox(height: 14),
+          _tile(Icons.devices, 'Pair Web Browser', _pairBrowser),
           _tile(Icons.help_outline, 'Help & Support', () {
             showDialog<void>(
               context: context,
@@ -1514,7 +1556,7 @@ class _ProfileTabState extends State<ProfileTab> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('• Accept request within 60 seconds'),
+                    Text('• Accept before the active ring timer ends'),
                     SizedBox(height: 6),
                     Text('• Start OTP customer se lein'),
                     SizedBox(height: 6),

@@ -16,10 +16,10 @@ import {
 import { useApp } from "../../components/AppProvider";
 import { fill, useLang } from "../../lib/i18n";
 import { isFirebaseConfigured } from "../../lib/firebase";
-import { sendOtp, verifyOtp } from "../../lib/auth-service";
+import { pairBrowser, sendOtp, verifyOtp } from "../../lib/auth-service";
 import { isValidIndianMobile, toE164Indian } from "../../lib/validation";
 
-type Step = "phone" | "otp";
+type Step = "phone" | "otp" | "pair";
 
 function LoginFlow() {
   const router = useRouter();
@@ -31,9 +31,10 @@ function LoginFlow() {
   // effect below never overrides it
   const handledRedirect = useRef(false);
 
-  const [step, setStep] = useState<Step>("phone");
+  const [step, setStep] = useState<Step>("pair");
   const [digits, setDigits] = useState("");
   const [code, setCode] = useState("");
+  const [pairCode, setPairCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const otpAttempted = useRef("");
@@ -60,6 +61,31 @@ function LoginFlow() {
     } catch (error) {
       setError(error instanceof Error ? error.message : s.login.sendFail);
     } finally {
+      setBusy(false);
+    }
+  }
+
+
+  async function runPair(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (pairCode.replace(/\\D/g, "").length !== 6) {
+      setError("Enter the 6-digit code shown in your Kaamdaar app.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await pairBrowser(pairCode);
+      handledRedirect.current = true;
+      if (result.role === "provider") {
+        router.replace("/provider");
+        return;
+      }
+      if (!result.user) throw new Error("Customer account could not be loaded.");
+      signIn(result.user);
+      router.replace("/dashboard");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Browser pairing failed.");
       setBusy(false);
     }
   }
@@ -232,10 +258,10 @@ function LoginFlow() {
               />
               <div>
                 <h2 className="text-2xl font-black tracking-tight text-navy sm:text-[1.75rem]">
-                  {step === "phone" ? s.login.title : s.login.verify}
+                  {step === "phone" ? s.login.title : step === "otp" ? s.login.verify : "Pair this browser"}
                 </h2>
                 <p className="mt-0.5 text-sm font-medium text-slate-500 sm:text-base">
-                  {step === "phone" ? s.login.onlyPhone : fill(s.login.sentTo, { phone })}
+                  {step === "phone" ? s.login.onlyPhone : step === "otp" ? fill(s.login.sentTo, { phone }) : "Use a one-time code from your signed-in Kaamdaar app"}
                 </p>
               </div>
             </div>
@@ -280,6 +306,7 @@ function LoginFlow() {
                 )}
 
                 <button type="submit" disabled={busy || digits.length !== 10} className="btn-primary w-full justify-center py-3.5">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}Send OTP</button>
+                <button type="button" onClick={() => { setError(null); setStep("pair"); }} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-navy hover:border-flame">Already signed in on the Kaamdaar app? Pair this browser</button>
 
                 <p className="border-t border-slate-100 pt-4 text-xs leading-6 text-slate-500 sm:text-sm">
                   <ShieldCheck className="mr-1.5 inline h-4 w-4 -translate-y-px text-green-600" />
@@ -294,7 +321,7 @@ function LoginFlow() {
                   {s.login.termsLine.after}
                 </p>
               </form>
-            ) : (
+            ) : step === "otp" ? (
               <form onSubmit={handleVerify} className="mt-6 space-y-4">
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-semibold text-slate-700">
@@ -366,6 +393,19 @@ function LoginFlow() {
                     {s.login.resend}
                   </button>
                 </div>
+              </form>
+            ) : (
+              <form onSubmit={runPair} className="mt-8 space-y-5">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-navy">6-digit pairing code</span>
+                  <input autoFocus inputMode="numeric" maxLength={6} value={pairCode}
+                    onChange={(e) => { setError(null); setPairCode(e.target.value.replace(/\\D/g, "").slice(0, 6)); }}
+                    placeholder="••••••"
+                    className="h-16 w-full rounded-xl border-2 border-slate-200 bg-slate-50 px-3 text-center font-mono text-[26px] font-bold tracking-[0.55em] text-navy outline-none focus:border-flame focus:bg-white focus:ring-4 focus:ring-flame-100" />
+                </label>
+                <p className="text-sm leading-6 text-slate-500">Open the Kaamdaar app on your authorized phone, go to Profile, choose <strong>Pair Web Browser</strong>, and enter the code shown there. The code expires in 3 minutes and can be used once.</p>
+                {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{error}</p>}
+                <button type="submit" disabled={busy || pairCode.length !== 6} className="btn-primary w-full justify-center py-3.5">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}Pair browser</button>
               </form>
             )}
           </div>

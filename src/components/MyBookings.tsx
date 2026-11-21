@@ -55,7 +55,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
   const [tab, setTab] = useState<CustomerBookingTab>(initialTab ?? "current");
   const [notice, setNotice] = useState<string | null>(null);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("default");
-  const previousBookings = useRef<Map<string, Booking["status"]> | null>(null);
+  const previousBookings = useRef<Map<string, { status: Booking["status"]; dispatchFailedAt?: number }> | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -80,9 +80,13 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
         const previous = previousBookings.current;
         if (previous) {
           for (const booking of latest) {
-            const oldStatus = previous.get(booking.id);
-            if (oldStatus && oldStatus !== booking.status) {
-              const message = `${booking.serviceName}: ${s.bookings.status[booking.status]}`;
+            const old = previous.get(booking.id);
+            const newlyFailed = Boolean(old && !old.dispatchFailedAt && booking.dispatchFailedAt);
+            const statusChanged = Boolean(old && old.status !== booking.status);
+            if (newlyFailed || statusChanged) {
+              const message = newlyFailed
+                ? "No provider is accepting your request right now. Please try again after some time."
+                : `${booking.serviceName}: ${s.bookings.status[booking.status]}`;
               setNotice(message);
               if (noticeTimer.current) clearTimeout(noticeTimer.current);
               noticeTimer.current = setTimeout(() => setNotice(null), 7000);
@@ -97,7 +101,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
             }
           }
         }
-        previousBookings.current = new Map(latest.map((booking) => [booking.id, booking.status]));
+        previousBookings.current = new Map(latest.map((booking) => [booking.id, { status: booking.status, dispatchFailedAt: booking.dispatchFailedAt }]));
         setBookings(latest);
       } catch {
         // Keep the last good booking list during network/auth restoration.
@@ -200,7 +204,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
         )}
 
         {grouped[active].map((b) => {
-          const canTrack = active === "current" && Boolean(b.providerId) && LIVE_STATUSES.has(b.status);
+          const canTrack = active === "current" && ((Boolean(b.providerId) && LIVE_STATUSES.has(b.status)) || (b.status === "dispatched" && !b.dispatchFailedAt));
           const card = (
             <div className={`rounded-xl border border-slate-200 p-4 transition ${canTrack ? "hover:border-blue-400 hover:bg-blue-50/40" : "hover:border-blue-300"}`}>
             <div className="flex items-start justify-between gap-3">
@@ -214,7 +218,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase ${STATUS_STYLE[b.status]}`}
                   >
-                    {s.bookings.status[b.status]}
+                    {b.dispatchFailedAt ? "No provider available" : s.bookings.status[b.status]}
                   </span>
                   {b.mode === "instant" && <Zap className="h-3.5 w-3.5 text-amber-500" />}
                   {b.mode === "recurring" && <Repeat className="h-3.5 w-3.5 text-indigo-500" />}
@@ -224,7 +228,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
                     {s.bookings.pro} {b.providerName}
                   </p>
                 ) : (
-                  <p className="mt-1 text-sm text-slate-500">{d.searching}</p>
+                  <p className="mt-1 text-sm text-slate-500">{b.dispatchFailedAt ? "No provider is accepting your request right now. Please try again after some time." : d.searching}</p>
                 )}
                 </div>
               </div>

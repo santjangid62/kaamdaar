@@ -6,12 +6,11 @@
  */
 import { NextResponse } from "next/server";
 import { all, insert, patch, ready } from "../../../server/db";
-import { commissionRate, minWallet } from "../../../server/settings";
+import { commissionRate } from "../../../server/settings";
 import type { Booking, GeoPoint, Provider, Service } from "../../../lib/types";
-import { matchProviders } from "../../../lib/match";
+import { matchProvidersInRings } from "../../../lib/match";
 import { isInsideJaipur } from "../../../lib/areas";
 import { newEvent } from "../../../server/events";
-import { sendProviderJobOffer } from "../../../server/fcm";
 import { advanceProviderDispatch } from "../../../server/dispatch";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
 
@@ -145,9 +144,9 @@ export async function POST(req: Request) {
   }));
   const combinedServiceName = selectedRows.map((s) => s.name).join(" + ");
 
-  // The customer never picks a Pro and never supplies the notify list: the
-  // server finds everyone who serves this service near the address (3 km,
-  // widening to 5 km) and offers the job to all of them. First accept wins.
+  // The customer never picks a Pro and never supplies the notify list. The
+  // server builds a 5 km service-provider queue and progressively notifies
+  // each 1 km ring for up to five minutes. First accept wins.
   const origin = resolveOrigin(body);
   if (!origin) {
     return NextResponse.json(
@@ -162,31 +161,17 @@ export async function POST(req: Request) {
     );
   }
 
-  const [providers, wallets, existingBookings] = await Promise.all([
-    all<Provider & { activeBookingId?: string; fcmTokens?: string[] }>("providers"),
-    all<{ providerId: string; balance: number }>("wallets"),
-    all<Booking>("bookings"),
-  ]);
-  const minimum = await minWallet();
-  // Never notify a professional who is already handling an active job.
-  // pending_confirm means the Pro has marked work complete, so availability
-  // is released at that point while customer completion OTP remains pending.
-  const busyProviderIds = new Set(existingBookings
-    .filter((b) => ["accepted", "enroute", "arrived", "in_progress"].includes(b.status))
-    .map((b) => b.providerId)
-    .filter(Boolean));
-  const eligibleProviders = providers.filter((provider) =>
-    isInsideJaipur(provider) &&
-    provider.verified === true &&
-    provider.availabilityStatus === "available" &&
-    !provider.activeBookingId &&
-    !busyProviderIds.has(provider.id) &&
-    (wallets.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimum
+  const providers = await all<Provider & { activeBookingId?: string; fcmTokens?: string[] }>("providers");
+  // Build the service-specific 5 km candidate queue. Availability, GPS freshness,
+  // wallet and FCM tokens are rechecked when each one-kilometre ring opens.
+  const candidates = matchProvidersInRings(
+    providers.filter((provider) => isInsideJaipur(provider) && provider.verified === true),
+    body.serviceId,
+    origin,
   );
-  const match = matchProviders(eligibleProviders, body.serviceId, origin);
   const rate = await commissionRate();
   const now = Date.now();
-  const firstMatch = match.matches[0];
+  const dispatchDeadlineAt = now + 5 * 60_000;
 
   // Keep the booking alive for the full five-minute search window even when
   // no Pro is available at creation time; the dispatcher rechecks availability.
@@ -210,18 +195,20 @@ export async function POST(req: Request) {
     commission: Math.round((amount * rate) / 100),
     status: "dispatched",
     createdAt: now,
-    offerExpiresAt: firstMatch ? Math.min(now + 40_000, now + 5 * 60_000) : now + 5_000,
-    // Sequential dispatch: notify one Pro at a time; when none are available,
-    // keep searching the same 3 km / 5 km rings until the five-minute deadline.
-    notifiedIds: firstMatch ? [firstMatch.provider.id] : [],
-    dispatchQueueIds: match.matches.map((m) => m.provider.id),
-    dispatchCursor: firstMatch ? 1 : 0,
+    // Dispatcher opens the 1 km ring immediately, then expands every 60 seconds.
+    offerExpiresAt: now,
+    notifiedIds: [],
+    dispatchRingIds: [],
+    dispatchQueueIds: candidates.map((match) => match.provider.id),
+    dispatchCursor: 0,
     dispatchStartedAt: now,
-    dispatchDeadlineAt: now + 5 * 60_000,
+    dispatchDeadlineAt,
+    dispatchRingKm: 0,
+    dispatchNotifiedTotal: 0,
     missedProviderIds: [],
     rejectedProviderIds: [],
     providerOfferHistory: [],
-    dispatchRadiusKm: match.radiusKm,
+    dispatchRadiusKm: 0,
     dispatchedAt: now,
     originPoint: origin,
     // first line of the audit trail the Admin log reads
@@ -229,28 +216,16 @@ export async function POST(req: Request) {
       newEvent(
         "customer",
         "created",
-        `${match.matches.length} eligible Pros found within ${match.radiusKm} km (${match.ring} ring); one-at-a-time dispatch started`,
+        `Booking created; progressive 1 km provider search started across a 5 km candidate radius`,
         { status: "dispatched" },
       ),
     ],
   } as unknown as Record<string, unknown>);
 
-  // Only the first ranked Pro is notified now. Later Pros are notified by
-  // advanceProviderDispatch after reject/timeout; inbox polling is the fallback.
-  if (firstMatch) {
-    const firstProvider = providers.find((provider) => provider.id === firstMatch.provider.id);
-    const fcmTokens = firstProvider?.fcmTokens ?? [];
-    try {
-      await sendProviderJobOffer(fcmTokens, {
-        id: booking.id,
-        serviceName: combinedServiceName,
-        serviceId: body.serviceId,
-        offerExpiresAt: now + 40_000,
-      });
-    } catch (error) {
-      console.error("[fcm] job offer push could not be sent", error);
-    }
-  }
+  // Start the first one-kilometre ring immediately; later rings advance
+  // from customer/provider polling and explicit provider rejections.
+  await advanceProviderDispatch(booking.id);
+  const currentBooking = await all<Booking>("bookings").then((rows) => rows.find((row) => row.id === booking.id) ?? booking);
 
   // Persist real catalogue demand so homepage ranking learns from actual bookings.
   const bookedService = await all<{ id: string; bookingCount?: number }>("services");
@@ -260,13 +235,15 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({
-    booking,
+    booking: currentBooking,
     dispatch: {
-      notified: firstMatch ? 1 : 0,
-      queued: match.matches.length,
-      dispatchWindowMinutes: 5,
-      radiusKm: match.radiusKm,
-      ring: match.ring,
+      notified: Array.isArray(currentBooking.notifiedIds) ? currentBooking.notifiedIds.length : 0,
+      notifiedTotal: currentBooking.dispatchNotifiedTotal ?? 0,
+      queued: candidates.length,
+      dispatchWindowSeconds: 60,
+      searchWindowSeconds: 300,
+      radiusKm: currentBooking.dispatchRingKm ?? 1,
+      ring: currentBooking.dispatchRingKm ?? 1,
     },
   });
 }

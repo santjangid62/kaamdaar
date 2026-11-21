@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Pencil, Plus, Search, Trash2, X, Sparkles, RefreshCw } from "lucide-react";
+import { Download, Pencil, Plus, Search, Trash2, X, Sparkles, RefreshCw, UserCheck } from "lucide-react";
 import type { Field, SectionDef } from "../../lib/admin/types";
 import { useApp } from "../AppProvider";
 import { BookingTable, Pager } from "./widgets";
@@ -279,6 +279,24 @@ export default function SectionClient({ def }: { def: SectionDef }) {
     }
   }
 
+  async function unblockCustomer(row: Record<string, string | number>) {
+    const id = String(row.id ?? "");
+    if (!id || !window.confirm(`Unblock ${String(row.name ?? "this customer")} and restore booking access?`)) return;
+    setBusy(true); setError(null); setNotice(null);
+    try {
+      const res = await fetch(`/api/admin/customers/${encodeURIComponent(id)}/unblock`, { method: "POST" });
+      const data = await res.json() as { error?: string; emailStatus?: string };
+      if (!res.ok) throw new Error(data.error || "Could not unblock customer");
+      setNotice(data.emailStatus || "Customer account unblocked.");
+      await refreshCustomers();
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not unblock customer");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const bulkScope =
     def.title === "Categories" ? "categories" :
     def.title === "Services" ? "services" :
@@ -387,6 +405,17 @@ export default function SectionClient({ def }: { def: SectionDef }) {
               editable
                 ? (row) => (
                     <span className="flex items-center justify-end gap-1">
+                      {def.title === "Customers" && row.status === "blocked" && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void unblockCustomer(row)}
+                          className="rounded-md p-1.5 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                          title="Unblock customer"
+                        >
+                          <UserCheck className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => openEdit(row)}
