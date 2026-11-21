@@ -250,6 +250,7 @@ export async function createWebPairingCode(
 export async function consumeWebPairingCode(
   role: DeviceRole,
   phone: string,
+  uid: string,
   code: string,
 ): Promise<string | null> {
   if (!/^\d{6}$/.test(code)) return null;
@@ -257,7 +258,7 @@ export async function consumeWebPairingCode(
   const codeHash = createHash("sha256")
     .update(`${role}:${phone}:${code}:${secret()}`)
     .digest("hex");
-  const consumed = await consumeDevicePairingCode(id, codeHash, Date.now());
+  const consumed = await consumeDevicePairingCode(id, uid, codeHash, Date.now());
   if (!consumed) return null;
   const session = consumed as unknown as DeviceSessionRecord;
   const exp = Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60;
