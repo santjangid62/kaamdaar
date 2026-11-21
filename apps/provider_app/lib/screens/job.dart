@@ -36,6 +36,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   final _otp = TextEditingController();
   final _completionOtp = TextEditingController();
   String? _otpError;
+  int _customerRating = 0;
+  bool _customerReviewSubmitted = false;
+  final _customerReviewText = TextEditingController();
   Position? _currentPosition;
 
   @override
@@ -52,6 +55,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     unawaited(WakelockPlus.disable());
     _otp.dispose();
     _completionOtp.dispose();
+    _customerReviewText.dispose();
     super.dispose();
   }
 
@@ -397,6 +401,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       if (b.status == 'completed') ...[
                         const SizedBox(height: 14),
                         _invoiceCard(b),
+                        if (b.paidAt != null) ...[
+                          const SizedBox(height: 14),
+                          _customerReviewCard(b),
+                        ],
                       ],
                       const SizedBox(height: 16),
                       _primaryAction(b),
@@ -708,6 +716,64 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
                 color: bold ? PColors.green : Colors.black87)),
       ],
+    );
+  }
+
+  Widget _customerReviewCard(BookingItem booking) {
+    if (_customerReviewSubmitted) {
+      return const CardBox(child: Text('Customer rating submitted. Thank you.',
+          style: TextStyle(color: PColors.green, fontWeight: FontWeight.w700)));
+    }
+    return CardBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Rate the Customer', style: TextStyle(fontWeight: FontWeight.w900, color: PColors.navy)),
+          const SizedBox(height: 4),
+          const Text('Optional feedback helps Kaamdaar maintain service quality.',
+              style: TextStyle(fontSize: 11.5, color: Colors.black54)),
+          Row(
+            children: List.generate(5, (index) => IconButton(
+              onPressed: () => setState(() => _customerRating = index + 1),
+              icon: Icon(index < _customerRating ? Icons.star : Icons.star_border,
+                  color: Colors.amber, size: 28),
+            )),
+          ),
+          TextField(
+            controller: _customerReviewText,
+            maxLines: 2,
+            maxLength: 500,
+            decoration: const InputDecoration(
+              hintText: 'Optional note about the customer',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _busy || _customerRating == 0 ? null : () async {
+                setState(() => _busy = true);
+                try {
+                  await Api.post('/api/reviews', {
+                    'bookingId': booking.id,
+                    'actorRole': 'provider',
+                    'customerRating': _customerRating,
+                    'text': _customerReviewText.text.trim(),
+                  });
+                  if (mounted) setState(() => _customerReviewSubmitted = true);
+                } catch (e) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(e.toString())),
+                  );
+                } finally {
+                  if (mounted) setState(() => _busy = false);
+                }
+              },
+              child: const Text('Submit Customer Rating'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
