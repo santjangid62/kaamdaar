@@ -54,7 +54,10 @@ export type DeviceConflict = {
 };
 
 function secret(): string {
-  const value = process.env.DEVICE_SESSION_SECRET?.trim();
+  // Preview QA can reuse its already branch-scoped QA secret. Production
+  // must configure a dedicated DEVICE_SESSION_SECRET in Vercel.
+  const value = process.env.DEVICE_SESSION_SECRET?.trim() ||
+    (process.env.QA_MOBILE_AUTH_ENABLED === "true" ? process.env.QA_MOBILE_AUTH_SECRET?.trim() : "");
   if (!value) throw new Error("DEVICE_SESSION_SECRET is not configured");
   return value;
 }
