@@ -17,9 +17,13 @@ export async function GET(req: Request) {
 
 export async function DELETE(req: Request) {
   const identity = await firebaseIdentityFromRequest(req);
-  if (!identity?.role || !identity.accountId) {
-    return NextResponse.json({ error: "A valid device session is required" }, { status: 401 });
+  if (req.headers.get("x-kaamdaar-client") === "mobile") {
+    if (!identity?.role || !identity.accountId) {
+      return NextResponse.json({ error: "A valid device session is required" }, { status: 401 });
+    }
+    await revokeDeviceSession(identity.role as AccountRole, identity.accountId);
   }
-  await revokeDeviceSession(identity.role as AccountRole, identity.accountId);
-  return NextResponse.json({ ok: true });
+  const response = NextResponse.json({ ok: true });
+  response.cookies.set({ name: "kaamdaar_session", value: "", httpOnly: true, secure: process.env.NODE_ENV !== "development", sameSite: "lax", path: "/", maxAge: 0 });
+  return response;
 }
