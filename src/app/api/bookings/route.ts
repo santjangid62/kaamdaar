@@ -210,14 +210,13 @@ export async function POST(req: Request) {
     commission: Math.round((amount * rate) / 100),
     status: "dispatched",
     createdAt: now,
-    offerExpiresAt: firstMatch ? Math.min(now + 40_000, now + 5 * 60_000) : now + 5_000,
-    // Sequential dispatch: notify one Pro at a time; when none are available,
-    // keep searching the same 3 km / 5 km rings until the five-minute deadline.
-    notifiedIds: firstMatch ? [firstMatch.provider.id] : [],
+    // Broadcast one 40-second offer to every eligible matching Pro.
+    offerExpiresAt: match.matches.length ? now + 40_000 : now + 5_000,
+    notifiedIds: match.matches.map((m) => m.provider.id),
     dispatchQueueIds: match.matches.map((m) => m.provider.id),
-    dispatchCursor: firstMatch ? 1 : 0,
+    dispatchCursor: match.matches.length,
     dispatchStartedAt: now,
-    dispatchDeadlineAt: now + 5 * 60_000,
+    dispatchDeadlineAt: now + 40_000,
     missedProviderIds: [],
     rejectedProviderIds: [],
     providerOfferHistory: [],
@@ -229,26 +228,27 @@ export async function POST(req: Request) {
       newEvent(
         "customer",
         "created",
-        `${match.matches.length} eligible Pros found within ${match.radiusKm} km (${match.ring} ring); one-at-a-time dispatch started`,
+        `${match.matches.length} eligible Pros notified together within ${match.radiusKm} km (${match.ring} ring); first accept wins`,
         { status: "dispatched" },
       ),
     ],
   } as unknown as Record<string, unknown>);
 
-  // Only the first ranked Pro is notified now. Later Pros are notified by
-  // advanceProviderDispatch after reject/timeout; inbox polling is the fallback.
-  if (firstMatch) {
-    const firstProvider = providers.find((provider) => provider.id === firstMatch.provider.id);
-    const fcmTokens = firstProvider?.fcmTokens ?? [];
+  // Notify every eligible Pro for this service/radius at the same time.
+  const matchedIds = new Set(match.matches.map((row) => row.provider.id));
+  const fcmTokens = providers
+    .filter((provider) => matchedIds.has(provider.id))
+    .flatMap((provider) => provider.fcmTokens ?? []);
+  if (fcmTokens.length) {
     try {
       await sendProviderJobOffer(fcmTokens, {
         id: booking.id,
         serviceName: combinedServiceName,
         serviceId: body.serviceId,
-        offerExpiresAt: now + 40_000,
+        offerExpiresAt: booking.offerExpiresAt ?? now + 40_000,
       });
     } catch (error) {
-      console.error("[fcm] job offer push could not be sent", error);
+      console.error("[fcm] provider broadcast could not be sent", error);
     }
   }
 
@@ -262,9 +262,9 @@ export async function POST(req: Request) {
   return NextResponse.json({
     booking,
     dispatch: {
-      notified: firstMatch ? 1 : 0,
+      notified: match.matches.length,
       queued: match.matches.length,
-      dispatchWindowMinutes: 5,
+      dispatchWindowSeconds: 40,
       radiusKm: match.radiusKm,
       ring: match.ring,
     },
