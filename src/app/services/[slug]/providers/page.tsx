@@ -134,7 +134,6 @@ function ProvidersFlow() {
           radiusKm: data.radiusKm ?? WIDE_RING_KM,
           ring: data.ring ?? "none",
         });
-        setDispatchRadiusKm(data.radiusKm ?? WIDE_RING_KM);
       } catch {
         // Keep the last good ring: a transient read error must never look like
         // "0 Pros nearby" and contradict a Pro who just accepted.
@@ -239,7 +238,7 @@ function ProvidersFlow() {
     };
   }, [phase, bookingId, user, results]);
 
-  const handleDispatch = useCallback(async () => {
+  const handleDispatch = async () => {
     if (!service || !center || !user) {
       setDispatchError("Booking could not start. Please check your sign-in and allow current location access, then try again.");
       return;
@@ -293,7 +292,7 @@ function ProvidersFlow() {
     } finally {
       setBusy(false);
     }
-  }, [service, center, user, results, location, dateParam, timeParam, labels, bookingTotal, selectedSubServiceIds]);
+  };
 
   const handleUserAccept = useCallback(async () => {
     if (!user || !bookingId) return;
