@@ -38,6 +38,7 @@ export type Collection =
   | "walletTxns"
   | "providerPayments"
   | "loginOtps"
+  | "deviceSessions"
   | "adminUsers"
   | "auditLogs"
   | "settings";
@@ -45,7 +46,7 @@ export type Collection =
 export const COLLECTIONS: Collection[] = [
   "users", "addresses", "bookings", "providers", "services", "categories", "subcategories",
   "reviews", "complaints", "banners", "faqs", "pages", "campaigns", "notifications",
-  "payouts", "wallets", "walletTxns", "providerPayments", "loginOtps", "adminUsers", "auditLogs", "settings",
+  "payouts", "wallets", "walletTxns", "providerPayments", "loginOtps", "deviceSessions", "adminUsers", "auditLogs", "settings",
 ];
 
 export type Store = Partial<Record<Collection, Record<string, Doc>>> & { seeded?: boolean };
