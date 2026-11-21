@@ -151,10 +151,11 @@ export async function claimDeviceSession(input: {
     };
   }
 
-  // Same native installation: refresh the bearer session and its metadata.
-  const sessionId = randomUUID();
+  // Same native installation: keep the stable session ID so its already
+  // paired browser remains authorized while the native app refreshes metadata.
+  const sessionId = current.sessionId;
   const session = await patch<DeviceSessionRecord>("deviceSessions", id, {
-    uid, deviceName: input.deviceName.trim(), sessionId, lastSeenAt: now,
+    uid, deviceName: input.deviceName.trim(), lastSeenAt: now,
     ...(input.location ? { location: input.location } : {}),
   });
   if (!session) throw new Error("The device session disappeared; please sign in again");
