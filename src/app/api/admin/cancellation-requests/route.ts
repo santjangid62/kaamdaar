@@ -45,6 +45,7 @@ export async function PATCH(req: Request) {
     userId: booking.userId, userName: customer?.firstName || customer?.phone || booking.phone, phone: customer?.phone || booking.phone,
     bookingId, platform: "Booking cancellation review", readAt: null, createdAt: reviewedAt
   });
-  await recordAudit({ actor: "admin", action: decision, module: "Bookings", title: `Provider cancellation request ${decision}`, description: bookingId, reference: bookingId });
+  const auditAction: "approved" | "rejected" = decision === "approved" ? "approved" : "rejected";
+  await recordAudit({ actor: "admin", action: auditAction, module: "Bookings", title: `Provider cancellation request ${auditAction}`, description: bookingId, reference: bookingId });
   return NextResponse.json({ ok: true, booking: updated });
 }
