@@ -24,7 +24,7 @@ import {
   trackBookingCheckoutOpened,
   trackServiceProvidersViewed,
 } from "../../../../lib/analytics";
-import { browserLocation, formatDistance } from "../../../../lib/geo";
+import { browserLocation, formatDistance, reverseGeocode } from "../../../../lib/geo";
 import { etaMinutes } from "../../../../lib/dispatch";
 import { WIDE_RING_KM } from "../../../../lib/match";
 import type { NearbyProvider } from "../../../../lib/providers";
@@ -252,12 +252,15 @@ function ProvidersFlow() {
     try {
       const scheduled = Boolean(dateParam && dateParam !== todayIso());
       const dispatchOrigin = scheduled ? center : await browserLocation();
+      const dispatchPlace = scheduled
+        ? { label: location?.label ?? "Selected service address", city: location?.city ?? "", pincode: "" }
+        : await reverseGeocode(dispatchOrigin);
       const addr: Address = {
         id: "live",
-        label: location?.label.split(",")[0] ?? "Location",
-        line1: location?.label ?? "Current location",
-        city: location?.city ?? "",
-        pincode: "",
+        label: dispatchPlace.label.split(",")[0] || "Current location",
+        line1: dispatchPlace.label,
+        city: dispatchPlace.city || location?.city || "",
+        pincode: dispatchPlace.pincode ?? "",
         lat: dispatchOrigin.lat,
         lng: dispatchOrigin.lng,
       };
