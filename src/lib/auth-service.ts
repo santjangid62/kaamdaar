@@ -55,19 +55,49 @@ export async function sendOtp(phone: string): Promise<void> {
 export async function verifyOtp(
   phone: string,
   code: string,
-): Promise<{ user: User; isNew: boolean }> {
+): Promise<{ user: User; isNew: boolean; pairingRequired: boolean }> {
   if (!isFirebaseConfigured || !confirmation) {
     throw new Error("OTP session expired. Request a new code.");
   }
   const credential = await confirmation.confirm(code);
   confirmation = null;
   const idToken = await credential.user.getIdToken(true);
-  return authRequest({
+  const data = await authRequest({
     action: "verify",
     phone,
     idToken,
     platform: "web",
   });
+  return {
+    user: data.user as User,
+    isNew: data.isNew === true,
+    pairingRequired: data.pairingRequired === true,
+  };
+}
+
+/** Pair this browser with the native app already authorized for the same phone. */
+export async function completeWebPairing(
+  phone: string,
+  code: string,
+  role: "customer" | "provider" = "customer",
+): Promise<void> {
+  const current = getFirebaseAuth().currentUser;
+  if (!current) throw new Error("Verify your mobile number first.");
+  const currentPhone = current.phoneNumber ?? "";
+  if (currentPhone.replace(/\\D/g, "").slice(-10) !== phone.replace(/\\D/g, "").slice(-10)) {
+    throw new Error("The verified mobile number does not match this login.");
+  }
+  const idToken = await current.getIdToken(true);
+  const response = await fetch("/api/auth/device-pair/complete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ idToken, code, role }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.paired !== true) {
+    throw new Error(data.error ?? "Browser pairing failed.");
+  }
 }
 
 export function resetOtpFlow() {
