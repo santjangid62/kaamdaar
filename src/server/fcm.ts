@@ -123,7 +123,7 @@ export async function cancelProviderJobOffer(
           message: {
             token,
             data: { type: "job_offer_cancelled", bookingId },
-            android: { priority: "HIGH", ttl: "60s" },
+            android: { priority: "HIGH", ttl: "60s", collapseKey: `kaamdaar_job_${bookingId}` },
           },
         }),
       },
