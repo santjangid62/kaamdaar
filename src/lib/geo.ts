@@ -74,10 +74,10 @@ export async function browserLocation(timeoutMs = 30000): Promise<GeoPoint> {
     };
 
     const timer = window.setTimeout(() => {
-      if (fixes.length >= 3) {
+      if (fixes.length >= 2) {
         const best = fixes.reduce((a, b) => b.accuracy < a.accuracy ? b : a);
-        const agreeing = fixes.filter((sample) => haversineKm(best, sample) <= 0.1);
-        if (agreeing.length >= 3) {
+        const agreeing = fixes.filter((sample) => haversineKm(best, sample) <= 0.3);
+        if (agreeing.length >= 2) {
           finish(undefined, { lat: best.lat, lng: best.lng, accuracy: best.accuracy });
           return;
         }
@@ -94,7 +94,7 @@ export async function browserLocation(timeoutMs = 30000): Promise<GeoPoint> {
           lng: position.coords.longitude,
           accuracy: position.coords.accuracy ?? 9999,
         };
-        if (fix.accuracy > 25) {
+        if (fix.accuracy > 200) {
           sawLowAccuracy = true;
           return;
         }
