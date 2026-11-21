@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { all, get, patch, ready, releaseProviderBooking, insert } from "../../../../../server/db";
-import { isAuthed } from "../../../../../lib/admin/auth";
-import { recordAudit } from "../../../../../server/audit";
-import type { Booking, User } from "../../../../../lib/types";
+import { all, get, patch, ready, releaseProviderBooking, insert } from "../../../../server/db";
+import { isAuthed } from "../../../../lib/admin/auth";
+import { recordAudit } from "../../../../server/audit";
+import type { Booking, User } from "../../../../lib/types";
 
 export async function GET() {
   if (!(await isAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
