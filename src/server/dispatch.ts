@@ -1,6 +1,8 @@
-import { claimDispatchAdvance, get } from "./db";
+import { all, claimDispatchAdvance, get } from "./db";
 import type { Booking } from "../lib/types";
 import { appendEvents, newEvent } from "./events";
+import { cancelProviderJobOffer } from "./fcm";
+import type { Provider } from "../lib/types";
 
 /**
  * Broadcast dispatch has one shared 40-second response window. All eligible
@@ -31,7 +33,7 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
       : []),
     newEvent("system", "dispatch_failed", "No notified provider accepted within the 40-second offer window"),
   ];
-  await claimDispatchAdvance(booking.id, booking.offerExpiresAt ?? 0, {
+  const closed = await claimDispatchAdvance(booking.id, booking.offerExpiresAt ?? 0, {
     notifiedIds: [],
     missedProviderIds: missed,
     providerOfferHistory: history,
@@ -39,4 +41,15 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
     dispatchFailedMessage: "Maaf kijiye, 40 seconds ke andar koi professional booking accept nahi kar saka. Kripya dobara booking karein.",
     events: appendEvents(booking.events, events),
   });
+  if (closed && outstanding.length) {
+    const providers = await all<Provider & { fcmTokens?: string[] }>("providers");
+    const tokens = providers
+      .filter((provider) => outstanding.includes(provider.id))
+      .flatMap((provider) => provider.fcmTokens ?? []);
+    try {
+      await cancelProviderJobOffer(tokens, booking.id);
+    } catch (error) {
+      console.error("[fcm] expired-offer cancellation push failed", error);
+    }
+  }
 }
