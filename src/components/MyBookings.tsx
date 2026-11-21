@@ -218,7 +218,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase ${STATUS_STYLE[b.status]}`}
                   >
-                    {s.bookings.status[b.status]}
+                    {b.dispatchFailedAt ? "No provider available" : s.bookings.status[b.status]}
                   </span>
                   {b.mode === "instant" && <Zap className="h-3.5 w-3.5 text-amber-500" />}
                   {b.mode === "recurring" && <Repeat className="h-3.5 w-3.5 text-indigo-500" />}
@@ -228,7 +228,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
                     {s.bookings.pro} {b.providerName}
                   </p>
                 ) : (
-                  <p className="mt-1 text-sm text-slate-500">{d.searching}</p>
+                  <p className="mt-1 text-sm text-slate-500">{b.dispatchFailedAt ? "No provider is accepting your request right now. Please try again after some time." : d.searching}</p>
                 )}
                 </div>
               </div>
