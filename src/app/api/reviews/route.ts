@@ -36,8 +36,6 @@ export async function POST(req: Request) {
   }
 
   if (actorRole === "customer") {
-    const identity = await firebaseIdentityFromRequest(req);
-    if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
     const user = users.find((u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
     if (!user || booking.userId !== user.id) {
       return NextResponse.json({ error: "Booking not found for this customer" }, { status: 404 });
@@ -61,8 +59,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ review }, { status: 201 });
   }
 
-  const identity = await firebaseIdentityFromRequest(req);
-  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
   const provider = providers.find((p) =>
     p.id === booking.providerId && normalizeIndianPhone(p.phone ?? "") === identity.phone
   );
