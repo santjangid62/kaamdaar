@@ -17,12 +17,11 @@ export async function POST(req: Request) {
   if (!providerId || token.length < 40 || token.length > 4096) {
     return NextResponse.json({ error: "Valid providerId and FCM token are required" }, { status: 422 });
   }
-  let verifiedPhone: string;
   const requestIdentity = await firebaseIdentityFromRequest(req);
   if (!requestIdentity) {
     return NextResponse.json({ error: "A valid authorized device session is required to register notifications" }, { status: 401 });
   }
-  verifiedPhone = requestIdentity.phone;
+  const verifiedPhone = requestIdentity.phone;
 
   const matches = await find<Provider & { id: string; phone?: string; status?: string; fcmTokens?: string[] }>(
     "providers",
