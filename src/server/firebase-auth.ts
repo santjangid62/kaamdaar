@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { validateDeviceSession } from "./device-sessions";
+import { touchDeviceSession, validateDeviceSession } from "./device-sessions";
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
@@ -100,13 +100,17 @@ export async function verifyFirebasePhoneToken(idToken: string): Promise<{ phone
 /** Resolve a verified Firebase identity from a Bearer token on an API request. */
 export async function firebaseIdentityFromRequest(
   request: Request,
-): Promise<{ phone: string; uid: string } | null> {
+): Promise<{ phone: string; uid: string; role?: "customer" | "provider"; accountId?: string; sessionId?: string; deviceId?: string } | null> {
   const authorization = request.headers.get("authorization") ?? "";
   const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match?.[1]) return null;
   try {
     const token = match[1];
-    if (token.startsWith("ks1.")) return await validateDeviceSession(token);
+    if (token.startsWith("ks1.")) {
+      const identity = await validateDeviceSession(token);
+      if (identity) await touchDeviceSession(`${identity.role}:${identity.accountId}`, identity.sessionId);
+      return identity;
+    }
     // New Flutter clients are marked explicitly and must present a server-issued
     // device session. Legacy Firebase tokens cannot bypass the device lock.
     if (request.headers.get("x-kaamdaar-client") === "mobile") return null;
