@@ -109,8 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const detectLocation = useCallback(async (force = false) => {
-    if (manualLocationSelectedRef.current && !force) return;
-    if (force) manualLocationSelectedRef.current = false;
+    manualLocationSelectedRef.current = false;
     const requestId = ++locationRequestIdRef.current;
 
     setLocating(true);
@@ -350,13 +349,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const cached = window.localStorage.getItem(LOC_KEY);
       if (cached) {
         const saved = JSON.parse(cached) as GeoResult;
-        setLoc(saved);
-        locationRef.current = saved;
-        hasSavedLocation = true;
-        hasManualLocation = saved.source === "manual";
-        if (hasManualLocation) {
-          manualLocationSelectedRef.current = true;
-          setLocationPromptVisible(false);
+        if (saved.source !== "manual" && Number(saved.accuracy ?? 9999) <= 100) {
+          setLoc(saved);
+          locationRef.current = saved;
+          hasSavedLocation = true;
         }
       }
       const cachedRadius = window.localStorage.getItem(RADIUS_KEY);
@@ -379,7 +375,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // A locality chosen from the Jaipur area list is an explicit user choice.
       // Keep it as the anchor for Area We Serve instead of replacing it with a
       // coarse desktop/browser geolocation result on every page load.
-      if (hasManualLocation) manualLocationSelectedRef.current = false;
+      manualLocationSelectedRef.current = false;
 
       let permissionAvailable = false;
       if (navigator.permissions?.query) {
@@ -394,7 +390,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           /* show the in-app prompt when permission state is unavailable */
         }
       }
-      if (!promptDismissedThisSession && !hasSavedLocation) {
+      if (!promptDismissedThisSession || !hasSavedLocation) {
         // First visit: request the browser's native GPS permission immediately.
         // If the user denies it or the device cannot locate, detectLocation
         // will show the in-app recovery prompt with clear instructions.
