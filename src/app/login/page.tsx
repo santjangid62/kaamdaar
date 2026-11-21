@@ -417,7 +417,7 @@ function LoginFlow() {
                     autoComplete="one-time-code"
                     maxLength={6}
                     value={pairCode}
-                    onChange={(e) => { setError(null); setPairCode(e.target.value.replace(/\\D/g, "").slice(0, 6)); }}
+                    onChange={(e) => { setError(null); setPairCode(e.target.value.replace(/\D/g, "").slice(0, 6)); }}
                     placeholder="••••••"
                     className="h-16 w-full rounded-xl border-2 border-slate-200 bg-slate-50 px-3 text-center font-mono text-[26px] font-bold tracking-[0.55em] text-navy shadow-inner outline-none transition placeholder:tracking-[0.55em] placeholder:text-slate-300 focus:border-flame focus:bg-white focus:shadow-none focus:ring-4 focus:ring-flame-100"
                   />
