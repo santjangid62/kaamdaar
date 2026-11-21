@@ -51,7 +51,7 @@ class Api {
     TargetPlatform.fuchsia => 'Fuchsia device',
   };
 
-  static Future<Map<String, String>> _deviceMetadata() async {
+  static Future<Map<String, dynamic>> _deviceMetadata() async {
     final prefs = await SharedPreferences.getInstance();
     var deviceId = prefs.getString(_kDeviceId);
     if (deviceId == null || deviceId.isEmpty) {
@@ -59,7 +59,30 @@ class Api {
       deviceId = List.generate(32, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
       await prefs.setString(_kDeviceId, deviceId);
     }
-    return {'deviceId': deviceId, 'deviceName': _deviceName()};
+    final metadata = <String, dynamic>{'deviceId': deviceId, 'deviceName': _deviceName()};
+    // Include a last-known GPS fix only when the user has already granted
+    // location permission. Login never triggers a permission prompt.
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse) {
+        final position = await Geolocator.getLastKnownPosition() ??
+            await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.low,
+                timeLimit: Duration(seconds: 4),
+              ),
+            );
+        metadata['deviceLocation'] = {
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'label': 'GPS ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}',
+        };
+      }
+    } catch (_) {
+      // Location is supplementary; device lock must work without GPS.
+    }
+    return metadata;
   }
 
   static String _apiError(Map<String, dynamic> data) {
