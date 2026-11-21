@@ -9,6 +9,7 @@ import { appendEvents, eventsForChange, newEvent } from "../../../../server/even
 import { isAuthed } from "../../../../lib/admin/auth";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
 import { advanceProviderDispatch } from "../../../../server/dispatch";
+import { cancelProviderJobOffer } from "../../../../server/fcm";
 import type {
   Booking,
   BookingActor,
@@ -422,6 +423,21 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
         { error: "Request already accepted or this 40-second offer has expired" },
         { status: 409 },
       );
+    }
+    // The booking claim cleared notifiedIds atomically. Send a cancellation
+    // push to every other Pro who received this broadcast so their local alert
+    // disappears immediately, even when their app is backgrounded.
+    const otherRecipientIds = (booking.notifiedIds ?? []).filter((providerId) => providerId !== acceptingId);
+    if (otherRecipientIds.length) {
+      const providerRows = await all<Provider & { fcmTokens?: string[] }>("providers");
+      const cancelTokens = providerRows
+        .filter((provider) => otherRecipientIds.includes(provider.id))
+        .flatMap((provider) => provider.fcmTokens ?? []);
+      try {
+        await cancelProviderJobOffer(cancelTokens, id);
+      } catch (error) {
+        console.error("[fcm] accepted-offer cancellation push failed", error);
+      }
     }
   }
 
