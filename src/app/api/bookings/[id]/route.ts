@@ -312,7 +312,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (changes.status === "accepted") {
     const expiresAt = booking.offerExpiresAt ?? ((booking.dispatchedAt ?? booking.createdAt) + 40_000);
     if (booking.status !== "dispatched" || Date.now() >= expiresAt) {
-      return NextResponse.json({ error: "This 40-second job offer has expired" }, { status: 409 });
+      return NextResponse.json({ error: "This provider offer has expired" }, { status: 409 });
     }
     const acceptingId =
       typeof changes.providerId === "string" ? changes.providerId : "";
@@ -420,7 +420,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (!claimed) {
       await releaseProviderBooking(acceptingId, id);
       return NextResponse.json(
-        { error: "Request already accepted or this 40-second offer has expired" },
+        { error: "Request already accepted or this provider offer has expired" },
         { status: 409 },
       );
     }
