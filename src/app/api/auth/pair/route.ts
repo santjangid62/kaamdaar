@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   if (!paired) {
     return NextResponse.json({ error: "Pairing code is invalid, expired, or already used. Generate a new code in your Kaamdaar app." }, { status: 401 });
   }
-  const response = NextResponse.json({ ok: true, role: paired.session.role });
+  const response = NextResponse.json({ ok: true, role: paired.session.role, phone: paired.session.phone });
   response.cookies.set({
     name: "kaamdaar_session",
     value: paired.token,
