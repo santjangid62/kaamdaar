@@ -103,6 +103,7 @@ export type RequestIdentity = {
   deviceId?: string;
   sessionId?: string;
   authType: "device_session" | "firebase";
+  clientType?: "native" | "web";
 };
 
 /**
@@ -116,12 +117,20 @@ export async function firebaseIdentityFromRequest(
 ): Promise<RequestIdentity | null> {
   const authorization = request.headers.get("authorization") ?? "";
   const match = authorization.match(/^Bearer\s+(.+)$/i);
-  if (!match?.[1]) return null;
-  const token = match[1];
+  const cookieToken = request.headers.get("cookie")
+    ?.split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("kaamdaar_device_session="))
+    ?.slice("kaamdaar_device_session=".length);
+  const token = match?.[1] ?? cookieToken;
+  if (!token) return null;
   try {
     const { verifyDeviceSessionToken } = await import("./device-session");
     const deviceIdentity = await verifyDeviceSessionToken(token);
-    if (deviceIdentity) return { ...deviceIdentity, authType: "device_session" };
+    if (deviceIdentity) {
+      if (cookieToken && !match?.[1] && deviceIdentity.clientType !== "web") return null;
+      return { ...deviceIdentity, authType: "device_session" };
+    }
     if (options.requireDeviceSession) return null;
     const firebaseIdentity = await verifyFirebasePhoneToken(token);
     return { ...firebaseIdentity, authType: "firebase" };
