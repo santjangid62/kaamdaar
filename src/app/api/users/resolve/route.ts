@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { find, insert, ready } from "../../../../server/db";
 import type { User } from "../../../../lib/types";
 import { createUserRegisteredNotification } from "../../../../server/notifications";
+import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
 
 function referralCode(phone: string): string {
   return `KDM${phone.replace(/\D/g, "").slice(-4)}`;
@@ -15,7 +16,12 @@ function referralCode(phone: string): string {
 /** GET — fetch-only (used to refresh the session; never creates a row). */
 export async function GET(req: Request) {
   await ready();
-  const phone = new URL(req.url).searchParams.get("phone") ?? "";
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return NextResponse.json({ error: "A valid sign-in session is required" }, { status: 401 });
+  const phone = new URL(req.url).searchParams.get("phone") ?? identity.phone;
+  if (normalizeIndianPhone(phone) !== identity.phone) {
+    return NextResponse.json({ error: "You can only resolve your own account" }, { status: 403 });
+  }
   if (!/^\+91[6-9]\d{9}$/.test(phone)) {
     return NextResponse.json({ user: null }, { status: 400 });
   }
@@ -36,7 +42,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return NextResponse.json({ error: "A valid sign-in session is required" }, { status: 401 });
   const phone = (body.phone ?? "").trim();
+  if (normalizeIndianPhone(phone) !== identity.phone) {
+    return NextResponse.json({ error: "You can only register your verified account" }, { status: 403 });
+  }
   if (!/^\+91[6-9]\d{9}$/.test(phone)) {
     return NextResponse.json({ error: "A valid Indian mobile number is required" }, { status: 400 });
   }
