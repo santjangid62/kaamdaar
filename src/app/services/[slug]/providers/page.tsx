@@ -24,7 +24,7 @@ import {
   trackBookingCheckoutOpened,
   trackServiceProvidersViewed,
 } from "../../../../lib/analytics";
-import { formatDistance } from "../../../../lib/geo";
+import { browserLocation, formatDistance } from "../../../../lib/geo";
 import { etaMinutes } from "../../../../lib/dispatch";
 import { WIDE_RING_KM } from "../../../../lib/match";
 import type { NearbyProvider } from "../../../../lib/providers";
@@ -38,7 +38,7 @@ import type {
   Service,
 } from "../../../../lib/types";
 
-type Phase = "idle" | "searching" | "found";
+type Phase = "idle" | "searching" | "found" | "failed";
 
 /** A Pro who accepted can sit outside the rendered ring snapshot — rebuild the
  *  card from the profile frozen into the booking. */
@@ -93,6 +93,7 @@ function ProvidersFlow() {
   });
   const [matchLoading, setMatchLoading] = useState(true);
   const [dispatchRadiusKm, setDispatchRadiusKm] = useState<number>(WIDE_RING_KM);
+  const [dispatchProgress, setDispatchProgress] = useState({ ringKm: 0, totalNotified: 0, currentNotified: 0, deadlineAt: 0 });
   const [accepted, setAccepted] = useState<NearbyProvider | null>(null);
   const [selectedSubServiceIds, setSelectedSubServiceIds] = useState<string[]>([]);
 
@@ -217,6 +218,8 @@ function ProvidersFlow() {
       const live = rows.find((b) => b.id === bookingId);
       if (!live) return;
       if (live.dispatchRadiusKm) setDispatchRadiusKm(live.dispatchRadiusKm);
+      setDispatchProgress({ ringKm: live.dispatchRingKm ?? live.dispatchRadiusKm ?? 0, totalNotified: live.dispatchNotifiedTotal ?? live.notifiedIds?.length ?? 0, currentNotified: live.notifiedIds?.length ?? 0, deadlineAt: live.dispatchDeadlineAt ?? (live.createdAt + 5 * 60_000) });
+      if (live.dispatchFailedAt) { setPhase("failed"); return; }
       if (live.providerId && live.status !== "dispatched") {
         const match = results.find((r) => r.provider.id === live.providerId);
         setAccepted(match ?? fromProfile(live.providerProfile));
@@ -232,24 +235,25 @@ function ProvidersFlow() {
   }, [phase, bookingId, user, results]);
 
   const handleDispatch = useCallback(async () => {
-    if (!service || !center || !user || results.length === 0) {
-      setDispatchError("Booking could not start. Please check your sign-in, location and nearby provider availability, then try again.");
+    if (!service || !center || !user) {
+      setDispatchError("Booking could not start. Please check your sign-in and allow current location access, then try again.");
       return;
     }
     setDispatchError(null);
-    trackBookingCheckoutOpened({ serviceId: service.id, providerId: results[0].provider.id });
+    trackBookingCheckoutOpened({ serviceId: service.id, providerId: results[0]?.provider.id ?? "" });
     setBusy(true);
     try {
+      const scheduled = Boolean(dateParam && dateParam !== todayIso());
+      const dispatchOrigin = scheduled ? center : await browserLocation();
       const addr: Address = {
         id: "live",
         label: location?.label.split(",")[0] ?? "Location",
         line1: location?.label ?? "Current location",
         city: location?.city ?? "",
         pincode: "",
-        lat: center.lat,
-        lng: center.lng,
+        lat: dispatchOrigin.lat,
+        lng: dispatchOrigin.lng,
       };
-      const scheduled = Boolean(dateParam && dateParam !== todayIso());
       const created = await createBooking({
         userId: user.id,
         phone: user.phone,
@@ -266,12 +270,12 @@ function ProvidersFlow() {
         status: "dispatched",
         createdAt: Date.now(),
         dispatchedAt: Date.now(),
-        originPoint: center,
-        etaMinutes: etaMinutes(results[0].distanceKm),
+        originPoint: dispatchOrigin,
+        etaMinutes: etaMinutes(results[0]?.distanceKm ?? 0),
       } as Omit<Booking, "id">);
       setBookingId(created.id);
-      // the server already notified the ring and stamped the radius it used
-      setDispatchRadiusKm(created.dispatchRadiusKm ?? matchInfo.radiusKm);
+      setDispatchRadiusKm(created.dispatchRingKm ?? created.dispatchRadiusKm ?? 1);
+      setDispatchProgress({ ringKm: created.dispatchRingKm ?? created.dispatchRadiusKm ?? 1, totalNotified: created.dispatchNotifiedTotal ?? created.notifiedIds?.length ?? 0, currentNotified: created.notifiedIds?.length ?? 0, deadlineAt: created.dispatchDeadlineAt ?? (created.createdAt + 5 * 60_000) });
       setAccepted(null);
       setFoundIdx(0);
       setPhase("searching");
