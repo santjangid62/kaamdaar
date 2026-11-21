@@ -126,7 +126,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       if (requestId === locationRequestIdRef.current && !manualLocationSelectedRef.current) {
         const code = error instanceof Error ? error.message : "unavailable";
-        const message = code === "permission-denied"
+        const message = code === "low-accuracy"
+          ? "GPS accuracy is too low. Move outdoors and retry for a precise location."
+          : code === "permission-denied"
           ? "Browser location permission is blocked. Allow Location access for this site in your browser settings, then retry."
           : code === "position-unavailable"
             ? "Your device could not determine the location. Turn on device Location/GPS and check your internet connection, then retry."
