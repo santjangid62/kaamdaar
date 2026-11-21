@@ -207,6 +207,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    void fetch("/api/auth/session", { method: "DELETE", credentials: "same-origin" }).catch(() => undefined);
     clearSession();
     resetAnalytics();
     setUser(null);
@@ -344,11 +345,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     initAnalytics();
 
     const session = loadSession();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot mount hydration
-    if (session) setUser(session);
     if (session) {
-      void identifyAccount(session.id);
-      void refreshUser(); // pull the latest row from the backend
+      void (async () => {
+        try {
+          const response = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
+          if (!response.ok) {
+            clearSession();
+            setUser(null);
+            resetAnalytics();
+            return;
+          }
+          const identity = await response.json().catch(() => ({}));
+          if (identity.role !== "customer" || identity.phone !== session.phone) {
+            clearSession();
+            setUser(null);
+            resetAnalytics();
+            return;
+          }
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- validated one-shot session hydration
+          setUser(session);
+          void identifyAccount(session.id);
+          await refreshUser();
+        } catch {
+          // Keep the cached account during a temporary network outage; APIs still enforce the cookie.
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- offline cached session
+          setUser(session);
+        }
+      })();
     }
 
     let hasSavedLocation = false;
