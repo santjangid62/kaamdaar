@@ -501,15 +501,20 @@ export async function claimDeviceSession<T extends Record<string, unknown>>(
       if ((error as { code?: number }).code !== 11000) throw error;
       const current = await collection.findOne({ _id: id });
       if (!current) throw error;
-      if (current.deviceId !== doc.deviceId) {
+      const sameDevice = current.deviceId === doc.deviceId;
+      const inactive = Boolean(current.revokedAt) || Number(current.expiresAt) <= now;
+      if (!sameDevice && !inactive) {
         return { claimed: false, session: stripId<T & { id: string }>(current) };
       }
+      const filter: Document = { _id: id, sessionId: current.sessionId };
+      if (sameDevice) filter.deviceId = doc.deviceId;
+      else filter.$or = [{ revokedAt: { $ne: null } }, { expiresAt: { $lte: now } }];
       const updated = await collection.findOneAndUpdate(
-        { _id: id, deviceId: doc.deviceId },
+        filter,
         { $set: { ...doc, id, updatedAt: now } },
         { returnDocument: "after", includeResultMetadata: false },
       );
-      return { claimed: Boolean(updated), session: stripId<T & { id: string }>(updated) };
+      return { claimed: Boolean(updated), session: stripId<T & { id: string }>(updated ?? current) };
     }
   }
 
@@ -518,7 +523,7 @@ export async function claimDeviceSession<T extends Record<string, unknown>>(
     const store = await readStore();
     store.deviceSessions ??= {};
     const current = store.deviceSessions[id] as (Doc & { deviceId?: string }) | undefined;
-    if (current && current.deviceId !== doc.deviceId) {
+    if (current && current.deviceId !== doc.deviceId && !current.revokedAt && Number(current.expiresAt) > Date.now()) {
       result = { claimed: false, session: current as T & { id: string } };
       return;
     }
