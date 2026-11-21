@@ -73,8 +73,7 @@ class JobAlertCenter {
   final ValueNotifier<List<MissedJob>> missed =
       ValueNotifier<List<MissedJob>>(const []);
 
-  /// Native alarm player (res/raw/job_alert.wav) — a plugin-free channel, so
-  /// the build stays clean on Windows paths with spaces.
+  /// Native repeating ToneGenerator alert, independent of bundled audio assets.
   static const MethodChannel _alarm = MethodChannel('kaamdaar/alerts');
   Timer? _poll;
   ProviderItem? _me;
