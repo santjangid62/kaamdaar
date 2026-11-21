@@ -167,7 +167,7 @@ export interface Booking {
   dispatchedAt?: number;
   /** Hard expiry for the current provider's 40-second dispatch offer. */
   offerExpiresAt?: number;
-  /** Ranked providers to contact one at a time during the 5-minute window. */
+  /** All eligible providers notified together; the first atomic accept wins. */
   dispatchQueueIds?: string[];
   dispatchCursor?: number;
   dispatchStartedAt?: number;
