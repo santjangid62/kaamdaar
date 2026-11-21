@@ -76,6 +76,7 @@ class Api {
         metadata['deviceLocation'] = {
           'latitude': position.latitude,
           'longitude': position.longitude,
+          'updatedAt': position.timestamp.millisecondsSinceEpoch,
           'label': 'GPS ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}',
         };
       }
