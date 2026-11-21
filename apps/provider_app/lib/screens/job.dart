@@ -7,6 +7,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api.dart';
@@ -33,6 +36,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   final _otp = TextEditingController();
   final _completionOtp = TextEditingController();
   String? _otpError;
+  Position? _currentPosition;
 
   @override
   void initState() {
@@ -45,6 +49,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   void dispose() {
     _poll?.cancel();
     _gpsTimer?.cancel();
+    unawaited(WakelockPlus.disable());
     _otp.dispose();
     _completionOtp.dispose();
     super.dispose();
@@ -76,8 +81,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         _error = found.isEmpty ? 'This job is no longer assigned to you.' : null;
       });
       if (_booking?.status == 'enroute') {
+        await WakelockPlus.enable();
         _startLiveGps();
       } else {
+        await WakelockPlus.disable();
         _gpsTimer?.cancel();
         _gpsTimer = null;
       }
@@ -113,6 +120,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           timeLimit: Duration(seconds: 8),
         ),
       );
+      if (mounted) setState(() => _currentPosition = point);
       await Api.updateJob(b.id, {
         'providerPing': {
           'lat': point.latitude,
@@ -374,6 +382,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       _customerCard(b),
                       const SizedBox(height: 14),
                       _addressCard(b),
+                      if (b.status == 'enroute') ...[
+                        const SizedBox(height: 14),
+                        _navigationCard(b),
+                      ],
                       if (b.status == 'arrived') ...[
                         const SizedBox(height: 14),
                         _otpCard(),
@@ -396,6 +408,77 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _navigationCard(BookingItem booking) {
+    final destinationLat = booking.customerLat;
+    final destinationLng = booking.customerLng;
+    if (destinationLat == null || destinationLng == null ||
+        !destinationLat.isFinite || !destinationLng.isFinite ||
+        destinationLat.abs() > 90 || destinationLng.abs() > 180) {
+      return const CardBox(child: Text('Customer map pin is not available for in-app navigation.'));
+    }
+    final gps = _currentPosition;
+    final fallback = _me;
+    final currentLat = gps?.latitude ?? fallback?.lat;
+    final currentLng = gps?.longitude ?? fallback?.lng;
+    if (currentLat == null || currentLng == null ||
+        !currentLat.isFinite || !currentLng.isFinite ||
+        currentLat.abs() > 90 || currentLng.abs() > 180) {
+      return const CardBox(child: Text('Waiting for your current GPS location…'));
+    }
+    final current = LatLng(currentLat, currentLng);
+    final destination = LatLng(destinationLat, destinationLng);
+    final center = LatLng((current.latitude + destination.latitude) / 2,
+        (current.longitude + destination.longitude) / 2);
+    return CardBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('In-app navigation', style: TextStyle(fontWeight: FontWeight.w900, color: PColors.navy)),
+          const SizedBox(height: 6),
+          const Text('Keep this screen open while travelling. Your live GPS is shared with the customer and Admin.',
+              style: TextStyle(fontSize: 11.5, color: Colors.black54)),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 250,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: FlutterMap(
+                options: MapOptions(initialCenter: center, initialZoom: 14),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.kaamdaar.kaamdaar_provider',
+                  ),
+                  PolylineLayer(polylines: [
+                    Polyline(points: [current, destination], strokeWidth: 4, color: PColors.green),
+                  ]),
+                  MarkerLayer(markers: [
+                    Marker(point: current, width: 44, height: 44,
+                      child: const Icon(Icons.two_wheeler, color: PColors.green, size: 34)),
+                    Marker(point: destination, width: 44, height: 44,
+                      child: const Icon(Icons.location_on, color: PColors.red, size: 38)),
+                  ]),
+                  RichAttributionWidget(attributions: [
+                    TextSourceAttribution('© OpenStreetMap contributors'),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _openCustomerMap(booking),
+              icon: const Icon(Icons.directions),
+              label: const Text('Open turn-by-turn directions'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
