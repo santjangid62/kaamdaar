@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   catch { return NextResponse.json({ error: "Phone verification expired. Please verify your number again." }, { status: 401 }); }
 
   const phone = normalizeIndianPhone(identity.phone);
-  const token = await consumeWebPairingCode(body.role as DeviceRole, phone, (body.code ?? "").trim());
+  const token = await consumeWebPairingCode(body.role as DeviceRole, phone, identity.uid, (body.code ?? "").trim());
   if (!token) {
     return NextResponse.json({ error: "Pairing code is invalid, expired, or already used. Generate a new code in the Kaamdaar app." }, { status: 401 });
   }
