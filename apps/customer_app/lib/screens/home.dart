@@ -122,7 +122,7 @@ class _HomeTabState extends State<_HomeTab> {
           if (retry.accuracy < position.accuracy) position = retry;
         } catch (_) {}
       }
-      final locationIsPrecise = position.accuracy <= 150;
+      final locationIsPrecise = position.accuracy <= 100;
       var label = locationIsPrecise
           ? 'Current location'
           : 'GPS accuracy low (±${position.accuracy.round()} m) — tap to retry';
