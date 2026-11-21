@@ -2,9 +2,9 @@ name: Kaamdaar CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feature/kaamdaar-customer-provider-admin-workflows]
   push:
-    branches: [main]
+    branches: [main, feature/device-bound-sessions]
   workflow_dispatch:
 
 # Keep only the newest CI run for this branch; push and PR events share a key.
@@ -54,6 +54,10 @@ jobs:
           src/server/db.ts
           src/server/fcm.ts
           src/server/firebase-auth.ts
+          src/server/device-session.ts
+          src/app/api/auth/device-session/route.ts
+          apps/provider_app/lib/core/api.dart
+          apps/customer_app/lib/core/api.dart
       - name: Next.js production build
         run: npm run build
         env:
