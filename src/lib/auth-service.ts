@@ -84,7 +84,7 @@ export async function completeWebPairing(
   const current = getFirebaseAuth().currentUser;
   if (!current) throw new Error("Verify your mobile number first.");
   const currentPhone = current.phoneNumber ?? "";
-  if (currentPhone.replace(/\\D/g, "").slice(-10) !== phone.replace(/\\D/g, "").slice(-10)) {
+  if (currentPhone.replace(/\D/g, "").slice(-10) !== phone.replace(/\D/g, "").slice(-10)) {
     throw new Error("The verified mobile number does not match this login.");
   }
   const idToken = await current.getIdToken(true);
