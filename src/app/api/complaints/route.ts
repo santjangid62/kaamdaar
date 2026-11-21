@@ -5,11 +5,19 @@ import type { Booking, User } from "../../../lib/types";
 
 type EvidenceInput = { name?: string; dataUrl?: string };
 
-export async function GET() {
+export async function GET(req: Request) {
   await ready();
-  const identity = await firebaseIdentityFromRequest(new Request("https://kaamdaar.local", { headers: { authorization: "" } }));
-  void identity;
-  return NextResponse.json({ error: "Use authenticated customer session to list complaints." }, { status: 405 });
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  const users = await all<User>("users");
+  const customer = users.find((u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
+  if (!customer) return NextResponse.json({ error: "Customer account not found" }, { status: 404 });
+  const rows = await all<Record<string, unknown> & { customerId?: string; attachments?: Array<{ name: string; mimeType: string; size: number }> }>("complaints");
+  const complaints = rows.filter((row) => row.customerId === customer.id).map((row) => ({
+    ...row,
+    attachments: (row.attachments ?? []).map(({ name, mimeType, size }) => ({ name, mimeType, size })),
+  }));
+  return NextResponse.json({ complaints });
 }
 
 export async function POST(req: Request) {
