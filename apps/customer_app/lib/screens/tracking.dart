@@ -225,7 +225,7 @@ class _TrackScreenState extends State<TrackScreen> {
   }
 
   Widget _actions(BookingItem b) {
-    if (b.isLive) {
+    if (b.isLive && !['in_progress', 'pending_confirm'].contains(b.status)) {
       return Row(
         children: [
           Expanded(
