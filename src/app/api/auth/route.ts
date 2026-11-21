@@ -4,12 +4,12 @@
  */
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
-import { find, insert, ready } from "../../../server/db";
+import { find, get, insert, ready } from "../../../server/db";
 import type { Provider, User } from "../../../lib/types";
 import { createUserRegisteredNotification } from "../../../server/notifications";
 import { createQaMobileToken, normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/firebase-auth";
 import { recordAudit } from "../../../server/audit";
-import { claimDeviceSession, type DeviceLocation, type DeviceRole } from "../../../server/device-session";
+import { claimDeviceSession, type DeviceLocation, type DeviceRole, type DeviceSessionRecord } from "../../../server/device-session";
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
@@ -134,6 +134,18 @@ export async function POST(req: Request) {
     return { sessionToken: result.token, deviceSession: result.session };
   };
 
+  const getExistingDevice = async (role: DeviceRole) => {
+    if (body.platform !== "web") return null;
+    const active = await get<DeviceSessionRecord>("deviceSessions", `device:${role}:${phone}`);
+    if (!active || active.status !== "active") return null;
+    return {
+      deviceName: active.deviceName,
+      loginAt: active.loginAt,
+      lastSeenAt: active.lastSeenAt,
+      location: active.location ?? null,
+    };
+  };
+
   if (body.role === "provider") {
     const found = await find<Provider & { id: string; phone?: string; status?: string }>(
       "providers",
@@ -154,9 +166,11 @@ export async function POST(req: Request) {
     } catch (error) { console.error("[audit] provider login log could not be saved", error); }
     const deviceSession = await issueDeviceSession("provider");
     if (deviceSession instanceof NextResponse) return deviceSession;
+    const existingDevice = await getExistingDevice("provider");
     return NextResponse.json({
       provider,
       pairingRequired: body.platform === "web",
+      ...(body.platform === "web" ? { deviceRequired: !existingDevice, existingDevice } : {}),
       ...(deviceSession ?? (qaSessionToken ? { sessionToken: qaSessionToken } : {})),
     });
   }
@@ -181,10 +195,12 @@ export async function POST(req: Request) {
     } catch (error) { console.error("[audit] customer login log could not be saved", error); }
     const deviceSession = await issueDeviceSession("customer");
     if (deviceSession instanceof NextResponse) return deviceSession;
+    const existingDevice = await getExistingDevice("customer");
     return NextResponse.json({
       user: existing[0],
       isNew: false,
       pairingRequired: body.platform === "web",
+      ...(body.platform === "web" ? { deviceRequired: !existingDevice, existingDevice } : {}),
       ...(deviceSession ?? (qaSessionToken ? { sessionToken: qaSessionToken } : {})),
     });
   }
@@ -207,10 +223,12 @@ export async function POST(req: Request) {
   } catch (error) { console.error("[audit] customer login log could not be saved", error); }
   const deviceSession = await issueDeviceSession("customer");
   if (deviceSession instanceof NextResponse) return deviceSession;
+  const existingDevice = await getExistingDevice("customer");
   return NextResponse.json({
     user,
     isNew: true,
     pairingRequired: body.platform === "web",
+    ...(body.platform === "web" ? { deviceRequired: !existingDevice, existingDevice } : {}),
     ...(deviceSession ?? (qaSessionToken ? { sessionToken: qaSessionToken } : {})),
   });
 }
