@@ -629,6 +629,76 @@ export async function releaseProviderBooking(providerId: string, bookingId: stri
   await queue;
 }
 
+/**
+ * Store a short-lived pairing code only while the expected native session
+ * still owns the account lock.
+ */
+export async function setDevicePairingCode(
+  id: string,
+  sessionId: string,
+  codeHash: string,
+  expiresAt: number,
+  now: number,
+): Promise<boolean> {
+  if (MONGODB_URI) {
+    const result = await (await mongoDb()).collection<Document>("deviceSessions").updateOne(
+      { _id: id, sessionId, status: "active" } as Document,
+      { $set: { pairCodeHash: codeHash, pairCodeExpiresAt: expiresAt, pairCodeCreatedAt: now, updatedAt: now } },
+    );
+    return result.matchedCount === 1;
+  }
+  let updated = false;
+  const run = async () => {
+    const store = await readStore();
+    const current = store.deviceSessions?.[id] as (Doc & { sessionId?: string; status?: string }) | undefined;
+    if (!current || current.sessionId !== sessionId || current.status !== "active") return;
+    store.deviceSessions![id] = { ...current, pairCodeHash: codeHash, pairCodeExpiresAt: expiresAt, pairCodeCreatedAt: now, updatedAt: now };
+    await writeStore(store);
+    updated = true;
+  };
+  queue = queue.then(run, run);
+  await queue;
+  return updated;
+}
+
+/** Atomically consume a valid pairing code exactly once. */
+export async function consumeDevicePairingCode(
+  id: string,
+  codeHash: string,
+  now: number,
+): Promise<Doc | null> {
+  if (MONGODB_URI) {
+    const collection = (await mongoDb()).collection<Document>("deviceSessions");
+    const options = { returnDocument: "after" as const, includeResultMetadata: false };
+    const consumed = await collection.findOneAndUpdate(
+      { _id: id, pairCodeHash: codeHash, pairCodeExpiresAt: { $gt: now }, status: "active" } as Document,
+      {
+        $unset: { pairCodeHash: "", pairCodeExpiresAt: "", pairCodeCreatedAt: "" },
+        $set: { updatedAt: now },
+      },
+      options,
+    );
+    return stripId<Doc>(consumed as Document | null);
+  }
+  let consumed: Doc | null = null;
+  const run = async () => {
+    const store = await readStore();
+    const current = store.deviceSessions?.[id] as (Doc & { pairCodeHash?: string; pairCodeExpiresAt?: number; status?: string }) | undefined;
+    if (!current || current.status !== "active" || current.pairCodeHash !== codeHash ||
+        typeof current.pairCodeExpiresAt !== "number" || current.pairCodeExpiresAt <= now) return;
+    const next = { ...current, updatedAt: now };
+    delete next.pairCodeHash;
+    delete next.pairCodeExpiresAt;
+    delete next.pairCodeCreatedAt;
+    store.deviceSessions![id] = next;
+    await writeStore(store);
+    consumed = next;
+  };
+  queue = queue.then(run, run);
+  await queue;
+  return consumed;
+}
+
 /* ── seeding ────────────────────────────────────────────────────── */
 
 type Seeder = (store: Store) => Promise<Store> | Store;
