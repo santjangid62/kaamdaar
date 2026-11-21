@@ -643,7 +643,7 @@ export async function setDevicePairingCode(
   if (MONGODB_URI) {
     const result = await (await mongoDb()).collection<Document>("deviceSessions").updateOne(
       { _id: id, sessionId, status: "active" } as Document,
-      { $set: { pairCodeHash: codeHash, pairCodeExpiresAt: expiresAt, pairCodeCreatedAt: now, updatedAt: now } },
+      { $set: { pairCodeHash: codeHash, pairCodeExpiresAt: expiresAt, pairCodeCreatedAt: now, pairAttempts: 0, updatedAt: now } },
     );
     return result.matchedCount === 1;
   }
@@ -653,6 +653,30 @@ export async function setDevicePairingCode(
     const current = store.deviceSessions?.[id] as (Doc & { sessionId?: string; status?: string }) | undefined;
     if (!current || current.sessionId !== sessionId || current.status !== "active") return;
     store.deviceSessions![id] = { ...current, pairCodeHash: codeHash, pairCodeExpiresAt: expiresAt, pairCodeCreatedAt: now, updatedAt: now };
+    await writeStore(store);
+    updated = true;
+  };
+  queue = queue.then(run, run);
+  await queue;
+  return updated;
+}
+
+/** Count invalid pairing attempts; after five, the code cannot be redeemed. */
+export async function recordDevicePairingFailure(id: string, now: number): Promise<boolean> {
+  if (MONGODB_URI) {
+    const result = await (await mongoDb()).collection<Document>("deviceSessions").updateOne(
+      { _id: id, status: "active", pairCodeExpiresAt: { $gt: now }, pairAttempts: { $lt: 5 } } as Document,
+      { $inc: { pairAttempts: 1 }, $set: { updatedAt: now } },
+    );
+    return result.modifiedCount === 1;
+  }
+  let updated = false;
+  const run = async () => {
+    const store = await readStore();
+    const current = store.deviceSessions?.[id] as (Doc & { pairCodeExpiresAt?: number; pairAttempts?: number; status?: string }) | undefined;
+    if (!current || current.status !== "active" || typeof current.pairCodeExpiresAt !== "number" ||
+        current.pairCodeExpiresAt <= now || (current.pairAttempts ?? 0) >= 5) return;
+    store.deviceSessions![id] = { ...current, pairAttempts: (current.pairAttempts ?? 0) + 1, updatedAt: now };
     await writeStore(store);
     updated = true;
   };
@@ -672,7 +696,7 @@ export async function consumeDevicePairingCode(
     const collection = (await mongoDb()).collection<Document>("deviceSessions");
     const options = { returnDocument: "after" as const, includeResultMetadata: false };
     const consumed = await collection.findOneAndUpdate(
-      { _id: id, uid: expectedUid, pairCodeHash: codeHash, pairCodeExpiresAt: { $gt: now }, status: "active" } as Document,
+      { _id: id, uid: expectedUid, pairCodeHash: codeHash, pairCodeExpiresAt: { $gt: now }, pairAttempts: { $lt: 5 }, status: "active" } as Document,
       {
         $unset: { pairCodeHash: "", pairCodeExpiresAt: "", pairCodeCreatedAt: "" },
         $set: { updatedAt: now },
@@ -684,9 +708,9 @@ export async function consumeDevicePairingCode(
   let consumed: Doc | null = null;
   const run = async () => {
     const store = await readStore();
-    const current = store.deviceSessions?.[id] as (Doc & { uid?: string; pairCodeHash?: string; pairCodeExpiresAt?: number; status?: string }) | undefined;
+    const current = store.deviceSessions?.[id] as (Doc & { uid?: string; pairCodeHash?: string; pairCodeExpiresAt?: number; pairAttempts?: number; status?: string }) | undefined;
     if (!current || current.status !== "active" || current.uid !== expectedUid || current.pairCodeHash !== codeHash ||
-        typeof current.pairCodeExpiresAt !== "number" || current.pairCodeExpiresAt <= now) return;
+        typeof current.pairCodeExpiresAt !== "number" || current.pairCodeExpiresAt <= now || (current.pairAttempts ?? 0) >= 5) return;
     const next = { ...current, updatedAt: now };
     delete next.pairCodeHash;
     delete next.pairCodeExpiresAt;
