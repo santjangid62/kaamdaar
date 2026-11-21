@@ -582,7 +582,7 @@ export async function buildSection(slug: string): Promise<SectionDef | null> {
           base: inr(s.price ?? 0),
           commission: `${rate}% = ${inr(((s.price ?? 0) * rate) / 100)}`,
           providerShare: inr((s.price ?? 0) * (1 - rate / 100)),
-          minWallet: inr(500),
+          minWallet: inr(200),
         })),
         collection: "services",
         noAdd: true,
