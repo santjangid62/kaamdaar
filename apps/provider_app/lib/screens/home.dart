@@ -128,7 +128,7 @@ class _DashboardTabState extends State<DashboardTab> {
     // Keep the server-side provider GPS fresh so progressive dispatch only
     // targets Pros who are genuinely online and recently located.
     _locationPoll = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (_available) _detectProviderLocation();
+      if (_available) _detectProviderLocation(reverseGeocode: false);
     });
   }
 
@@ -140,7 +140,7 @@ class _DashboardTabState extends State<DashboardTab> {
     super.dispose();
   }
 
-  Future<void> _detectProviderLocation() async {
+  Future<void> _detectProviderLocation({bool reverseGeocode = true}) async {
     try {
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
@@ -164,7 +164,7 @@ class _DashboardTabState extends State<DashboardTab> {
       var label = locationIsPrecise
           ? 'Current location'
           : 'GPS accuracy low (±${position.accuracy.round()} m) — move outdoors and tap to retry';
-      if (locationIsPrecise) try {
+      if (locationIsPrecise && reverseGeocode) try {
         final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
           'format': 'jsonv2', 'lat': '${position.latitude}', 'lon': '${position.longitude}',
           'zoom': '18', 'addressdetails': '1', 'accept-language': 'en',
