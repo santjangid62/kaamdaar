@@ -11,9 +11,9 @@ const TOTAL_SEARCH_MS = 5 * 60_000;
 const LIVE_LOCATION_MAX_AGE_MS = 2 * 60_000;
 
 /**
- * Progressive provider dispatch. Each one-kilometre ring gets up to 60 seconds;
- * empty rings still consume their minute so the customer receives the full
- * five-minute search window. All providers inside the active ring are notified
+ * Progressive provider dispatch. Each non-empty one-kilometre ring gets up to
+ * 60 seconds; empty rings are skipped immediately. The fifth ring remains open
+ * until the five-minute deadline. All providers inside the active ring are notified
  * together; first atomic accept wins. Every poll advances the state machine.
  */
 export async function advanceProviderDispatch(bookingId: string): Promise<void> {
@@ -131,7 +131,9 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
           (provider.services ?? []).includes(booking.serviceId);
       });
 
-    const ringExpiry = Math.min(now + RING_WINDOW_MS, deadline);
+    const ringExpiry = nextRing === MAX_RADIUS_KM
+      ? deadline
+      : ringProviders.length ? Math.min(now + RING_WINDOW_MS, deadline) : now;
     const oldRecipients = expiredNow ? outstanding.filter((id) => !rejected.has(id)) : [];
     const ringEvent = newEvent(
       "system",
@@ -181,8 +183,8 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
       return;
     }
 
-    // Empty ring: continue immediately to the next ring, but keep its time
-    // budget by moving the next ring's expiry to this ring's minute boundary.
+    // Empty rings are skipped immediately; ring five always waits for the
+    // common five-minute deadline so the total search duration is preserved.
     if (ringExpiry > now) return;
   }
 }
