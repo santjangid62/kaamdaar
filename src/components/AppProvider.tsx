@@ -137,7 +137,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (requestId === locationRequestIdRef.current && !manualLocationSelectedRef.current) {
         const code = error instanceof Error ? error.message : "unavailable";
         const message = code === "low-accuracy"
-          ? "Your browser cannot get a precise GPS fix (needs 25m accuracy). Desktop Wi-Fi location can be several kilometres off. Use a phone with Location/GPS enabled, or connect a GPS receiver, then retry."
+          ? "Your browser could not get a reliable location within 200m. Keep Location Services enabled and retry; desktop Wi-Fi estimates can be less accurate than phone GPS."
           : code === "inconsistent-location"
             ? "GPS readings do not agree. Your device may be estimating location from Wi-Fi/IP instead of GPS. Use a phone with precise Location enabled and retry."
           : code === "permission-denied"
