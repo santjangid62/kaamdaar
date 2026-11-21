@@ -652,7 +652,7 @@ export async function setDevicePairingCode(
     const store = await readStore();
     const current = store.deviceSessions?.[id] as (Doc & { sessionId?: string; status?: string }) | undefined;
     if (!current || current.sessionId !== sessionId || current.status !== "active") return;
-    store.deviceSessions![id] = { ...current, pairCodeHash: codeHash, pairCodeExpiresAt: expiresAt, pairCodeCreatedAt: now, updatedAt: now };
+    store.deviceSessions![id] = { ...current, pairCodeHash: codeHash, pairCodeExpiresAt: expiresAt, pairCodeCreatedAt: now, pairAttempts: 0, updatedAt: now };
     await writeStore(store);
     updated = true;
   };
