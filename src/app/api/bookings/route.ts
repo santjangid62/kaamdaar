@@ -186,7 +186,6 @@ export async function POST(req: Request) {
   const match = matchProviders(eligibleProviders, body.serviceId, origin);
   const rate = await commissionRate();
   const now = Date.now();
-  const firstMatch = match.matches[0];
 
   // Keep the booking alive for the full five-minute search window even when
   // no Pro is available at creation time; the dispatcher rechecks availability.
