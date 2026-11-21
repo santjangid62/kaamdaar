@@ -10,7 +10,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { usePathname } from "next/navigation";
 import { identifyAccount, initAnalytics, resetAnalytics } from "../lib/analytics";
 import { browserLocation, reverseGeocode } from "../lib/geo";
 import { clearSession, loadSession, saveSession } from "../lib/store";
@@ -49,7 +48,10 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
+  const [pathname, setPathname] = useState<string | null>(null);
+  useEffect(() => {
+    setPathname(window.location.pathname);
+  }, []);
   // Until the browser route is known, do not run customer-only location logic.
   const isStaffRoute = pathname === null || pathname.startsWith("/admin") || pathname.startsWith("/provider") || pathname.startsWith("/kaamdaar");
   const [user, setUser] = useState<User | null>(null);
