@@ -128,6 +128,7 @@ export async function firebaseIdentityFromRequest(
     const { verifyDeviceSessionToken } = await import("./device-session");
     const deviceIdentity = await verifyDeviceSessionToken(token);
     if (deviceIdentity) {
+      if (match?.[1] && deviceIdentity.clientType !== "native") return null;
       if (cookieToken && !match?.[1] && deviceIdentity.clientType !== "web") return null;
       return { ...deviceIdentity, authType: "device_session" };
     }
