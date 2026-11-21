@@ -6,6 +6,8 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
 
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -44,20 +46,37 @@ class Api {
 
   static Future<Map<String, String>> _headers() async {
     final prefs = await SharedPreferences.getInstance();
-    final qaToken = _qaBearerToken ?? prefs.getString('kaamdaar.qa.mobile.token');
-    if (_qaMobileAuthEnabled && qaToken != null && qaToken.isNotEmpty) {
-      _qaBearerToken = qaToken;
+    final sessionToken = prefs.getString('kaamdaar.device.session.token');
+    if (sessionToken != null && sessionToken.isNotEmpty) {
       return {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $qaToken',
+        'X-Kaamdaar-Client': 'mobile',
+        'Authorization': 'Bearer $sessionToken',
       };
     }
     final firebaseToken = await FirebaseAuth.instance.currentUser?.getIdToken();
     return {
       'Content-Type': 'application/json',
+      'X-Kaamdaar-Client': 'mobile',
       if (firebaseToken != null && firebaseToken.isNotEmpty)
         'Authorization': 'Bearer $firebaseToken',
     };
+  }
+
+  static Future<Map<String, String>> _deviceDetails() async {
+    final prefs = await SharedPreferences.getInstance();
+    var id = prefs.getString('kaamdaar.device.installation.id');
+    if (id == null || id.isEmpty) {
+      final random = Random.secure();
+      id = List.generate(40, (_) => random.nextInt(16).toRadixString(16)).join();
+      await prefs.setString('kaamdaar.device.installation.id', id);
+    }
+    final name = Platform.isAndroid
+        ? 'Android phone'
+        : Platform.isIOS
+            ? 'iPhone / iPad'
+            : 'Mobile device';
+    return {'deviceId': id, 'deviceName': name};
   }
 
   static Map<String, dynamic> _decode(http.Response r) {
@@ -162,15 +181,15 @@ class Api {
 
   static Future<SessionUser> verifyOtp(String phone, String code) async {
     if (_qaMobileAuthEnabled && kDebugMode) {
+      final device = await _deviceDetails();
       final data = await post('/api/auth', {
         'action': 'qa_verify', 'phone': e164(phone), 'otp': code.trim(),
-        'role': 'provider', 'platform': 'mobile_app',
+        'role': 'provider', 'platform': 'mobile_app', ...device,
       });
       final token = (data['sessionToken'] ?? '').toString();
       if (token.isEmpty) throw ApiException('QA session token was not returned.');
-      _qaBearerToken = token;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('kaamdaar.qa.mobile.token', token);
+      await prefs.setString('kaamdaar.device.session.token', token);
       final provider = data['provider'];
       if (provider is! Map<String, dynamic>) throw ApiException('Provider profile was not returned');
       final user = SessionUser(
@@ -190,9 +209,15 @@ class Api {
     }
     final idToken = await auth.currentUser?.getIdToken(true);
     if (idToken == null) throw ApiException('Firebase phone verification did not complete.');
+    final device = await _deviceDetails();
     final data = await post('/api/auth', {
-      'action': 'verify', 'phone': e164(phone), 'idToken': idToken, 'role': 'provider',
+      'action': 'verify', 'phone': e164(phone), 'idToken': idToken,
+      'role': 'provider', 'platform': 'mobile_app', ...device,
     });
+    final sessionToken = (data['sessionToken'] ?? '').toString();
+    if (sessionToken.isEmpty) throw ApiException('Secure device session was not returned.');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('kaamdaar.device.session.token', sessionToken);
     final provider = data['provider'];
     if (provider is! Map<String, dynamic>) throw ApiException('Provider profile was not returned');
     final user = SessionUser(
@@ -232,6 +257,7 @@ class Api {
     final p = await SharedPreferences.getInstance();
     await p.remove(_kSession);
     await p.remove('kaamdaar.qa.mobile.token');
+    await p.remove('kaamdaar.device.session.token');
     _qaBearerToken = null;
   }
 
