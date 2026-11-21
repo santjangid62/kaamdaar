@@ -288,6 +288,9 @@ async function readStore(): Promise<Store> {
 
 /** Writes are chained so two concurrent requests never interleave partial files. */
 let queue: Promise<void> = Promise.resolve();
+// Isolated lock: device-session critical sections call writeStore(), which
+// itself chains work on the general queue.
+let deviceSessionQueue: Promise<void> = Promise.resolve();
 /**
  * Replace the data file in one step, so a concurrent read never parses a
  * half-written file. On Windows the destination can be held open for a moment
@@ -525,8 +528,8 @@ export async function claimDeviceSession<T extends Record<string, unknown>>(
     await writeStore(store);
     result = { claimed: true, session: next as T & { id: string } };
   };
-  queue = queue.then(run, run);
-  await queue;
+  deviceSessionQueue = deviceSessionQueue.then(run, run);
+  await deviceSessionQueue;
   return result;
 }
 
@@ -559,8 +562,8 @@ export async function consumeDevicePairingCode<T = Doc>(hash: string, now: numbe
     await writeStore(store);
     result = next as T;
   };
-  queue = queue.then(run, run);
-  await queue;
+  deviceSessionQueue = deviceSessionQueue.then(run, run);
+  await deviceSessionQueue;
   return result;
 }
 
