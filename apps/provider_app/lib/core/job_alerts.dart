@@ -130,6 +130,14 @@ class JobAlertCenter {
   /// Public wake-up hook used by FCM when a push arrives in the foreground.
   Future<void> checkNow() => _check();
 
+  /// Close an offer screen immediately when another provider wins the claim.
+  Future<void> cancelOffer(String bookingId) async {
+    if (_ringing != bookingId) return;
+    await _siren(false);
+    final nav = jobAlertNavigatorKey.currentState;
+    if (nav != null && nav.canPop()) nav.pop<String>("taken");
+  }
+
   /* ------------------------------ polling ------------------------------ */
 
   Future<void> _check() async {
@@ -176,6 +184,10 @@ class JobAlertCenter {
     _handled.add(booking.id);
     await _persistHandled();
 
+    if (decision == "taken") {
+      // Another Pro accepted first; the cancellation push already silenced us.
+      return;
+    }
     if (decision == "accepted") {
       await _accept(booking, me);
     } else {
