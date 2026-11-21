@@ -261,8 +261,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       history.push({ providerId: withdraw, outcome: "rejected", at: Date.now() });
     }
     changes.providerOfferHistory = history;
-    // Trigger the next ranked Pro immediately after an explicit rejection.
-    changes.offerExpiresAt = Date.now();
+    // The dispatcher advances immediately only when every recipient in this ring has responded.
   }
 
   /* ---- live tracking: the Pro app reports its GPS while travelling ----
