@@ -78,7 +78,18 @@ class Api {
         : Platform.isIOS
             ? 'iPhone / iPad'
             : 'Mobile device';
-    return {'deviceId': id, 'deviceName': name};
+    final details = <String, String>{'deviceId': id, 'deviceName': name};
+    try {
+      final position = await Geolocator.getLastKnownPosition();
+      if (position != null) {
+        details['latitude'] = position.latitude.toString();
+        details['longitude'] = position.longitude.toString();
+        details['locationLabel'] = 'Last known GPS (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})';
+      }
+    } catch (_) {
+      // Device location is optional for sign-in; the session records it when available.
+    }
+    return details;
   }
 
   static Map<String, dynamic> _decode(http.Response r) {
