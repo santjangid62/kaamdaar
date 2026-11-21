@@ -305,7 +305,7 @@ export default function ProviderPortalPage() {
                 6-digit app pairing code
                 <input
                   value={pairCode}
-                  onChange={e => setPairCode(e.target.value.replace(/\\D/g, "").slice(0, 6))}
+                  onChange={e => setPairCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   required
