@@ -95,10 +95,13 @@ class Api {
     final loginAt = device['loginAt'] is num
         ? DateTime.fromMillisecondsSinceEpoch((device['loginAt'] as num).toInt()).toLocal().toString()
         : 'unknown time';
+    final lastSeen = device['lastSeenAt'] is num
+        ? DateTime.fromMillisecondsSinceEpoch((device['lastSeenAt'] as num).toInt()).toLocal().toString()
+        : 'unknown time';
     final location = device['location'] is Map<String, dynamic>
         ? ((device['location'] as Map<String, dynamic>)['label'] ?? 'last location unavailable').toString()
         : 'last location unavailable';
-    return '$message\nDevice: $name\nLogin: $loginAt\nLocation: $location';
+    return '$message\nDevice: $name\nLogin: $loginAt\nLast seen: $lastSeen\nLocation: $location';
   }
 
   static const String baseUrl = String.fromEnvironment(
