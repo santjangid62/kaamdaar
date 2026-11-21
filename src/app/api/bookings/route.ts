@@ -6,7 +6,7 @@
  */
 import { NextResponse } from "next/server";
 import { all, insert, patch, ready } from "../../../server/db";
-import { commissionRate, minWallet } from "../../../server/settings";
+import { commissionRate } from "../../../server/settings";
 import type { Booking, GeoPoint, Provider, Service } from "../../../lib/types";
 import { matchProvidersInRings } from "../../../lib/match";
 import { isInsideJaipur } from "../../../lib/areas";
@@ -161,27 +161,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const [providers, wallets, existingBookings] = await Promise.all([
-    all<Provider & { activeBookingId?: string; fcmTokens?: string[] }>("providers"),
-    all<{ providerId: string; balance: number }>("wallets"),
-    all<Booking>("bookings"),
-  ]);
-  const minimum = await minWallet();
-  // Never notify a professional who is already handling an active job.
-  // pending_confirm means the Pro has marked work complete, so availability
-  // is released at that point while customer completion OTP remains pending.
-  const busyProviderIds = new Set(existingBookings
-    .filter((b) => ["accepted", "enroute", "arrived", "in_progress"].includes(b.status))
-    .map((b) => b.providerId)
-    .filter(Boolean));
-  const eligibleProviders = providers.filter((provider) =>
-    isInsideJaipur(provider) &&
-    provider.verified === true &&
-    provider.availabilityStatus === "available" &&
-    !provider.activeBookingId &&
-    !busyProviderIds.has(provider.id) &&
-    (wallets.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimum
-  );
+  const providers = await all<Provider & { activeBookingId?: string; fcmTokens?: string[] }>("providers");
   // Build the service-specific 5 km candidate queue. Availability, GPS freshness,
   // wallet and FCM tokens are rechecked when each one-kilometre ring opens.
   const candidates = matchProvidersInRings(
