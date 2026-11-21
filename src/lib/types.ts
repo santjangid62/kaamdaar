@@ -162,6 +162,8 @@ export interface Booking {
   /* ---- dispatch flow ---- */
   /** Nearby Pros currently notified; cleared for everyone else on first accept. */
   notifiedIds?: string[];
+  /** All recipients in the active ring, including providers who already rejected. */
+  dispatchRingIds?: string[];
   /** Radius this request was offered in — 3 km first, 5 km after widening. */
   dispatchRadiusKm?: number;
   /** Current progressive search ring, from 1 through 5 km. */
