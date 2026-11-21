@@ -237,7 +237,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     booking: currentBooking,
     dispatch: {
-      notified: currentBooking.notifiedIds?.length ?? 0,
+      notified: Array.isArray(currentBooking.notifiedIds) ? currentBooking.notifiedIds.length : 0,
       notifiedTotal: currentBooking.dispatchNotifiedTotal ?? 0,
       queued: candidates.length,
       dispatchWindowSeconds: 60,
