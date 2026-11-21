@@ -20,7 +20,7 @@ const PIN_PREFIXES = new Set([
 
 async function ownsUser(req: Request, userId: string): Promise<boolean> {
   const identity = await firebaseIdentityFromRequest(req);
-  if (!identity) return false;
+  if (!identity || identity.role !== "customer") return false;
   const users = await all<{ id: string; phone?: string }>("users");
   return users.some((u) => u.id === userId && normalizeIndianPhone(u.phone ?? "") === identity.phone);
 }
