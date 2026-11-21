@@ -164,16 +164,16 @@ export interface Booking {
   notifiedIds?: string[];
   /** All recipients in the active ring, including providers who already rejected. */
   dispatchRingIds?: string[];
-  /** Radius this request was offered in — 3 km first, 5 km after widening. */
+  /** Active progressive search ring radius, from 1 through 5 km. */
   dispatchRadiusKm?: number;
   /** Current progressive search ring, from 1 through 5 km. */
   dispatchRingKm?: number;
   /** Cumulative number of providers notified across all rings. */
   dispatchNotifiedTotal?: number;
   dispatchedAt?: number;
-  /** Hard expiry for the current provider's 40-second dispatch offer. */
+  /** Hard expiry for the active one-kilometre ring offer window. */
   offerExpiresAt?: number;
-  /** All eligible providers notified together; the first atomic accept wins. */
+  /** All service-matching provider IDs within 5 km, ordered by distance for ring filtering. */
   dispatchQueueIds?: string[];
   dispatchCursor?: number;
   dispatchStartedAt?: number;
