@@ -17,11 +17,16 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const identity = await firebaseIdentityFromRequest(req, { requireDeviceSession: true });
-  if (!identity?.role || !identity.deviceId) {
-    return NextResponse.json({ error: "A valid device session is required" }, { status: 401 });
-  }
-  const released = await releaseDeviceSession(identity.role, identity.phone, identity.deviceId);
+  const released = identity?.role && identity.deviceId
+    ? await releaseDeviceSession(identity.role, identity.phone, identity.deviceId)
+    : false;
   const response = NextResponse.json({ released });
-  response.cookies.delete({ name: "kaamdaar_device_session", path: "/api" });
+  response.cookies.set("kaamdaar_device_session", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/api",
+    maxAge: 0,
+  });
   return response;
 }
