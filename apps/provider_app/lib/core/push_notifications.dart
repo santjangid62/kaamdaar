@@ -9,7 +9,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'api.dart';
 import 'job_alerts.dart';
 
-const String _jobChannelId = 'kaamdaar_job_alerts_v2';
+const String _jobChannelId = 'kaamdaar_job_alerts_v3';
 const String _jobChannelName = 'Kaamdaar new job requests';
 final FlutterLocalNotificationsPlugin _localNotifications =
     FlutterLocalNotificationsPlugin();
@@ -34,7 +34,6 @@ Future<void> _prepareLocalNotifications() async {
       description: 'Audible alerts for incoming Kaamdaar provider jobs',
       importance: Importance.max,
       playSound: true,
-      sound: RawResourceAndroidNotificationSound('job_alert'),
       enableVibration: true,
     ),
   );
@@ -56,7 +55,6 @@ Future<void> _showBackgroundOffer(RemoteMessage message) async {
         importance: Importance.max,
         priority: Priority.high,
         playSound: true,
-        sound: RawResourceAndroidNotificationSound('job_alert'),
         enableVibration: true,
         category: AndroidNotificationCategory.message,
         visibility: NotificationVisibility.public,
@@ -105,8 +103,9 @@ class ProviderPushNotifications {
 
     await _prepareLocalNotifications();
     final messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission(alert: true, badge: true, sound: true);
+    await messaging.requestPermission(alert: true, badge: true, sound: true, announcement: false, carPlay: false, criticalAlert: false, provisional: false);
     await messaging.setAutoInitEnabled(true);
+    await messaging.setForegroundNotificationPresentationOptions(alert: true, badge: true, sound: true);
 
     Future<void> register(String token) async {
       if (token.isEmpty) return;
