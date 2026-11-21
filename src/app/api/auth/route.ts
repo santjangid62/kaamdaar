@@ -95,6 +95,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unsupported authentication action" }, { status: 410 });
   }
 
+  if (body.platform === "web") {
+    return NextResponse.json({ error: "Web login must be paired with the authorized Kaamdaar mobile app. Open the app and generate a one-time pairing code." , code: "APP_PAIRING_REQUIRED" }, { status: 403 });
+  }
+
   if (!PHONE_RE.test(phone)) {
     return NextResponse.json({ error: "A valid Indian mobile number is required" }, { status: 400 });
   }
