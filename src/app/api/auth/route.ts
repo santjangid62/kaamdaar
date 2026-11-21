@@ -120,7 +120,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "This account has been deleted" }, { status: 403 });
     }
     if (existing[0].status === "blocked") {
-      return NextResponse.json({ error: "This account is blocked. Contact support." }, { status: 403 });
+      return NextResponse.json({
+        error: "You have Blocked. Your Kaamdaar account is blocked after more than five booking cancellations. To request unblocking, email admin@kaamdaar.com with your full name, registered mobile number and booking details. If your appeal is approved, you will receive an email confirmation.",
+        code: "CUSTOMER_ACCOUNT_BLOCKED",
+        supportEmail: "admin@kaamdaar.com",
+      }, { status: 403 });
     }
     try {
       await recordAudit({ actor: "customer", action: "login", module: "Authentication", title: "Customer login successful", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
