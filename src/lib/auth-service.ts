@@ -75,3 +75,23 @@ export function resetOtpFlow() {
   recaptcha?.clear();
   recaptcha = null;
 }
+
+/** Pair a customer browser with the one authorized native device. */
+export async function pairBrowser(code: string): Promise<{ role: "customer" | "provider"; user?: User }> {
+  const response = await fetch("/api/auth/pair", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ code: code.replace(/\\D/g, "").slice(0, 6) }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error ?? "Browser pairing failed");
+  if (data.role !== "customer" && data.role !== "provider") throw new Error("Paired account role is invalid");
+  if (data.role === "provider") return { role: "provider" };
+  const userResponse = await fetch(`/api/users/resolve?phone=${encodeURIComponent(String(data.phone ?? ""))}`, {
+    cache: "no-store", credentials: "same-origin",
+  });
+  const userData = await userResponse.json().catch(() => ({}));
+  if (!userResponse.ok || !userData.user) throw new Error(userData.error ?? "Customer profile could not be loaded");
+  return { role: "customer", user: userData.user as User };
+}
