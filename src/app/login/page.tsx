@@ -31,7 +31,7 @@ function LoginFlow() {
   // effect below never overrides it
   const handledRedirect = useRef(false);
 
-  const [step, setStep] = useState<Step>("phone");
+  const [step, setStep] = useState<Step>("pair");
   const [digits, setDigits] = useState("");
   const [code, setCode] = useState("");
   const [pairCode, setPairCode] = useState("");
@@ -406,7 +406,6 @@ function LoginFlow() {
                 <p className="text-sm leading-6 text-slate-500">Open the Kaamdaar app on your authorized phone, go to Profile, choose <strong>Pair Web Browser</strong>, and enter the code shown there. The code expires in 3 minutes and can be used once.</p>
                 {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{error}</p>}
                 <button type="submit" disabled={busy || pairCode.length !== 6} className="btn-primary w-full justify-center py-3.5">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}Pair browser</button>
-                <button type="button" onClick={() => { setStep("phone"); setPairCode(""); setError(null); }} className="w-full text-sm font-semibold text-slate-500 hover:text-blue-600">Back</button>
               </form>
             )}
           </div>
