@@ -11,6 +11,7 @@ export async function GET(req: Request) {
     ok: true,
     role: identity.role,
     accountId: identity.accountId,
+    phone: identity.phone,
     deviceId: identity.deviceId,
   });
 }
