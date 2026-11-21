@@ -204,7 +204,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
         )}
 
         {grouped[active].map((b) => {
-          const canTrack = active === "current" && Boolean(b.providerId) && LIVE_STATUSES.has(b.status);
+          const canTrack = active === "current" && ((Boolean(b.providerId) && LIVE_STATUSES.has(b.status)) || (b.status === "dispatched" && !b.dispatchFailedAt));
           const card = (
             <div className={`rounded-xl border border-slate-200 p-4 transition ${canTrack ? "hover:border-blue-400 hover:bg-blue-50/40" : "hover:border-blue-300"}`}>
             <div className="flex items-start justify-between gap-3">
