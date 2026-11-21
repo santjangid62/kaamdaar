@@ -65,7 +65,7 @@ class Api {
     };
   }
 
-  static Future<Map<String, String>> _deviceDetails() async {
+  static Future<Map<String, dynamic>> _deviceDetails() async {
     final prefs = await SharedPreferences.getInstance();
     var id = prefs.getString('kaamdaar.device.installation.id');
     if (id == null || id.isEmpty) {
@@ -78,12 +78,12 @@ class Api {
         : Platform.isIOS
             ? 'iPhone / iPad'
             : 'Mobile device';
-    final details = <String, String>{'deviceId': id, 'deviceName': name};
+    final details = <String, dynamic>{'deviceId': id, 'deviceName': name};
     try {
       final position = await Geolocator.getLastKnownPosition();
       if (position != null) {
-        details['latitude'] = position.latitude.toString();
-        details['longitude'] = position.longitude.toString();
+        details['latitude'] = position.latitude;
+        details['longitude'] = position.longitude;
         details['locationLabel'] = 'Last known GPS (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})';
       }
     } catch (_) {
