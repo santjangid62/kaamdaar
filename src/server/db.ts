@@ -664,6 +664,7 @@ export async function setDevicePairingCode(
 /** Atomically consume a valid pairing code exactly once. */
 export async function consumeDevicePairingCode(
   id: string,
+  expectedUid: string,
   codeHash: string,
   now: number,
 ): Promise<Doc | null> {
@@ -671,7 +672,7 @@ export async function consumeDevicePairingCode(
     const collection = (await mongoDb()).collection<Document>("deviceSessions");
     const options = { returnDocument: "after" as const, includeResultMetadata: false };
     const consumed = await collection.findOneAndUpdate(
-      { _id: id, pairCodeHash: codeHash, pairCodeExpiresAt: { $gt: now }, status: "active" } as Document,
+      { _id: id, uid: expectedUid, pairCodeHash: codeHash, pairCodeExpiresAt: { $gt: now }, status: "active" } as Document,
       {
         $unset: { pairCodeHash: "", pairCodeExpiresAt: "", pairCodeCreatedAt: "" },
         $set: { updatedAt: now },
@@ -683,8 +684,8 @@ export async function consumeDevicePairingCode(
   let consumed: Doc | null = null;
   const run = async () => {
     const store = await readStore();
-    const current = store.deviceSessions?.[id] as (Doc & { pairCodeHash?: string; pairCodeExpiresAt?: number; status?: string }) | undefined;
-    if (!current || current.status !== "active" || current.pairCodeHash !== codeHash ||
+    const current = store.deviceSessions?.[id] as (Doc & { uid?: string; pairCodeHash?: string; pairCodeExpiresAt?: number; status?: string }) | undefined;
+    if (!current || current.status !== "active" || current.uid !== expectedUid || current.pairCodeHash !== codeHash ||
         typeof current.pairCodeExpiresAt !== "number" || current.pairCodeExpiresAt <= now) return;
     const next = { ...current, updatedAt: now };
     delete next.pairCodeHash;
