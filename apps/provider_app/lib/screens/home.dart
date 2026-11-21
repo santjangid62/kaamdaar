@@ -671,7 +671,7 @@ class _OfferCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final seconds = (((booking.offerExpiresAt ?? (booking.createdAt + 60000)) - DateTime.now().millisecondsSinceEpoch) /
             1000)
-        .clamp(0, 60)
+        .clamp(0, 300)
         .round();
     final me = booking.amount;
     return CardBox(
@@ -1529,7 +1529,7 @@ class _ProfileTabState extends State<ProfileTab> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('• Accept request within 60 seconds'),
+                    Text('• Accept before the active ring timer ends'),
                     SizedBox(height: 6),
                     Text('• Start OTP customer se lein'),
                     SizedBox(height: 6),
