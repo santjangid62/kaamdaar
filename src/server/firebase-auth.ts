@@ -114,10 +114,10 @@ export async function firebaseIdentityFromRequest(
       if (identity) await touchDeviceSession(`${identity.role}:${identity.accountId}`, identity.sessionId);
       return identity;
     }
-    // New Flutter clients are marked explicitly and must present a server-issued
-    // device session. Legacy Firebase tokens cannot bypass the device lock.
-    if (request.headers.get("x-kaamdaar-client") === "mobile") return null;
-    return await verifyFirebasePhoneToken(token);
+    // Firebase ID tokens prove phone ownership, but they do not prove which
+    // physical installation is active. Protected APIs accept only sessions
+    // minted after the account's device slot has been claimed.
+    return null;
   } catch {
     return null;
   }
