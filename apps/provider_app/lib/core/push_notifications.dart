@@ -61,6 +61,7 @@ Future<void> _showBackgroundOffer(RemoteMessage message) async {
         category: AndroidNotificationCategory.message,
         visibility: NotificationVisibility.public,
         autoCancel: true,
+        timeoutAfter: 40000,
       ),
     ),
     payload: bookingId,
