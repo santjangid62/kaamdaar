@@ -178,7 +178,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // A missing lookup row can be caused by a transient DB/environment
       // mismatch. Do not log a returning customer out on refresh; only an
       // explicit blocked/deleted response revokes the cached session.
-      if (res.status === 403) {
+      if (res.status === 401 || res.status === 403) {
         clearSession();
         setUser(null);
         return;
