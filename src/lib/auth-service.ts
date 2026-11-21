@@ -21,6 +21,9 @@ export async function sendOtp(phone: string): Promise<void> {
     throw new Error("Firebase Phone Auth is not configured. Add the Firebase web app credentials first.");
   }
   const auth = getFirebaseAuth();
+  // OTP login always starts a fresh Firebase verification flow. Protected
+  // browser APIs use the paired HttpOnly session cookie, not this Firebase user.
+  await auth.signOut();
   if (!recaptcha) recaptcha = new RecaptchaVerifier(auth, "kaamdaar-recaptcha", { size: "invisible" });
   try {
     confirmation = await signInWithPhoneNumber(auth, phone, recaptcha);
