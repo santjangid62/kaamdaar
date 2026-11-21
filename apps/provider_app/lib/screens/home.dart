@@ -669,7 +669,7 @@ class _OfferCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final seconds = ((booking.createdAt + 60000 - DateTime.now().millisecondsSinceEpoch) /
+    final seconds = (((booking.offerExpiresAt ?? (booking.createdAt + 60000)) - DateTime.now().millisecondsSinceEpoch) /
             1000)
         .clamp(0, 60)
         .round();
@@ -1089,7 +1089,7 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
                 : ListView(padding: const EdgeInsets.all(16), children: [
                     const Text('Missed Bookings', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: PColors.ink)),
                     const SizedBox(height: 4),
-                    const Text('40-second timeouts and bookings you rejected', style: TextStyle(fontSize: 12, color: Colors.black45)),
+                    const Text('60-second ring timeouts and bookings you rejected', style: TextStyle(fontSize: 12, color: Colors.black45)),
                     const SizedBox(height: 14),
                     Row(children: [
                       Expanded(child: _missedStat('Today', '$today')),
