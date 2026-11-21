@@ -95,12 +95,28 @@ class _LocationGateState extends State<LocationGate> with WidgetsBindingObserver
 
       // A granted permission alone is not enough: verify that the device can
       // return a fresh fix before letting the user enter the app.
-      await Geolocator.getCurrentPosition(
+      var position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.bestForNavigation,
           timeLimit: Duration(seconds: 20),
+          distanceFilter: 0,
         ),
       );
+      if (position.accuracy > 50) {
+        try {
+          final refined = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.bestForNavigation,
+              timeLimit: Duration(seconds: 15),
+              distanceFilter: 0,
+            ),
+          );
+          if (refined.accuracy < position.accuracy) position = refined;
+        } catch (_) {}
+      }
+      if (position.accuracy > 100) {
+        throw TimeoutException('GPS accuracy is too low. Move outdoors and retry.');
+      }
       if (!mounted) return;
       setState(() {
         _ready = true;
