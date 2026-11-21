@@ -103,9 +103,12 @@ export async function firebaseIdentityFromRequest(
 ): Promise<{ phone: string; uid: string; role?: "customer" | "provider"; accountId?: string; sessionId?: string; deviceId?: string } | null> {
   const authorization = request.headers.get("authorization") ?? "";
   const match = authorization.match(/^Bearer\s+(.+)$/i);
-  if (!match?.[1]) return null;
+  const cookieToken = (request.headers.get("cookie") ?? "").split(";")
+    .map((part) => part.trim()).find((part) => part.startsWith("kaamdaar_session="))
+    ?.slice("kaamdaar_session=".length);
+  const token = match?.[1] || cookieToken || "";
+  if (!token) return null;
   try {
-    const token = match[1];
     if (token.startsWith("ks1.")) {
       const identity = await validateDeviceSession(token);
       if (identity) await touchDeviceSession(`${identity.role}:${identity.accountId}`, identity.sessionId);
