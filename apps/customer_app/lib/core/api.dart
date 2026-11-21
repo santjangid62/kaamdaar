@@ -62,7 +62,7 @@ class Api {
   }
 
   static String _apiError(Map<String, dynamic> data) {
-    final message = _apiError(data);
+    final message = (data['error'] ?? 'Request failed').toString();
     if (data['code'] != 'DEVICE_ALREADY_ACTIVE') return message;
     final device = data['existingDevice'] is Map<String, dynamic>
         ? data['existingDevice'] as Map<String, dynamic>
@@ -74,7 +74,7 @@ class Api {
     final location = device['location'] is Map<String, dynamic>
         ? ((device['location'] as Map<String, dynamic>)['label'] ?? 'last location unavailable').toString()
         : 'last location unavailable';
-    return '$message\\nDevice: $name\\nLogin: $loginAt\\nLocation: $location';
+    return '$message\nDevice: $name\nLogin: $loginAt\nLocation: $location';
   }
 
   static const String baseUrl = String.fromEnvironment(
@@ -206,35 +206,43 @@ class Api {
   }
 
   static Future<({SessionUser user, bool isNew})> verifyOtp(String phone, String code) async {
+    final device = await _deviceMetadata();
+    Map<String, dynamic> data;
     if (_qaMobileAuthEnabled && kDebugMode) {
-      final data = await post('/api/auth', {
-        'action': 'qa_verify', 'phone': e164(phone), 'otp': code.trim(),
-        'role': 'customer', 'platform': 'mobile_app',
+      data = await post('/api/auth', {
+        'action': 'qa_verify',
+        'phone': e164(phone),
+        'otp': code.trim(),
+        'role': 'customer',
+        'platform': 'mobile_app',
+        ...device,
       });
-      final token = (data['sessionToken'] ?? '').toString();
-      if (token.isEmpty) throw ApiException('QA session token was not returned.');
-      await _secureStorage.write(key: _kDeviceToken, value: token);
-      _qaBearerToken = null;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('kaamdaar.qa.mobile.token');
-      final user = SessionUser.fromJson((data['user'] as Map<String, dynamic>?) ?? const {});
-      await saveSession(user);
-      return (user: user, isNew: data['isNew'] == true);
+    } else {
+      final auth = FirebaseAuth.instance;
+      final current = auth.currentUser;
+      if (current == null || e164(current.phoneNumber ?? '') != e164(phone)) {
+        final verificationId = _phoneVerificationId;
+        if (verificationId == null) throw ApiException('OTP session expired. Please resend.');
+        await auth.signInWithCredential(
+          PhoneAuthProvider.credential(verificationId: verificationId, smsCode: code.trim()),
+        );
+      }
+      final idToken = await auth.currentUser?.getIdToken(true);
+      if (idToken == null) throw ApiException('Firebase phone verification did not complete.');
+      data = await post('/api/auth', {
+        'action': 'verify',
+        'phone': e164(phone),
+        'idToken': idToken,
+        'platform': 'mobile_app',
+        ...device,
+      });
     }
-    final auth = FirebaseAuth.instance;
-    final current = auth.currentUser;
-    if (current == null || e164(current.phoneNumber ?? '') != e164(phone)) {
-      final verificationId = _phoneVerificationId;
-      if (verificationId == null) throw ApiException('OTP session expired. Please resend.');
-      await auth.signInWithCredential(PhoneAuthProvider.credential(verificationId: verificationId, smsCode: code.trim()));
-    }
-    final idToken = await auth.currentUser?.getIdToken(true);
-    if (idToken == null) throw ApiException('Firebase phone verification did not complete.');
-    final data = await post('/api/auth', {
-      'action': 'verify', 'phone': e164(phone), 'idToken': idToken, 'platform': 'mobile_app',\n      ...await _deviceMetadata(),
-    });
-    final deviceToken = (data['sessionToken'] ?? '').toString();
-    if (deviceToken.isNotEmpty) await _secureStorage.write(key: _kDeviceToken, value: deviceToken);
+    final token = (data['sessionToken'] ?? '').toString();
+    if (token.isEmpty) throw ApiException('A secure device session was not returned by the server.');
+    await _secureStorage.write(key: _kDeviceToken, value: token);
+    _qaBearerToken = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('kaamdaar.qa.mobile.token');
     final user = SessionUser.fromJson((data['user'] as Map<String, dynamic>?) ?? const {});
     await saveSession(user);
     _phoneVerificationId = null;
