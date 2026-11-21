@@ -58,7 +58,6 @@ jobs:
           src/app/api/auth/device-session/route.ts
           src/app/api/auth/device-pair/route.ts
           src/app/api/auth/device-pair/complete/route.ts
-          src/app/provider/page.tsx
           src/lib/store.ts
           src/components/AppProvider.tsx
           src/app/api/users/resolve/route.ts
