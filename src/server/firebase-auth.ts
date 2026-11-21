@@ -96,15 +96,35 @@ export async function verifyFirebasePhoneToken(idToken: string): Promise<{ phone
   return { phone, uid: user.localId };
 }
 
-/** Resolve a verified Firebase identity from a Bearer token on an API request. */
+export type RequestIdentity = {
+  phone: string;
+  uid: string;
+  role?: "customer" | "provider";
+  deviceId?: string;
+  sessionId?: string;
+  authType: "device_session" | "firebase";
+};
+
+/**
+ * Resolve a signed-in identity from a Bearer token. During staged rollout,
+ * legacy Firebase tokens remain accepted by default; protected customer and
+ * provider routes can pass requireDeviceSession=true to reject them.
+ */
 export async function firebaseIdentityFromRequest(
   request: Request,
-): Promise<{ phone: string; uid: string } | null> {
+  options: { requireDeviceSession?: boolean } = {},
+): Promise<RequestIdentity | null> {
   const authorization = request.headers.get("authorization") ?? "";
-  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\\s+(.+)$/i);
   if (!match?.[1]) return null;
+  const token = match[1];
   try {
-    return await verifyFirebasePhoneToken(match[1]);
+    const { verifyDeviceSessionToken } = await import("./device-session");
+    const deviceIdentity = await verifyDeviceSessionToken(token);
+    if (deviceIdentity) return { ...deviceIdentity, authType: "device_session" };
+    if (options.requireDeviceSession) return null;
+    const firebaseIdentity = await verifyFirebasePhoneToken(token);
+    return { ...firebaseIdentity, authType: "firebase" };
   } catch {
     return null;
   }
