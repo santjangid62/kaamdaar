@@ -485,7 +485,7 @@ function ProvidersFlow() {
             <div className="min-w-0 flex-1">
               <p className="font-bold text-slate-900">{s.dispatch.searching}</p>
               <p className="text-sm text-slate-500">Ring {Math.max(1, dispatchProgress.ringKm)} / 5 km · {dispatchProgress.totalNotified} providers notified · {dispatchProgress.currentNotified} in this ring</p>
-              <p className="text-xs font-semibold text-slate-500">Time remaining: {mmss(Math.max(0, dispatchProgress.deadlineAt - now))}</p>
+              <p className="text-xs font-semibold text-slate-500">Time remaining: {new Date(Math.max(0, dispatchProgress.deadlineAt - now)).toISOString().slice(14, 19)}</p>
             </div>
             <button type="button" disabled={busy} onClick={() => void (async () => { if (!user || !bookingId) return; setBusy(true); try { await updateBooking(user.id, bookingId, { status: "cancelled" }); setPhase("idle"); setBookingId(null); } finally { setBusy(false); } })()} className="btn-ghost px-3 py-2 text-sm">
               <X className="h-4 w-4" /> {s.dispatch.cancelRequest}
