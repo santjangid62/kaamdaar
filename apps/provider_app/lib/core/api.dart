@@ -296,13 +296,16 @@ class Api {
     if (token == null || token.isEmpty) return null;
     try {
       final validation = await get('/api/auth/device-session');
-      if (validation['valid'] != true) throw ApiException('Device session is no longer valid.');
-    } catch (_) {
-      await _secureStorage.delete(key: _kDeviceToken);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_kSession);
-      cached = null;
-      return null;
+      if (validation['valid'] != true) throw ApiException('Device session is no longer valid.', 401);
+    } catch (error) {
+      if (error is ApiException && (error.status == 401 || error.status == 403)) {
+        await _secureStorage.delete(key: _kDeviceToken);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_kSession);
+        cached = null;
+        return null;
+      }
+      // Temporary network/server errors must not erase a valid persistent login.
     }
     final p = await SharedPreferences.getInstance();
     final raw = p.getString(_kSession);
