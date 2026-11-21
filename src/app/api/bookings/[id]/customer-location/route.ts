@@ -9,7 +9,7 @@ const TRACKABLE = new Set(["dispatched", "accepted", "scheduled", "enroute", "ar
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   await ready();
   const identity = await firebaseIdentityFromRequest(req);
-  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  if (!identity || identity.role !== "customer") return NextResponse.json({ error: "A valid Customer device session is required" }, { status: 401 });
 
   const { id } = await ctx.params;
   const booking = await get<Booking>("bookings", id);
