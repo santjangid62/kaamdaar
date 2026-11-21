@@ -39,7 +39,6 @@ class Api {
     'QA_MOBILE_AUTH',
     defaultValue: false,
   );
-  static String? _qaBearerToken;
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE',
@@ -47,7 +46,6 @@ class Api {
   );
 
   static Future<Map<String, String>> _headers() async {
-    final prefs = await SharedPreferences.getInstance();
     final sessionToken = await _secureStorage.read(key: 'kaamdaar.device.session.token');
     if (sessionToken != null && sessionToken.isNotEmpty) {
       return {
@@ -149,9 +147,6 @@ class Api {
   static Future<String> sendOtp(String phone) async {
     _phoneVerificationId = null;
     if (_qaMobileAuthEnabled && kDebugMode) {
-      _qaBearerToken = null;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('kaamdaar.qa.mobile.token');
       await FirebaseAuth.instance.signOut();
       return '123456';
     }
@@ -205,7 +200,6 @@ class Api {
       });
       final token = (data['sessionToken'] ?? '').toString();
       if (token.isEmpty) throw ApiException('QA session token was not returned.');
-      final prefs = await SharedPreferences.getInstance();
       await _secureStorage.write(key: 'kaamdaar.device.session.token', value: token);
       final user = SessionUser.fromJson((data['user'] as Map<String, dynamic>?) ?? const {});
       await saveSession(user);
@@ -227,7 +221,6 @@ class Api {
     });
     final sessionToken = (data['sessionToken'] ?? '').toString();
     if (sessionToken.isEmpty) throw ApiException('Secure device session was not returned.');
-    final prefs = await SharedPreferences.getInstance();
     await _secureStorage.write(key: 'kaamdaar.device.session.token', value: sessionToken);
     final user = SessionUser.fromJson((data['user'] as Map<String, dynamic>?) ?? const {});
     await saveSession(user);
@@ -297,7 +290,6 @@ class Api {
     await p.remove(_kSession);
     await p.remove('kaamdaar.qa.mobile.token');
     await _secureStorage.delete(key: 'kaamdaar.device.session.token');
-    _qaBearerToken = null;
   }
 
   static Future<Map<String, dynamic>> createPairingCode() async {
