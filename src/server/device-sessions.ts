@@ -157,6 +157,7 @@ export async function validateDeviceSession(token: string): Promise<{
 export async function touchDeviceSession(accountKeyValue: string, sessionId: string): Promise<void> {
   const current = await get<DeviceSessionRecord>("deviceSessions", accountKeyValue);
   if (!current || current.sessionId !== sessionId || current.revokedAt) return;
+  if (Date.now() - current.lastSeenAt < 5 * 60 * 1000) return;
   await patch("deviceSessions", accountKeyValue, { lastSeenAt: Date.now() });
 }
 
