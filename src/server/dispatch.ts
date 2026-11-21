@@ -31,6 +31,9 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
     const allResponded = outstanding.length > 0 && outstanding.every((id) => rejected.has(id) || missed.has(id));
 
     if (now < expiresAt && !allResponded) return;
+    // Keep the final 4–5 km ring open until the full five-minute deadline,
+    // even if every provider in that last ring rejects early.
+    if (allResponded && Number(booking.dispatchRingKm ?? 0) >= MAX_RADIUS_KM && now < deadline) return;
 
     const providers = await all<Provider & {
       fcmTokens?: string[];
@@ -112,7 +115,7 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
       .filter((provider): provider is Provider & { fcmTokens?: string[]; activeBookingId?: string; locationUpdatedAt?: number } => Boolean(provider))
       .filter((provider) => {
         const distance = booking.originPoint ? haversineKm(booking.originPoint, provider) : Infinity;
-        const inRing = distance > nextRing - 1 && distance <= nextRing;
+        const inRing = distance >= nextRing - 1 && distance <= nextRing;
         const live = provider.locationUpdatedAt != null && now - provider.locationUpdatedAt <= LIVE_LOCATION_MAX_AGE_MS;
         const wallet = wallets.find((row) => row.providerId === provider.id)?.balance ?? 0;
         return inRing &&
