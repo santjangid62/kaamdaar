@@ -160,6 +160,9 @@ class Api {
     return data;
   }
 
+  static Future<Map<String, dynamic>> createWebPairingCode() =>
+      post('/api/auth/device-pair', {});
+
   /* ---------------------------- auth ---------------------------- */
 
   /// Backend expects E.164 (+91XXXXXXXXXX) — accept any user input shape.
