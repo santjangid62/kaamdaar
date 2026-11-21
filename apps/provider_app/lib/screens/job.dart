@@ -444,7 +444,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('In-app navigation', style: TextStyle(fontWeight: FontWeight.w900, color: PColors.navy)),
+          const Text('In-app navigation', style: TextStyle(fontWeight: FontWeight.w900, color: PColors.ink)),
           const SizedBox(height: 6),
           const Text('Keep this screen open while travelling. Your live GPS is shared with the customer and Admin.',
               style: TextStyle(fontSize: 11.5, color: Colors.black54)),
@@ -728,7 +728,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Rate the Customer', style: TextStyle(fontWeight: FontWeight.w900, color: PColors.navy)),
+          const Text('Rate the Customer', style: TextStyle(fontWeight: FontWeight.w900, color: PColors.ink)),
           const SizedBox(height: 4),
           const Text('Optional feedback helps Kaamdaar maintain service quality.',
               style: TextStyle(fontSize: 11.5, color: Colors.black54)),
