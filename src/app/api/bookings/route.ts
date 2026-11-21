@@ -8,10 +8,9 @@ import { NextResponse } from "next/server";
 import { all, insert, patch, ready } from "../../../server/db";
 import { commissionRate, minWallet } from "../../../server/settings";
 import type { Booking, GeoPoint, Provider, Service } from "../../../lib/types";
-import { matchProviders } from "../../../lib/match";
+import { matchProvidersInRings } from "../../../lib/match";
 import { isInsideJaipur } from "../../../lib/areas";
 import { newEvent } from "../../../server/events";
-import { sendProviderJobOffer } from "../../../server/fcm";
 import { advanceProviderDispatch } from "../../../server/dispatch";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
 
@@ -183,9 +182,16 @@ export async function POST(req: Request) {
     !busyProviderIds.has(provider.id) &&
     (wallets.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimum
   );
-  const match = matchProviders(eligibleProviders, body.serviceId, origin);
+  // Build the service-specific 5 km candidate queue. Availability, GPS freshness,
+  // wallet and FCM tokens are rechecked when each one-kilometre ring opens.
+  const candidates = matchProvidersInRings(
+    providers.filter((provider) => isInsideJaipur(provider) && provider.verified === true),
+    body.serviceId,
+    origin,
+  );
   const rate = await commissionRate();
   const now = Date.now();
+  const dispatchDeadlineAt = now + 5 * 60_000;
 
   // Keep the booking alive for the full five-minute search window even when
   // no Pro is available at creation time; the dispatcher rechecks availability.
@@ -209,17 +215,19 @@ export async function POST(req: Request) {
     commission: Math.round((amount * rate) / 100),
     status: "dispatched",
     createdAt: now,
-    // Broadcast one 40-second offer to every eligible matching Pro.
-    offerExpiresAt: match.matches.length ? now + 40_000 : now + 5_000,
-    notifiedIds: match.matches.map((m) => m.provider.id),
-    dispatchQueueIds: match.matches.map((m) => m.provider.id),
-    dispatchCursor: match.matches.length,
+    // Dispatcher opens the 1 km ring immediately, then expands every 60 seconds.
+    offerExpiresAt: now,
+    notifiedIds: [],
+    dispatchQueueIds: candidates.map((match) => match.provider.id),
+    dispatchCursor: 0,
     dispatchStartedAt: now,
-    dispatchDeadlineAt: now + 40_000,
+    dispatchDeadlineAt,
+    dispatchRingKm: 0,
+    dispatchNotifiedTotal: 0,
     missedProviderIds: [],
     rejectedProviderIds: [],
     providerOfferHistory: [],
-    dispatchRadiusKm: match.radiusKm,
+    dispatchRadiusKm: 0,
     dispatchedAt: now,
     originPoint: origin,
     // first line of the audit trail the Admin log reads
@@ -227,29 +235,16 @@ export async function POST(req: Request) {
       newEvent(
         "customer",
         "created",
-        `${match.matches.length} eligible Pros notified together within ${match.radiusKm} km (${match.ring} ring); first accept wins`,
+        `Booking created; progressive 1 km provider search started across a 5 km candidate radius`,
         { status: "dispatched" },
       ),
     ],
   } as unknown as Record<string, unknown>);
 
-  // Notify every eligible Pro for this service/radius at the same time.
-  const matchedIds = new Set(match.matches.map((row) => row.provider.id));
-  const fcmTokens = providers
-    .filter((provider) => matchedIds.has(provider.id))
-    .flatMap((provider) => provider.fcmTokens ?? []);
-  if (fcmTokens.length) {
-    try {
-      await sendProviderJobOffer(fcmTokens, {
-        id: booking.id,
-        serviceName: combinedServiceName,
-        serviceId: body.serviceId,
-        offerExpiresAt: now + 40_000,
-      });
-    } catch (error) {
-      console.error("[fcm] provider broadcast could not be sent", error);
-    }
-  }
+  // Start the first one-kilometre ring immediately; later rings advance
+  // from customer/provider polling and explicit provider rejections.
+  await advanceProviderDispatch(booking.id);
+  const currentBooking = await all<Booking>("bookings").then((rows) => rows.find((row) => row.id === booking.id) ?? booking);
 
   // Persist real catalogue demand so homepage ranking learns from actual bookings.
   const bookedService = await all<{ id: string; bookingCount?: number }>("services");
@@ -259,13 +254,15 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({
-    booking,
+    booking: currentBooking,
     dispatch: {
-      notified: match.matches.length,
-      queued: match.matches.length,
-      dispatchWindowSeconds: 40,
-      radiusKm: match.radiusKm,
-      ring: match.ring,
+      notified: currentBooking.notifiedIds?.length ?? 0,
+      notifiedTotal: currentBooking.dispatchNotifiedTotal ?? 0,
+      queued: candidates.length,
+      dispatchWindowSeconds: 60,
+      searchWindowSeconds: 300,
+      radiusKm: currentBooking.dispatchRingKm ?? 1,
+      ring: currentBooking.dispatchRingKm ?? 1,
     },
   });
 }
