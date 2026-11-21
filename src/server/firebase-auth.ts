@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { validateDeviceSession } from "./device-sessions";
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
@@ -104,7 +105,12 @@ export async function firebaseIdentityFromRequest(
   const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match?.[1]) return null;
   try {
-    return await verifyFirebasePhoneToken(match[1]);
+    const token = match[1];
+    if (token.startsWith("ks1.")) return await validateDeviceSession(token);
+    // New Flutter clients are marked explicitly and must present a server-issued
+    // device session. Legacy Firebase tokens cannot bypass the device lock.
+    if (request.headers.get("x-kaamdaar-client") === "mobile") return null;
+    return await verifyFirebasePhoneToken(token);
   } catch {
     return null;
   }
