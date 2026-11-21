@@ -198,6 +198,7 @@ export async function POST(req: Request) {
     // Dispatcher opens the 1 km ring immediately, then expands every 60 seconds.
     offerExpiresAt: now,
     notifiedIds: [],
+    dispatchRingIds: [],
     dispatchQueueIds: candidates.map((match) => match.provider.id),
     dispatchCursor: 0,
     dispatchStartedAt: now,
