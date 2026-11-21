@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { find, insert, ready } from "../../../../server/db";
 import type { User } from "../../../../lib/types";
 import { createUserRegisteredNotification } from "../../../../server/notifications";
+import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
 
 function referralCode(phone: string): string {
   return `KDM${phone.replace(/\D/g, "").slice(-4)}`;
@@ -15,9 +16,14 @@ function referralCode(phone: string): string {
 /** GET — fetch-only (used to refresh the session; never creates a row). */
 export async function GET(req: Request) {
   await ready();
-  const phone = new URL(req.url).searchParams.get("phone") ?? "";
-  if (!/^\+91[6-9]\d{9}$/.test(phone)) {
-    return NextResponse.json({ user: null }, { status: 400 });
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity || identity.role !== "customer") {
+    return NextResponse.json({ error: "A valid Customer device session is required" }, { status: 401 });
+  }
+  const requestedPhone = new URL(req.url).searchParams.get("phone") ?? identity.phone;
+  const phone = normalizeIndianPhone(requestedPhone);
+  if (!phone || phone !== identity.phone) {
+    return NextResponse.json({ error: "You can only read your own customer profile" }, { status: 403 });
   }
   const user = await find<User & { id: string; status?: string }>("users", (u) => u.phone === phone);
   if (!user[0]) return NextResponse.json({ user: null }, { status: 404 });
@@ -29,6 +35,10 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   await ready();
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity || identity.role !== "customer") {
+    return NextResponse.json({ error: "A valid Customer device session is required" }, { status: 401 });
+  }
   let body: { phone?: string; platform?: "web" | "mobile_app" };
   try {
     body = (await req.json()) as { phone?: string };
@@ -36,9 +46,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const phone = (body.phone ?? "").trim();
-  if (!/^\+91[6-9]\d{9}$/.test(phone)) {
-    return NextResponse.json({ error: "A valid Indian mobile number is required" }, { status: 400 });
+  const phone = normalizeIndianPhone(body.phone ?? "");
+  if (!phone || phone !== identity.phone) {
+    return NextResponse.json({ error: "You can only resolve your own customer account" }, { status: 403 });
   }
 
   const existing = await find<User & { id: string; status?: string }>("users", (u) => u.phone === phone);

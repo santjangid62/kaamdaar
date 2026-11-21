@@ -9,21 +9,15 @@
  */
 
 import type { Address, Booking, User } from "./types";
-import { getFirebaseAuth, isFirebaseConfigured } from "./firebase";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  let authorization: Record<string, string> = {};
-  if (isFirebaseConfigured) {
-    try {
-      const token = await getFirebaseAuth().currentUser?.getIdToken();
-      if (token) authorization = { Authorization: `Bearer ${token}` };
-    } catch {
-      // Public catalogue and pre-auth requests remain usable without a token.
-    }
-  }
+  // Same-origin HttpOnly cookie is the browser's paired device session.
+  // Firebase ID tokens are used only for OTP verification, never as a bypass
+  // around the device lock on protected application APIs.
   const res = await fetch(path, {
     ...init,
-    headers: { "Content-Type": "application/json", ...authorization, ...(init?.headers ?? {}) },
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
@@ -55,7 +49,10 @@ export function saveSession(user: User) {
 }
 
 export function clearSession() {
-  if (typeof window !== "undefined") window.localStorage.removeItem(SESSION_KEY);
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(SESSION_KEY);
+    void fetch("/api/auth/device-session", { method: "POST", credentials: "same-origin" }).catch(() => {});
+  }
 }
 
 /* -------------------------------- users -------------------------------- */

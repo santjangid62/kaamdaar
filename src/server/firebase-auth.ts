@@ -96,15 +96,45 @@ export async function verifyFirebasePhoneToken(idToken: string): Promise<{ phone
   return { phone, uid: user.localId };
 }
 
-/** Resolve a verified Firebase identity from a Bearer token on an API request. */
+export type RequestIdentity = {
+  phone: string;
+  uid: string;
+  role?: "customer" | "provider";
+  deviceId?: string;
+  sessionId?: string;
+  authType: "device_session" | "firebase";
+  clientType?: "native" | "web";
+};
+
+/**
+ * Resolve a signed-in identity from a device-bound bearer token or paired
+ * HttpOnly browser cookie. Firebase ID tokens are accepted only by OTP
+ * verification endpoints, never as a protected-API session.
+ */
 export async function firebaseIdentityFromRequest(
   request: Request,
-): Promise<{ phone: string; uid: string } | null> {
+  options: { requireDeviceSession?: boolean } = { requireDeviceSession: true },
+): Promise<RequestIdentity | null> {
   const authorization = request.headers.get("authorization") ?? "";
   const match = authorization.match(/^Bearer\s+(.+)$/i);
-  if (!match?.[1]) return null;
+  const cookieToken = request.headers.get("cookie")
+    ?.split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("kaamdaar_device_session="))
+    ?.slice("kaamdaar_device_session=".length);
+  const token = match?.[1] ?? cookieToken;
+  if (!token) return null;
   try {
-    return await verifyFirebasePhoneToken(match[1]);
+    const { verifyDeviceSessionToken } = await import("./device-session");
+    const deviceIdentity = await verifyDeviceSessionToken(token);
+    if (deviceIdentity) {
+      if (match?.[1] && deviceIdentity.clientType !== "native") return null;
+      if (cookieToken && !match?.[1] && deviceIdentity.clientType !== "web") return null;
+      return { ...deviceIdentity, authType: "device_session" };
+    }
+    if (options.requireDeviceSession) return null;
+    const firebaseIdentity = await verifyFirebasePhoneToken(token);
+    return { ...firebaseIdentity, authType: "firebase" };
   } catch {
     return null;
   }

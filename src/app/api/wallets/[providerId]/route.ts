@@ -17,7 +17,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ providerId: str
   const admin = await isAuthed();
   if (!admin) {
     const identity = await firebaseIdentityFromRequest(req);
-    if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+    if (!identity || identity.role !== "provider") return NextResponse.json({ error: "A valid Provider device session is required" }, { status: 401 });
     const providers = await all<Provider>("providers");
     const own = providers.find((p) => normalizeIndianPhone(p.phone ?? "") === identity.phone);
     if (!own || own.id !== providerId) {

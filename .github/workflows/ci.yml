@@ -2,14 +2,14 @@ name: Kaamdaar CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feature/kaamdaar-customer-provider-admin-workflows]
   push:
     branches: [main]
   workflow_dispatch:
 
 # Keep only the newest CI run for this branch; push and PR events share a key.
 concurrency:
-  group: kaamdaar-ci-${{ github.event.pull_request.number || github.ref_name }}
+  group: kaamdaar-ci-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -54,6 +54,21 @@ jobs:
           src/server/db.ts
           src/server/fcm.ts
           src/server/firebase-auth.ts
+          src/server/device-session.ts
+          src/app/api/auth/device-session/route.ts
+          src/app/api/auth/device-pair/route.ts
+          src/app/api/auth/device-pair/complete/route.ts
+          src/lib/store.ts
+          src/app/api/users/resolve/route.ts
+          'src/app/api/users/[id]/route.ts'
+          'src/app/api/users/[id]/addresses/route.ts'
+          'src/app/api/users/[id]/addresses/[addressId]/route.ts'
+          src/app/api/bookings/[id]/customer-location/route.ts
+          src/app/api/reviews/route.ts
+          src/app/api/complaints/route.ts
+          'src/app/api/wallets/[providerId]/route.ts'
+          apps/provider_app/lib/core/api.dart
+          apps/customer_app/lib/core/api.dart
       - name: Next.js production build
         run: npm run build
         env:

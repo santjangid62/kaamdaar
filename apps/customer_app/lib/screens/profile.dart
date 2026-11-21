@@ -77,6 +77,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _showPairingCode() async {
+    try {
+      final result = await Api.createWebPairingCode();
+      if (!mounted) return;
+      final code = (result['code'] ?? '').toString();
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Pair Web Browser'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('On this same phone, open the Kaamdaar website and enter this one-time code after OTP verification. It expires in five minutes.'),
+              const SizedBox(height: 18),
+              SelectableText(
+                code,
+                style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: 8, color: KColors.navy),
+              ),
+            ],
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not create web pairing code: $error')),
+      );
+    }
+  }
+
   Future<void> _logout() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -215,6 +246,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   MaterialPageRoute(builder: (_) => const AddressesScreen()));
               _load();
             }),
+            _tile(Icons.devices, 'Pair Web Browser', () { _showPairingCode(); }),
             _tile(Icons.notifications_none, 'Notifications', () {
               _soon();
             }),

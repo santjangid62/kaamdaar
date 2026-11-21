@@ -14,6 +14,9 @@ export async function POST(req: Request) {
 
   const bookingId = String(body.bookingId ?? "");
   const actorRole = body.actorRole === "provider" ? "provider" : "customer";
+  if (identity.role !== actorRole) {
+    return NextResponse.json({ error: "This device session cannot submit a review for that account role" }, { status: 403 });
+  }
   const text = String(body.text ?? "").trim().slice(0, 1000);
   const rating = Number(actorRole === "provider" ? body.customerRating : body.providerRating);
   const serviceRating = Number(body.serviceRating);

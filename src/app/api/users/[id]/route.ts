@@ -10,7 +10,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   await ready();
   const { id } = await ctx.params;
   const identity = await firebaseIdentityFromRequest(req);
-  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  if (!identity || identity.role !== "customer") return NextResponse.json({ error: "A valid Customer device session is required" }, { status: 401 });
   const users = await all<{ id: string; phone?: string }>("users");
   const owner = users.find((u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
   if (!owner || owner.id !== id) {

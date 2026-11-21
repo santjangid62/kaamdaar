@@ -16,16 +16,22 @@ type WalletData = { wallet: { balance: number }; txns: Array<{
   id: string; amount: number; kind: string; note: string; balanceAfter: number; createdAt: number;
 }> };
 
+type ExistingDeviceInfo = {
+  deviceName: string;
+  loginAt: number;
+  lastSeenAt: number;
+  location: { label?: string } | null;
+};
+
 const ACTIVE = ["accepted", "scheduled", "enroute", "arrived", "in_progress", "pending_confirm"];
 const money = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n || 0);
 const date = (n: number) => n ? new Date(n).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getFirebaseAuth().currentUser?.getIdToken();
-  if (!token) throw new Error("Session expired. Please login again.");
   const response = await fetch(path, {
     ...init,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) },
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
     cache: "no-store",
   });
   const body = await response.json().catch(() => ({}));
@@ -34,9 +40,12 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export default function ProviderPortalPage() {
-  const [step, setStep] = useState<"phone" | "otp" | "dashboard">("phone");
+  const [step, setStep] = useState<"phone" | "otp" | "pairing" | "dashboard">("phone");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
+  const [pairCode, setPairCode] = useState("");
+  const [deviceRequired, setDeviceRequired] = useState(false);
+  const [existingDevice, setExistingDevice] = useState<ExistingDeviceInfo | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [recaptcha, setRecaptcha] = useState<RecaptchaVerifier | null>(null);
   const [provider, setProvider] = useState<Provider | null>(null);
@@ -61,16 +70,38 @@ export default function ProviderPortalPage() {
   }, []);
 
   const resolveProvider = useCallback(async () => {
+    // First restore an existing paired browser session. This avoids asking for
+    // a new one-time code on every page refresh.
+    const paired = await fetch("/api/providers/me", { credentials: "same-origin", cache: "no-store" });
+    if (paired.ok) {
+      const pairedData = await paired.json();
+      if (pairedData.provider) {
+        setProvider(pairedData.provider as Provider);
+        setStep("dashboard");
+        await refresh(pairedData.provider as Provider);
+        return;
+      }
+    }
+
     const user = getFirebaseAuth().currentUser;
     if (!user) return;
     const idToken = await user.getIdToken(true);
     const res = await fetch("/api/auth", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "verify", phone: user.phoneNumber, idToken, role: "provider", platform: "web" }),
     });
     const data = await res.json();
     if (!res.ok || !data.provider) throw new Error(data.error || "Provider account not found.");
     setProvider(data.provider as Provider);
+    if (data.pairingRequired) {
+      setDeviceRequired(data.deviceRequired === true);
+      setExistingDevice((data.existingDevice ?? null) as ExistingDeviceInfo | null);
+      setPairCode("");
+      setStep("pairing");
+      return;
+    }
     setStep("dashboard");
     await refresh(data.provider as Provider);
   }, [refresh]);
@@ -132,6 +163,7 @@ export default function ProviderPortalPage() {
     try {
       if (!isFirebaseConfigured) throw new Error("Firebase web configuration is missing.");
       const auth = getFirebaseAuth();
+      await auth.signOut();
       const verifier = recaptcha || new RecaptchaVerifier(auth, "provider-recaptcha", { size: "invisible" });
       setRecaptcha(verifier);
       const result = await signInWithPhoneNumber(auth, `+91${phone.replace(/\D/g, "").slice(-10)}`, verifier);
@@ -151,6 +183,33 @@ export default function ProviderPortalPage() {
       await resolveProvider();
     } catch (e) { setError(e instanceof Error ? e.message : "OTP verification failed."); }
     finally { setBusy(false); }
+  }
+
+  async function completePairing(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      if (pairCode.trim().length !== 6) throw new Error("Enter the six-digit code from the Provider App.");
+      const current = getFirebaseAuth().currentUser;
+      if (!current) throw new Error("Verify your mobile number again.");
+      const idToken = await current.getIdToken(true);
+      const response = await fetch("/api/auth/device-pair/complete", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, code: pairCode.trim(), role: "provider" }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.paired !== true) throw new Error(data.error || "Browser pairing failed.");
+      if (!provider) throw new Error("Provider profile not found.");
+      setStep("dashboard");
+      await refresh(provider);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Browser pairing failed.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function respondToOffer(booking: Booking, accept: boolean) {
@@ -197,6 +256,9 @@ export default function ProviderPortalPage() {
   }
 
   async function logout() {
+    try {
+      await fetch("/api/auth/device-session", { method: "POST", credentials: "same-origin" });
+    } catch {}
     await getFirebaseAuth().signOut();
     setProvider(null); setBookings([]); setWalletData(null); setStep("phone"); setTab("overview");
   }
@@ -238,7 +300,7 @@ export default function ProviderPortalPage() {
                 {busy?"Sending OTP…":"Continue"}
               </button>
             </form>
-          ) : (
+          ) : step === "otp" ? (
             <form onSubmit={verifyCode} className="space-y-5">
               <label className="block text-sm font-semibold text-slate-800">
                 Enter OTP
@@ -259,6 +321,43 @@ export default function ProviderPortalPage() {
               </button>
               <button type="button" onClick={()=>{setStep("phone");setConfirmation(null);setOtp("");setError("");}} className="w-full text-sm font-medium text-slate-500 hover:text-slate-800">
                 Change mobile number
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={completePairing} className="space-y-5">
+              {deviceRequired ? (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+                  No active Provider App device was found for this number. First sign in to the Provider App on this phone, then return here and verify again.
+                </p>
+              ) : (
+                <>
+                  <p className="rounded-xl bg-blue-50 p-3 text-sm leading-6 text-blue-900">
+                    This account is active on <strong>{existingDevice?.deviceName ?? "the authorized app device"}</strong>. Pair only on that same phone: open Provider App → Profile → Pair Web Browser, and enter the one-time code. It expires in five minutes and works once.
+                    <span className="mt-2 block text-xs text-blue-800">
+                      Login: {existingDevice?.loginAt ? new Date(existingDevice.loginAt).toLocaleString() : "Unknown"} · Last seen: {existingDevice?.lastSeenAt ? new Date(existingDevice.lastSeenAt).toLocaleString() : "Unknown"} · Location: {existingDevice?.location?.label ?? "Unavailable"}
+                    </span>
+                  </p>
+                  <label className="block text-sm font-semibold text-slate-800">
+                    6-digit app pairing code
+                    <input
+                      value={pairCode}
+                      onChange={e => setPairCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      required
+                      minLength={6}
+                      maxLength={6}
+                      placeholder="Enter pairing code"
+                      className="mt-2 w-full rounded-xl border border-slate-200 p-3.5 text-center text-2xl tracking-[0.5em] outline-none focus:border-orange-500"
+                    />
+                  </label>
+                  <button disabled={busy || pairCode.length !== 6} className="w-full rounded-xl bg-[#FF7A00] p-3.5 font-bold text-[#0B1F3A] transition hover:bg-[#ff9430] disabled:opacity-50">
+                    {busy ? "Pairing…" : "Pair and continue"}
+                  </button>
+                </>
+              )}
+              <button type="button" onClick={() => { setStep("phone"); setPairCode(""); setProvider(null); setError(""); }} className="w-full text-sm font-medium text-slate-500 hover:text-slate-800">
+                {deviceRequired ? "I have signed in on the app — verify again" : "Use another mobile number"}
               </button>
             </form>
           )}

@@ -36,7 +36,7 @@ async function findByPhone(phone: string): Promise<Provider | null> {
 export async function GET(req: Request) {
   await ready();
   const identity = await firebaseIdentityFromRequest(req);
-  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  if (!identity || identity.role !== "provider") return NextResponse.json({ error: "A valid Provider device session is required" }, { status: 401 });
   const phone = new URL(req.url).searchParams.get("phone") ?? identity.phone;
   if (normalizeIndianPhone(phone) !== identity.phone || !validPhone(phone)) {
     return NextResponse.json({ error: "Valid Indian mobile is required" }, { status: 422 });
@@ -48,7 +48,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   await ready();
   const identity = await firebaseIdentityFromRequest(req);
-  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  if (!identity || identity.role !== "provider") return NextResponse.json({ error: "A valid Provider device session is required" }, { status: 401 });
   let body: Partial<Provider> & { phone?: string };
   try {
     body = (await req.json()) as typeof body;
@@ -127,7 +127,7 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   await ready();
   const identity = await firebaseIdentityFromRequest(req);
-  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  if (!identity || identity.role !== "provider") return NextResponse.json({ error: "A valid Provider device session is required" }, { status: 401 });
   let body: { availabilityStatus?: string };
   try { body = await req.json() as typeof body; }
   catch { return NextResponse.json({ error: "Invalid request body" }, { status: 400 }); }

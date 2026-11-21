@@ -75,8 +75,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   let authenticatedProviderId = "";
   if (!admin) {
     const identity = await firebaseIdentityFromRequest(req);
-    if (!identity) {
-      return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+    if (!identity || (identity.role !== "customer" && identity.role !== "provider")) {
+      return NextResponse.json({ error: "A valid Customer or Provider device session is required" }, { status: 401 });
     }
     const [users, providers] = await Promise.all([
       all<{ id: string; phone?: string }>("users"),
@@ -93,13 +93,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       (!providerIdHint || p.id === providerIdHint)
     );
     if (
+      identity.role === "provider" &&
       professional &&
       (booking.providerId === professional.id ||
         (booking.status === "dispatched" && (booking.notifiedIds ?? []).includes(professional.id)))
     ) {
       actorRole = "provider";
       authenticatedProviderId = professional.id;
-    } else if (customer?.id === booking.userId) {
+    } else if (identity.role === "customer" && customer?.id === booking.userId) {
       actorRole = "customer";
     } else {
       return NextResponse.json({ error: "Not authorized for this booking" }, { status: 403 });

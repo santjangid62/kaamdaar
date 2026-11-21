@@ -38,6 +38,9 @@ export async function GET(req: Request) {
   const userId = url.searchParams.get("userId");
   const providerId = url.searchParams.get("providerId");
   const status = url.searchParams.get("status");
+  if ((providerId && identity.role !== "provider") || (!providerId && identity.role !== "customer")) {
+    return NextResponse.json({ error: "This device session does not have access to that account role" }, { status: 403 });
+  }
 
   if (!userId && !providerId) {
     return NextResponse.json({ error: "userId or providerId is required" }, { status: 400 });
@@ -105,7 +108,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   await ready();
   const identity = await firebaseIdentityFromRequest(req);
-  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  if (!identity || identity.role !== "customer") {
+    return NextResponse.json({ error: "A valid Customer device session is required" }, { status: 401 });
+  }
   let body: Partial<Booking>;
   try {
     body = (await req.json()) as Partial<Booking>;
