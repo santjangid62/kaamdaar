@@ -288,8 +288,12 @@ class Api {
     final p = await SharedPreferences.getInstance();
     await p.remove(_kSession);
     await p.remove('kaamdaar.qa.mobile.token');
-    await p.remove('kaamdaar.device.session.token');
+    await _secureStorage.delete(key: 'kaamdaar.device.session.token');
     _qaBearerToken = null;
+  }
+
+  static Future<Map<String, dynamic>> createPairingCode() async {
+    return post('/api/auth/session/pairing', const {});
   }
 
   static Future<bool> get onboarded async {
