@@ -45,43 +45,74 @@ function requestFix(opts: PositionOptions): Promise<Fix> {
 }
 
 /**
- * Accept only a fresh, high-confidence GPS result. Desktop browsers can return
- * Wi-Fi/network estimates several kilometres away while reporting a plausible
- * address; collect independent fresh fixes and require both good accuracy and
- * spatial agreement before using the point for service dispatch.
+ * Collect live updates from the browser location provider rather than making
+ * several immediately-resolved getCurrentPosition calls (which can repeat the
+ * same cached Wi-Fi/IP estimate). Only accept a high-confidence fix.
+ *
+ * Desktop browsers without a real location source may not be able to provide
+ * this accuracy; in that case we fail closed instead of showing a false area.
  */
-export async function browserLocation(timeoutMs = 12000): Promise<GeoPoint> {
-  const opts: PositionOptions = {
-    enableHighAccuracy: true,
-    timeout: timeoutMs,
-    maximumAge: 0,
-  };
-
-  const fixes: Fix[] = [];
-  let firstError: unknown = null;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      fixes.push(await requestFix(opts));
-    } catch (error) {
-      firstError ??= error;
-      if (error instanceof Error && error.message === "permission-denied") throw error;
-    }
-  }
-
-  if (!fixes.length) {
-    if (firstError instanceof Error && firstError.message === "timeout") throw firstError;
+export async function browserLocation(timeoutMs = 30000): Promise<GeoPoint> {
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
     throw new Error("position-unavailable");
   }
 
-  const accurate = fixes.filter((fix) => fix.accuracy <= 50);
-  if (!accurate.length) throw new Error("low-accuracy");
+  return new Promise((resolve, reject) => {
+    const fixes: Fix[] = [];
+    let watchId: number | null = null;
+    let settled = false;
+    let sawLowAccuracy = false;
 
-  // Do not accept a drifting or contradictory position estimate.
-  const best = accurate.reduce((a, b) => (b.accuracy < a.accuracy ? b : a));
-  const consistent = accurate.every((fix) => haversineKm(best, fix) <= 0.25);
-  if (!consistent) throw new Error("inconsistent-location");
+    const finish = (error?: Error, point?: GeoPoint) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (error) reject(error);
+      else if (point) resolve(point);
+      else reject(new Error("position-unavailable"));
+    };
 
-  return { lat: best.lat, lng: best.lng, accuracy: best.accuracy };
+    const timer = window.setTimeout(() => {
+      if (fixes.length) {
+        const best = fixes.reduce((a, b) => b.accuracy < a.accuracy ? b : a);
+        finish(undefined, { lat: best.lat, lng: best.lng, accuracy: best.accuracy });
+      } else {
+        finish(new Error(sawLowAccuracy ? "low-accuracy" : "timeout"));
+      }
+    }, timeoutMs);
+
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const fix: Fix = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy ?? 9999,
+        };
+        if (fix.accuracy > 25) {
+          sawLowAccuracy = true;
+          return;
+        }
+
+        fixes.push(fix);
+        const best = fixes.reduce((a, b) => b.accuracy < a.accuracy ? b : a);
+        const agreeing = fixes.filter((sample) => haversineKm(best, sample) <= 0.1);
+        if (agreeing.length >= 3) {
+          finish(undefined, {
+            lat: best.lat,
+            lng: best.lng,
+            accuracy: best.accuracy,
+          });
+        }
+      },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) finish(new Error("permission-denied"));
+        else if (error.code === error.TIMEOUT) finish(new Error("timeout"));
+        else finish(new Error("position-unavailable"));
+      },
+      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 },
+    );
+  });
 }
 
 /** Reverse geocode to a readable label. Falls back gracefully when offline/blocked. */
