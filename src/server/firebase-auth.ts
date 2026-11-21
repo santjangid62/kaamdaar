@@ -106,7 +106,7 @@ export async function firebaseIdentityFromRequest(
   const cookieToken = (request.headers.get("cookie") ?? "").split(";")
     .map((part) => part.trim()).find((part) => part.startsWith("kaamdaar_session="))
     ?.slice("kaamdaar_session=".length);
-  const token = match?.[1] || cookieToken || "";
+  const token = cookieToken || match?.[1] || "";
   if (!token) return null;
   try {
     if (token.startsWith("ks1.")) {
