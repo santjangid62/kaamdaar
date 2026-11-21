@@ -89,7 +89,7 @@ class _TrackScreenState extends State<TrackScreen> {
       if (mounted && ((previousStatus != null && previousStatus != b?.status) ||
           (!previouslyFailed && b?.dispatchFailedAt != null))) {
         final message = b?.dispatchFailedAt != null
-            ? 'Maaf kijiye, 5 minute mein koi professional booking accept nahi kar saka.'
+            ? 'No provider is accepting your request right now. Please try again after some time.'
             : b?.status == 'accepted'
                 ? 'Professional ne aapki booking accept kar li hai.'
                 : b?.status == 'enroute'
