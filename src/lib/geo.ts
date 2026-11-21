@@ -88,6 +88,7 @@ export async function browserLocation(timeoutMs = 15000): Promise<GeoPoint> {
     }
   }
 
+  if (best.accuracy > 100) throw new Error("low-accuracy");
   return { lat: best.lat, lng: best.lng, accuracy: best.accuracy };
 }
 
