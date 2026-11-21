@@ -6,8 +6,8 @@
  * stable installation ID; browsers are paired separately and never claim a
  * device lock by IP address or browser fingerprint.
  */
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { get, insert, patch, remove } from "./db";
+import { createHash, createHmac, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
+import { consumeDevicePairingCode, get, insert, patch, remove, setDevicePairingCode } from "./db";
 
 export type DeviceRole = "customer" | "provider";
 
@@ -30,6 +30,9 @@ export type DeviceSessionRecord = {
   lastSeenAt: number;
   location?: DeviceLocation;
   status: "active";
+  pairCodeHash?: string;
+  pairCodeExpiresAt?: number;
+  pairCodeCreatedAt?: number;
 };
 
 type SessionPayload = {
@@ -39,6 +42,7 @@ type SessionPayload = {
   role: DeviceRole;
   deviceId: string;
   sessionId: string;
+  clientType: "native" | "web";
   exp: number;
 };
 
@@ -85,7 +89,7 @@ function decode(token: string): SessionPayload | null {
     if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as SessionPayload;
     if (payload.iss !== "kaamdaar-device-session" ||
-        !payload.sub || !payload.phone || !payload.deviceId || !payload.sessionId ||
+        !payload.sub || !payload.phone || !payload.deviceId || !payload.sessionId ||\n        (payload.clientType !== "native" && payload.clientType !== "web") ||
         (payload.role !== "customer" && payload.role !== "provider") ||
         !Number.isFinite(payload.exp) || payload.exp <= Math.floor(Date.now() / 1000)) return null;
     return payload;
@@ -162,6 +166,7 @@ export async function claimDeviceSession(input: {
     role,
     deviceId,
     sessionId,
+    clientType: "native",
     exp,
   });
   return { token, session };
@@ -173,6 +178,7 @@ export async function verifyDeviceSessionToken(token: string): Promise<{
   role: DeviceRole;
   deviceId: string;
   sessionId: string;
+  clientType: "native" | "web";
 } | null> {
   const payload = decode(token);
   if (!payload) return null;
@@ -187,6 +193,7 @@ export async function verifyDeviceSessionToken(token: string): Promise<{
     role: session.role,
     deviceId: session.deviceId,
     sessionId: session.sessionId,
+    clientType: payload.clientType,
   };
 }
 
@@ -215,4 +222,53 @@ export async function releaseDeviceSession(
   const current = await get<DeviceSessionRecord>("deviceSessions", id);
   if (!current || current.deviceId !== deviceId) return false;
   return remove("deviceSessions", id);
+}
+
+/** Create a six-digit, five-minute pairing code for the authorized native app. */
+export async function createWebPairingCode(
+  role: DeviceRole,
+  phone: string,
+  deviceId: string,
+): Promise<{ code: string; expiresAt: number }> {
+  const id = lockId(role, phone);
+  const session = await get<DeviceSessionRecord>("deviceSessions", id);
+  if (!session || session.status !== "active" || session.deviceId !== deviceId) {
+    throw new Error("Only the currently authorized app device can create a web pairing code");
+  }
+  const code = String(randomInt(100000, 1000000));
+  const now = Date.now();
+  const expiresAt = now + 5 * 60 * 1000;
+  const codeHash = createHash("sha256")
+    .update(`${role}:${phone}:${code}:${secret()}`)
+    .digest("hex");
+  const saved = await setDevicePairingCode(id, session.sessionId, codeHash, expiresAt, now);
+  if (!saved) throw new Error("The app session changed. Please retry pairing.");
+  return { code, expiresAt };
+}
+
+/** Consume a one-time pairing code and issue a browser session on the same device lock. */
+export async function consumeWebPairingCode(
+  role: DeviceRole,
+  phone: string,
+  code: string,
+): Promise<string | null> {
+  if (!/^\d{6}$/.test(code)) return null;
+  const id = lockId(role, phone);
+  const codeHash = createHash("sha256")
+    .update(`${role}:${phone}:${code}:${secret()}`)
+    .digest("hex");
+  const consumed = await consumeDevicePairingCode(id, codeHash, Date.now());
+  if (!consumed) return null;
+  const session = consumed as unknown as DeviceSessionRecord;
+  const exp = Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60;
+  return encode({
+    iss: "kaamdaar-device-session",
+    sub: session.uid,
+    phone: session.phone,
+    role: session.role,
+    deviceId: session.deviceId,
+    sessionId: session.sessionId,
+    clientType: "web",
+    exp,
+  });
 }
