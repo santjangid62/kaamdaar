@@ -1398,6 +1398,32 @@ class _ProfileTabState extends State<ProfileTab> {
     }
   }
 
+  Future<void> _pairBrowser() async {
+    try {
+      final result = await Api.createPairingCode();
+      final code = (result['code'] ?? '').toString();
+      if (!mounted || code.isEmpty) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Pair this browser'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Enter this one-time code on the Kaamdaar website. It expires in 3 minutes.'),
+              const SizedBox(height: 18),
+              SelectableText(code, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 8)),
+            ],
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+
   Future<void> _logout() async {
     // Stop ringing offers and polling once the Pro is signed out.
     JobAlertCenter.instance.stop();
@@ -1520,6 +1546,7 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
           ),
           const SizedBox(height: 14),
+          _tile(Icons.devices, 'Pair Web Browser', _pairBrowser),
           _tile(Icons.help_outline, 'Help & Support', () {
             showDialog<void>(
               context: context,
