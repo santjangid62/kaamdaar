@@ -564,4 +564,3 @@ class _HomeTabState extends State<_HomeTab> {
     ),
   );
 }
-}
