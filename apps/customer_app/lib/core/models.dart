@@ -9,6 +9,11 @@ class SessionUser {
   final String email;
   final String referralCode;
   final String photo;
+  final String status;
+  final String role;
+  final int createdAt;
+  final int updatedAt;
+  final String registrationPlatform;
 
   SessionUser({
     required this.id,
@@ -18,6 +23,11 @@ class SessionUser {
     this.email = "",
     this.referralCode = "",
     this.photo = "",
+    this.status = "active",
+    this.role = "customer",
+    this.createdAt = 0,
+    this.updatedAt = 0,
+    this.registrationPlatform = "",
   });
 
   String get name {
@@ -33,6 +43,11 @@ class SessionUser {
         email: (j["email"] ?? "").toString(),
         referralCode: (j["referralCode"] ?? "").toString(),
         photo: (j["photo"] ?? "").toString(),
+        status: (j["status"] ?? "active").toString(),
+        role: (j["role"] ?? "customer").toString(),
+        createdAt: _int(j["createdAt"]),
+        updatedAt: _int(j["updatedAt"]),
+        registrationPlatform: (j["registrationPlatform"] ?? "").toString(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -43,6 +58,11 @@ class SessionUser {
         "email": email,
         "referralCode": referralCode,
         "photo": photo,
+        "status": status,
+        "role": role,
+        "createdAt": createdAt,
+        "updatedAt": updatedAt,
+        "registrationPlatform": registrationPlatform,
       };
 }
 
