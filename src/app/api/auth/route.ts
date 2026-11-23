@@ -95,9 +95,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unsupported authentication action" }, { status: 410 });
   }
 
-  if (body.platform === "web" && body.role === "provider") {
-    return NextResponse.json({ error: "Provider accounts must sign in through the Kaamdaar Provider app." }, { status: 403 });
-  }
   if (!PHONE_RE.test(phone)) {
     return NextResponse.json({ error: "A valid Indian mobile number is required" }, { status: 400 });
   }
@@ -146,9 +143,14 @@ export async function POST(req: Request) {
     const mobileSession = await issueMobileSession("provider", provider.id);
     if (mobileSession.response) return mobileSession.response;
     try {
-      await recordAudit({ actor: provider.name || "provider", action: "login", module: "Authentication", title: "Provider login successful", description: `platform=${"mobile_app"}`, severity: "success" });
+      await recordAudit({ actor: provider.name || "provider", action: "login", module: "Authentication", title: "Provider login successful", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
     } catch (error) { console.error("[audit] provider login log could not be saved", error); }
-    return NextResponse.json({ provider, ...(mobileSession.sessionToken ? { sessionToken: mobileSession.sessionToken } : {}) });
+    const response = NextResponse.json({ provider, ...(mobileSession.sessionToken ? { sessionToken: mobileSession.sessionToken } : {}) });
+    if (body.platform === "web") {
+      const token = createWebSessionToken({ phone, uid: verifiedUid, role: "provider", accountId: provider.id });
+      response.cookies.set({ name: "kaamdaar_session", value: token, httpOnly: true, secure: process.env.NODE_ENV !== "development", sameSite: "lax", path: "/", maxAge: 12 * 60 * 60 });
+    }
+    return response;
   }
 
   const existing = await find<User & { id: string; status?: string }>(

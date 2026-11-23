@@ -95,3 +95,13 @@ export async function pairBrowser(code: string): Promise<{ role: "customer" | "p
   if (!userResponse.ok || !userData.user) throw new Error(userData.error ?? "Customer profile could not be loaded");
   return { role: "customer", user: userData.user as User };
 }
+
+
+/** Verify Provider web OTP and request a secure provider web session. */
+export async function verifyProviderOtp(phone: string, code: string): Promise<{ provider: import("./types").Provider }> {
+  if (!isFirebaseConfigured || !confirmation) throw new Error("OTP session expired. Request a new code.");
+  const credential = await confirmation.confirm(code);
+  confirmation = null;
+  const idToken = await credential.user.getIdToken(true);
+  return authRequest({ action: "verify", phone, idToken, role: "provider", platform: "web" }) as Promise<{ provider: import("./types").Provider }>;
+}

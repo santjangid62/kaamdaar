@@ -7,6 +7,7 @@ import {
   RefreshCw, Search, ShieldCheck, Star, Wallet, XCircle, Smartphone,
 } from "lucide-react";
 import type { Booking, Provider } from "../../lib/types";
+import { sendOtp, verifyProviderOtp, resetOtpFlow } from "../../lib/auth-service";
 
 type WalletData = { wallet: { balance: number }; txns: Array<{
   id: string; amount: number; kind: string; note: string; balanceAfter: number; createdAt: number;
@@ -29,8 +30,10 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export default function ProviderPortalPage() {
-  const [step, setStep] = useState<"pair" | "dashboard">("pair");
-  const [pairCode, setPairCode] = useState("");
+  const [step, setStep] = useState<"login" | "dashboard">("login");
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
   const [provider, setProvider] = useState<Provider | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [walletData, setWalletData] = useState<WalletData | null>(null);
@@ -56,7 +59,7 @@ export default function ProviderPortalPage() {
     const session = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
     const sessionData = await session.json().catch(() => ({}));
     if (!session.ok || sessionData.role !== "provider" || !sessionData.phone) {
-      throw new Error("Open the Provider App, go to Profile, and pair this browser using a fresh code.");
+      throw new Error("Please sign in with your registered provider mobile number.");
     }
     const data = await api<{ provider: Provider | null }>(
       `/api/providers/me?phone=${encodeURIComponent(String(sessionData.phone))}`,
@@ -68,7 +71,9 @@ export default function ProviderPortalPage() {
   }, [refresh]);
 
   useEffect(() => {
-    void resolveProvider().catch((e) => setError(e instanceof Error ? e.message : "Please pair this browser."));
+    void resolveProvider().catch(() => {
+      // No valid web session yet; show the registered-mobile OTP login form.
+    });
   }, [resolveProvider]);
 
   useEffect(() => {
@@ -118,19 +123,27 @@ export default function ProviderPortalPage() {
     return periodOk && outcomeOk && serviceOk && searchOk;
   });
 
-  async function pairBrowser(e: React.FormEvent) {
+  async function requestProviderOtp(e: React.FormEvent) {
     e.preventDefault(); setError(""); setBusy(true);
-    try {
-      const response = await fetch("/api/auth/pair", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "same-origin", body: JSON.stringify({ code: pairCode.replace(/\D/g, "").slice(0, 6) }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.role !== "provider") throw new Error(data.error || "This code is not for a Provider account.");
-      await resolveProvider();
-    } catch (e) { setError(e instanceof Error ? e.message : "Browser pairing failed."); }
+    const digits = phone.replace(/\\D/g, "");
+    const normalized = digits.length === 10 ? `+91${digits}` : digits.startsWith("91") && digits.length === 12 ? `+${digits}` : "";
+    if (!/^\\+91[6-9]\\d{9}$/.test(normalized)) { setError("Valid 10-digit Indian mobile number enter karein."); setBusy(false); return; }
+    try { await sendOtp(normalized); setPhone(normalized); setOtpSent(true); setNotice("OTP sent. Please verify to continue."); }
+    catch (e) { setError(e instanceof Error ? e.message : "Firebase OTP send failed."); }
     finally { setBusy(false); }
   }
+
+  async function verifyProviderCode(e: React.FormEvent) {
+    e.preventDefault(); setError(""); setBusy(true);
+    try {
+      const normalized = phone.startsWith("+") ? phone : `+91${phone.replace(/\\D/g, "")}`;
+      await verifyProviderOtp(normalized, otp.trim());
+      await resolveProvider(); setOtp(""); setOtpSent(false); setNotice("Provider login successful.");
+    } catch (e) { setError(e instanceof Error ? e.message : "OTP verification failed."); }
+    finally { setBusy(false); }
+  }
+
+  function backToPhone() { resetOtpFlow(); setOtp(""); setOtpSent(false); setError(""); setNotice(""); }
 
   async function respondToOffer(booking: Booking, accept: boolean) {
     if (!provider) return;
@@ -177,7 +190,7 @@ export default function ProviderPortalPage() {
 
   async function logout() {
     await fetch("/api/auth/session", { method: "DELETE", credentials: "same-origin" });
-    setProvider(null); setBookings([]); setWalletData(null); setStep("pair"); setTab("overview");
+    setProvider(null); setBookings([]); setWalletData(null); setStep("login"); setOtp(""); setOtpSent(false); setTab("overview");
   }
 
   if (step !== "dashboard" || !provider) {
@@ -194,19 +207,24 @@ export default function ProviderPortalPage() {
           />
         </div>
         <div className="rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
-          <form onSubmit={pairBrowser} className="space-y-5">
-            <div className="text-sm leading-6 text-slate-600">Provider Web अब आपके अधिकृत Provider App के साथ pair होकर खुलेगा। अपने Provider App में Profile → Pair Web Browser चुनें और वहाँ दिख रहा 6-digit code यहाँ डालें।</div>
-            <label className="block text-sm font-semibold text-slate-800">
-              One-time pairing code
-              <input value={pairCode} onChange={e=>setPairCode(e.target.value.replace(/\D/g,"").slice(0,6))}
-                inputMode="numeric" autoComplete="one-time-code" required minLength={6} maxLength={6}
-                placeholder="6-digit code"
-                className="mt-2 w-full rounded-xl border border-slate-200 p-3.5 text-center text-2xl tracking-[0.5em] outline-none focus:border-orange-500" />
-            </label>
-            <button disabled={busy || pairCode.length!==6} className="w-full rounded-xl bg-[#FF7A00] p-3.5 font-bold text-[#0B1F3A] transition hover:bg-[#ff9430] disabled:opacity-50">
-              {busy?"Pairing…":"Pair & Open Provider Web"}
-            </button>
-          </form>
+          {!otpSent ? (
+            <form onSubmit={requestProviderOtp} className="space-y-5">
+              <div className="text-sm leading-6 text-slate-600">Apne Kaamdaar Provider account mein registered mobile number enter karein. OTP verify hone ke baad Provider Dashboard khulega.</div>
+              <label className="block text-sm font-semibold text-slate-800">Registered mobile number
+                <input value={phone} onChange={e=>setPhone(e.target.value.replace(/[^0-9+\\s-]/g,"").slice(0,16))} inputMode="tel" autoComplete="tel" required placeholder="10-digit mobile number" className="mt-2 w-full rounded-xl border border-slate-200 p-3.5 text-center text-xl tracking-wider outline-none focus:border-orange-500" />
+              </label>
+              <button disabled={busy || phone.replace(/\\D/g,"").length<10} className="w-full rounded-xl bg-[#FF7A00] p-3.5 font-bold text-[#0B1F3A] disabled:opacity-50">{busy?"Sending OTP…":"Send OTP"}</button>
+            </form>
+          ) : (
+            <form onSubmit={verifyProviderCode} className="space-y-5">
+              <p className="text-sm text-slate-600">OTP sent to <strong>{phone}</strong></p>
+              <label className="block text-sm font-semibold text-slate-800">6-digit OTP
+                <input value={otp} onChange={e=>setOtp(e.target.value.replace(/\\D/g,"").slice(0,6))} inputMode="numeric" autoComplete="one-time-code" required minLength={6} maxLength={6} placeholder="••••••" className="mt-2 w-full rounded-xl border border-slate-200 p-3.5 text-center text-2xl tracking-[0.5em] outline-none focus:border-orange-500" />
+              </label>
+              <button disabled={busy || otp.length!==6} className="w-full rounded-xl bg-[#FF7A00] p-3.5 font-bold text-[#0B1F3A] disabled:opacity-50">{busy?"Verifying…":"Verify OTP & Login"}</button>
+              <button type="button" onClick={backToPhone} className="w-full rounded-xl border p-3 text-sm font-semibold text-slate-600">Change mobile number</button>
+            </form>
+          )}
           {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         </div>
       </div>
