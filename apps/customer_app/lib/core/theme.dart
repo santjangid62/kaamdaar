@@ -183,12 +183,14 @@ class CardBox extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
+  final Color? borderColor;
 
   const CardBox({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16),
     this.onTap,
+    this.borderColor,
   });
 
   @override
@@ -199,7 +201,7 @@ class CardBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: borderColor ?? const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(.04),

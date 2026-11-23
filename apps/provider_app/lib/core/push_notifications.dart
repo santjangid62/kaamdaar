@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter/widgets.dart';
@@ -9,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api.dart';
 import 'job_alerts.dart';
+import 'models.dart';
 
 const String _jobChannelId = 'kaamdaar_job_alerts_v4';
 const String _jobChannelName = 'Kaamdaar new job requests';
