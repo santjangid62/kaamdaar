@@ -34,6 +34,7 @@ import {
 } from "../lib/assistant";
 import { SERVICE_HI } from "../lib/strings";
 import { nearbyAreaNames } from "../lib/areas";
+import KaamdaarBookingFlow from "./KaamdaarBookingFlow";
 
 interface Msg extends AssistantReply {
   role: "user" | "bot";
@@ -417,6 +418,8 @@ export default function Assistant() {
               </div>
             )}
           </div>
+
+          <KaamdaarBookingFlow user={user} services={services} location={location} lang={lang} />
 
           {/* quick chips */}
           <div className="flex flex-wrap gap-1.5 border-t border-slate-100 bg-white px-3 pt-2.5">
