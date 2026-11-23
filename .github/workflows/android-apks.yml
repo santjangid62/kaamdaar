@@ -52,8 +52,18 @@ jobs:
         working-directory: ${{ matrix.directory }}
         run: >-
           flutter build apk --debug
-          --dart-define=API_BASE=https://kaamdaar-git-qa-firebase-test-auth-unique-it-team.vercel.app
+          --dart-define=API_BASE=https://kaamdaar-git-feature-kaamdaar-customer-pr-230795-unique-it-team.vercel.app
           --dart-define=FIREBASE_PHONE_AUTH_TESTING=true
+          --dart-define=QA_MOBILE_AUTH=true
+
+      - name: Export QA APK signing fingerprints
+        working-directory: ${{ matrix.directory }}/android
+        shell: bash
+        run: |
+          ./gradlew :app:signingReport | tee signing-report.txt
+          awk '/Variant: debug/{show=1; next} show && /^Variant:/{exit} show && /(SHA1|SHA-1|SHA-256):/{print}' signing-report.txt > ../firebase-debug-fingerprints.txt
+          echo "Debug signing fingerprints for Firebase Android app registration:"
+          cat ../firebase-debug-fingerprints.txt
 
       - name: Rename APK
         run: cp "${{ matrix.directory }}/build/app/outputs/flutter-apk/app-debug.apk" "${{ matrix.apk }}"
@@ -62,6 +72,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kaamdaar-${{ matrix.app }}-qa-apk
-          path: ${{ matrix.apk }}
+          path: |
+            ${{ matrix.apk }}
+            ${{ matrix.directory }}/firebase-debug-fingerprints.txt
           if-no-files-found: error
           retention-days: 14
