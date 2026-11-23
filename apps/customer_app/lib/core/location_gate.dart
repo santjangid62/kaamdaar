@@ -148,20 +148,74 @@ class _LocationGateState extends State<LocationGate> with WidgetsBindingObserver
     if (_showSplash) {
       return Scaffold(
         backgroundColor: widget.background,
-        body: Center(
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
-              child: Icon(Icons.location_on, color: widget.accent, size: 46),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 18),
+            child: Column(
+              children: [
+                const Spacer(),
+                Image.asset(
+                  'assets/kaamdaar-logo-white.png',
+                  width: 320,
+                  height: 160,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (_, __, ___) => Text(
+                    widget.appTitle.toUpperCase(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 34,
+                      letterSpacing: 2,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'HAR KAAM TURANT',
+                  style: TextStyle(
+                    color: Color(0xFFFFC857),
+                    fontSize: 13,
+                    letterSpacing: 2,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 30),
+                CircularProgressIndicator(color: widget.accent),
+                const Spacer(),
+                const Text(
+                  '© Unique IT Solutions. All rights reserved.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white60, fontSize: 10),
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'Made with Love & Care by',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 10),
+                ),
+                const Text(
+                  'Unique IT Solutions - A Unit of Unique Computers, The Best One',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Terms & Privacy',
+                  style: TextStyle(
+                    color: Color(0xFFFFC857),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 18),
-            Text(widget.appTitle, style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            const Text('Har Kaam Turant', style: TextStyle(color: Colors.white70)),
-            const SizedBox(height: 28),
-            CircularProgressIndicator(color: widget.accent),
-          ]),
+          ),
         ),
       );
     }
