@@ -249,7 +249,7 @@ class _JobAlertScreenState extends State<JobAlertScreen>
                                     fontWeight: FontWeight.w900, fontSize: 16)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: PColors.flame,
-                              foregroundColor: PColors.navy,
+                              foregroundColor: PColors.ink,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14)),
