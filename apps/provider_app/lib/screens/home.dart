@@ -1087,9 +1087,9 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
                     const SizedBox(height: 12), GhostBtn(label: 'Retry', onPressed: _load, color: PColors.green),
                   ])
                 : ListView(padding: const EdgeInsets.all(16), children: [
-                    const Text('Missed Bookings', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: PColors.ink)),
+                    const Text('Cancelled by Provider & Missed', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: PColors.ink)),
                     const SizedBox(height: 4),
-                    const Text('60-second ring timeouts and bookings you rejected', style: TextStyle(fontSize: 12, color: Colors.black45)),
+                    const Text('40-second ring timeouts and offers you cancelled or declined', style: TextStyle(fontSize: 12, color: Colors.black45)),
                     const SizedBox(height: 14),
                     Row(children: [
                       Expanded(child: _missedStat('Today', '$today')),
@@ -1114,7 +1114,7 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
                         items: const [
                           DropdownMenuItem(value: 'all', child: Text('All')),
                           DropdownMenuItem(value: 'missed', child: Text('Missed — no response')),
-                          DropdownMenuItem(value: 'rejected', child: Text('Rejected by me')),
+                          DropdownMenuItem(value: 'rejected', child: Text('Cancelled by Provider')),
                         ],
                         onChanged: (v) => setState(() => _outcome = v ?? 'all'),
                       ),

@@ -36,8 +36,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _loadError = null;
       });
     }
+    SessionUser? user;
     try {
-      var user = await Api.restoreSession();
+      user = await Api.restoreSession();
       if (user != null) {
         try { user = await Api.refreshProfile(user.phone); } catch (_) {}
       }
@@ -51,7 +52,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _loadError = null;
       });
     } catch (error) {
-      if (mounted) setState(() => _loadError = error.toString());
+      if (mounted) {
+        setState(() {
+          _user = user;
+          _loadError = error.toString();
+        });
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

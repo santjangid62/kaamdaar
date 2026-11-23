@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 
 class PColors {
   static const green = Color(0xFF0E9F6E);
-  static const greenDark = Color(0xFF087F5B);
+  static const greenDark = Color(0xFF0B2240);
   static const ink = Color(0xFF0B2240);
   static const amber = Color(0xFFFBBF24);
   static const red = Color(0xFFDC2626);
   static const blue = Color(0xFF2563EB);
-  static const surface = Color(0xFFF4F7F6);
+  static const surface = Color(0xFFF4F6F9);
   static const flame = Color(0xFFFF7A00);
 }
 
@@ -18,8 +18,8 @@ ThemeData providerTheme() {
   final base = ThemeData(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: PColors.green,
-      primary: PColors.green,
+      seedColor: PColors.flame,
+      primary: PColors.flame,
       secondary: PColors.ink,
       surface: Colors.white,
     ),
@@ -67,7 +67,7 @@ class PrimaryBtn extends StatelessWidget {
     this.onPressed,
     this.busy = false,
     this.icon,
-    this.color = PColors.green,
+    this.color = PColors.flame,
   });
 
   @override
