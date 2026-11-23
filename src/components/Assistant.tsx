@@ -27,6 +27,7 @@ import { useApp } from "./AppProvider";
 import { fill, useLang } from "../lib/i18n";
 import {
   fallbackReply,
+  isKaamdaarTopic,
   localAnswer,
   type AssistantAction,
   type AssistantReply,
@@ -104,6 +105,15 @@ export default function Assistant() {
     async (text: string, viaVoice: boolean) => {
       viaVoiceRef.current = viaVoice;
       push({ role: "user", text });
+
+      if (!isKaamdaarTopic(text)) {
+        const refusal = lang === "hi"
+          ? "मुझे खेद है, इस प्रश्न के लिए मैं आपकी सहायता नहीं कर सकता।"
+          : "Sorry, I can't help with that question.";
+        push({ role: "bot", text: refusal });
+        if (viaVoice) speakOut(refusal, lang);
+        return;
+      }
 
       const known = {
         areas: location ? nearbyAreaNames(location, 10, providers) : undefined,
