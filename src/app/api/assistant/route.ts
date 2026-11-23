@@ -35,10 +35,11 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   const message = body.message?.slice(0, 1000) ?? "";
-  const lang = body.lang === "hi" ? "hi" : "en";
-  if (!message) return NextResponse.json({ error: "empty message" }, { status: 400 });
-
   const normalized = message.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+  const hasHindiScript = /[\u0900-\u097F]/.test(message);
+  const romanHindi = /\b(kya|kaise|mujhe|mere|meri|karna|karvani|chahiye|abhi|kal|aaj|hai|hain|batao|book|kar do)\b/i.test(normalized);
+  const lang = hasHindiScript || romanHindi || body.lang === "hi" ? "hi" : "en";
+  if (!message) return NextResponse.json({ error: "empty message" }, { status: 400 });
   const asksName = /\b(who are you|your name|what is your name|what should i call you)\b/.test(normalized) ||
     /(आपका नाम|तुम्हारा नाम|कौन हो|कौन हैं|अपना नाम)/.test(normalized);
   const asksCreator = /\b(who made you|who created you|who built you|who trained you|your creator|which company made you)\b/.test(normalized) ||
@@ -54,8 +55,15 @@ export async function POST(req: Request): Promise<NextResponse> {
       : "I was created and trained by the team at Unique IT Solutions - A Unit of Unique Computers, The Best One.", ai: false, intent: "creator" });
   }
 
+  const isKaamdaarTopic = /\b(kaamdaar|service|services|clean|cleaning|kitchen|bathroom|car wash|vehicle|plumb|electric|ac |air condition|pest|salon|repair|book|booking|reserve|schedule|appointment|provider|professional|pro |address|location|area|jaipur|slot|available|availability|price|rate|cost|payment|pay|refund|cancel|cancellation|track|status|order|account|profile|login|support|help|otp|wallet)\b/i.test(normalized) || /(सेवा|बुक|बुकिंग|सफाई|किचन|रसोई|बाथरूम|गाड़ी|कार|प्लंबर|बिजली|इलेक्ट्रिशियन|एसी|मरम्मत|समय|कल|आज|अभी|पता|लोकेशन|जगह|जयपुर|रेट|कीमत|भुगतान|पेमेंट|प्रोवाइडर|प्रो|ट्रैक|स्टेटस|रद्द|लॉगिन|मदद|सपोर्ट)/.test(message);
+  if (!isKaamdaarTopic) {
+    return NextResponse.json({ reply: lang === "hi"
+      ? "मुझे खेद है, इस प्रश्न के लिए मैं आपकी सहायता नहीं कर सकता।"
+      : "Sorry, I can't help with that question.", ai: false, intent: "out_of_scope" });
+  }
+
   const key = process.env.OPENAI_API_KEY;
-  if (!key) return NextResponse.json({ reply: null, ai: false });
+  if (!key) return NextResponse.json({ reply: lang === "hi" ? "मैं Kaamdaar की सेवाओं, बुकिंग, उपलब्ध समय, पते और भुगतान से जुड़ी सहायता कर सकता हूँ। कृपया बताएं आपको कौन-सी सेवा चाहिए?" : "I can help with Kaamdaar services, bookings, available slots, addresses and payments. Which service do you need?", ai: false });
 
   const system =
     `You are Kaamdaar Bot, the official customer assistant for Kaamdaar, a Jaipur home-services booking platform. ` +
