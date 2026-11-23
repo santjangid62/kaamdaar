@@ -95,7 +95,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unsupported authentication action" }, { status: 410 });
   }
 
-  if (body.platform === "web" && body.role === "provider") {,    return NextResponse.json({ error: "Provider accounts must sign in through the Kaamdaar Provider app." }, { status: 403 });,  },
+  if (body.platform === "web" && body.role === "provider") {
+    return NextResponse.json({ error: "Provider accounts must sign in through the Kaamdaar Provider app." }, { status: 403 });
+  }
   if (!PHONE_RE.test(phone)) {
     return NextResponse.json({ error: "A valid Indian mobile number is required" }, { status: 400 });
   }
