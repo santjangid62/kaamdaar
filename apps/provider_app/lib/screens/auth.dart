@@ -70,17 +70,17 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(28),
-                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 28, offset: Offset(0, 12))]),
-              child: const Icon(Icons.handyman_rounded, color: PColors.flame, size: 76),
+            Image.asset(
+              'assets/kaamdaar-logo-white.png',
+              width: 300,
+              height: 150,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              errorBuilder: (_, __, ___) => const Text(
+                'KAAMDAAR',
+                style: TextStyle(color: Colors.white, fontSize: 38, letterSpacing: 2.2, fontWeight: FontWeight.w900),
+              ),
             ),
-            const SizedBox(height: 22),
-            const Text('KAAMDAAR',
-                style: TextStyle(
-                    color: Colors.white, fontSize: 38, letterSpacing: 2.2, fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

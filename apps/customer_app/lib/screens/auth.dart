@@ -48,23 +48,17 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 28, offset: Offset(0, 12))],
+            Image.asset(
+              'assets/kaamdaar-logo-white.png',
+              width: 300,
+              height: 150,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              errorBuilder: (_, __, ___) => const Text(
+                'KAAMDAAR',
+                style: TextStyle(color: Colors.white, fontSize: 38, letterSpacing: 2.2, fontWeight: FontWeight.w900),
               ),
-              child: const Icon(Icons.home_repair_service_rounded,
-                  color: Color(0xFFFF7A00), size: 76),
             ),
-            const SizedBox(height: 22),
-            const Text('KAAMDAAR',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 38,
-                    letterSpacing: 2.2,
-                    fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             const Text('HAR KAAM TURANT',
                 style: TextStyle(color: Color(0xFFFFC857), fontSize: 14, letterSpacing: 2, fontWeight: FontWeight.w800)),
