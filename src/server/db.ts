@@ -491,7 +491,12 @@ export async function claimDeviceSession<T extends Record<string, unknown>>(
   doc: T & { deviceId: string },
 ): Promise<{ claimed: boolean; session: (T & { id: string }) | null }> {
   if (MONGODB_URI) {
-    const collection = (await mongoDb()).collection<Document>("deviceSessions");
+    const collection = (await mongoDb()).collection<{
+      [key: string]: unknown;
+      _id: string;
+      id: string;
+      deviceId: string;
+    }>("deviceSessions");
     const now = Date.now();
     const record = { ...doc, _id: id, id, createdAt: now, updatedAt: now };
     try {
