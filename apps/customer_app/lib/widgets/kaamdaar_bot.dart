@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import '../core/api.dart';
 import '../core/theme.dart';
 
@@ -78,21 +76,16 @@ class _KaamdaarBotSheetState extends State<_KaamdaarBotSheet> {
     _input.clear();
     setState(() { _messages.add({'role': 'user', 'text': text}); _busy = true; });
     try {
-      final response = await http.post(
-        Uri.parse('${Api.baseUrl}/api/assistant'),
-        headers: const {'Content-Type': 'application/json'},
-        body: jsonEncode({
+      final data = await Api.post('/api/assistant', {
           'message': text,
-          'lang': RegExp(r'[\\u0900-\\u097F]').hasMatch(text) ? 'hi' : 'en',
+          'lang': RegExp(r'[\u0900-\u097F]').hasMatch(text) ? 'hi' : 'en',
           'history': _messages.take(_messages.length - 1).toList().map((m) => {
             'role': m['role'] == 'assistant' ? 'assistant' : 'user',
             'content': m['text'],
           }).toList(),
-        }),
-      ).timeout(const Duration(seconds: 25));
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      }).timeout(const Duration(seconds: 25));
       final reply = (data['reply'] ?? '').toString();
-      if (response.statusCode >= 400 || reply.isEmpty) throw Exception('Assistant unavailable');
+      if (reply.isEmpty) throw Exception('Assistant unavailable');
       if (mounted) setState(() => _messages.add({'role': 'assistant', 'text': reply}));
     } catch (_) {
       if (mounted) setState(() => _messages.add({
