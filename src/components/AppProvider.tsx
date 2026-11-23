@@ -206,6 +206,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUser(session);
   }, []);
 
+
+  // Keep an already-open web session in sync with profile edits from the mobile app.
+  useEffect(() => {
+    if (!user) return;
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") void refreshUser();
+    };
+    const timer = window.setInterval(refreshIfVisible, 15_000);
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [user?.phone, refreshUser]);
+
   const logout = useCallback(() => {
     void fetch("/api/auth/session", { method: "DELETE", credentials: "same-origin" }).catch(() => undefined);
     clearSession();
