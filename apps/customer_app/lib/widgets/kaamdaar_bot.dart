@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
+import 'kaamdaar_mobile_booking_flow.dart';
 
 class KaamdaarBotLauncher extends StatefulWidget {
   const KaamdaarBotLauncher({super.key});
@@ -137,6 +138,7 @@ class _KaamdaarBotSheetState extends State<_KaamdaarBotSheet> {
               );
             },
           )),
+          const KaamdaarMobileBookingFlow(),
           if (_busy) const Padding(padding: EdgeInsets.all(6), child: LinearProgressIndicator()),
           Padding(
             padding: EdgeInsets.fromLTRB(12, 8, 12, MediaQuery.viewInsetsOf(context).bottom + 12),
