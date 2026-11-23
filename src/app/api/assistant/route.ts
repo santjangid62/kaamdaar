@@ -27,11 +27,6 @@ export async function POST(req: Request): Promise<NextResponse> {
     /* keep the default catalogue */
   }
 
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) {
-    return NextResponse.json({ reply: null, ai: false });
-  }
-
   let body: Body;
   try {
     body = (await req.json()) as Body;
@@ -58,6 +53,9 @@ export async function POST(req: Request): Promise<NextResponse> {
       ? "मुझे Unique IT Solutions - A Unit of Unique Computers, The Best One की Team ने बनाया और प्रशिक्षित किया है।"
       : "I was created and trained by the team at Unique IT Solutions - A Unit of Unique Computers, The Best One.", ai: false, intent: "creator" });
   }
+
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) return NextResponse.json({ reply: null, ai: false });
 
   const system =
     `You are Kaamdaar Bot, the official customer assistant for Kaamdaar, a Jaipur home-services booking platform. ` +
