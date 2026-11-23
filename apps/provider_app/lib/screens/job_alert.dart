@@ -224,7 +224,7 @@ class _JobAlertScreenState extends State<JobAlertScreen>
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14)),
                             ),
-                            child: const Text('Reject',
+                            child: const Text('Cancel Request',
                                 style: TextStyle(
                                     fontWeight: FontWeight.w800, fontSize: 15)),
                           ),
