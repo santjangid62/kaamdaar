@@ -414,15 +414,45 @@ class AddressesScreen extends StatefulWidget {
   State<AddressesScreen> createState() => _AddressesScreenState();
 }
 
-class _AddressesScreenState extends State<AddressesScreen> {
+class _AddressesScreenState extends State<AddressesScreen> with WidgetsBindingObserver {
   List<AddressItem> _list = [];
   SessionUser? _user;
   bool _loading = true;
+  Timer? _addressSyncTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+    _addressSyncTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        _syncAddresses();
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _syncAddresses();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _addressSyncTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _syncAddresses() async {
+    final user = _user;
+    if (user == null) return;
+    try {
+      final latest = await Api.addresses(user.id);
+      if (mounted) setState(() => _list = latest);
+    } catch (_) {
+      // Keep the last good list during temporary connectivity failures.
+    }
   }
 
   Future<void> _load() async {
