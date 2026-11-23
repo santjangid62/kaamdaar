@@ -8,7 +8,7 @@ import { find, insert, ready } from "../../../server/db";
 import type { Provider, User } from "../../../lib/types";
 import { createUserRegisteredNotification } from "../../../server/notifications";
 import { normalizeIndianPhone, verifyFirebasePhoneToken } from "../../../server/firebase-auth";
-import { createDeviceSession } from "../../../server/device-sessions";
+import { createDeviceSession, createWebSessionToken } from "../../../server/device-sessions";
 import { recordAudit } from "../../../server/audit";
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
@@ -95,10 +95,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unsupported authentication action" }, { status: 410 });
   }
 
-  if (body.platform === "web") {
-    return NextResponse.json({ error: "Web login must be paired with the authorized Kaamdaar mobile app. Open the app and generate a one-time pairing code." , code: "APP_PAIRING_REQUIRED" }, { status: 403 });
-  }
-
+  if (body.platform === "web" && body.role === "provider") {,    return NextResponse.json({ error: "Provider accounts must sign in through the Kaamdaar Provider app." }, { status: 403 });,  },
   if (!PHONE_RE.test(phone)) {
     return NextResponse.json({ error: "A valid Indian mobile number is required" }, { status: 400 });
   }
@@ -172,7 +169,12 @@ export async function POST(req: Request) {
     try {
       await recordAudit({ actor: "customer", action: "login", module: "Authentication", title: "Customer login successful", description: `platform=${"mobile_app"}`, severity: "success" });
     } catch (error) { console.error("[audit] customer login log could not be saved", error); }
-    return NextResponse.json({ user: existing[0], isNew: false, ...(mobileSession.sessionToken ? { sessionToken: mobileSession.sessionToken } : {}) });
+    const response = NextResponse.json({ user: existing[0], isNew: false, ...(mobileSession.sessionToken ? { sessionToken: mobileSession.sessionToken } : {}) });
+    if (body.platform === "web") {
+      const token = createWebSessionToken({ phone, uid: verifiedUid, role: "customer", accountId: existing[0].id });
+      response.cookies.set({ name: "kaamdaar_session", value: token, httpOnly: true, secure: process.env.NODE_ENV !== "development", sameSite: "lax", path: "/", maxAge: 12 * 60 * 60 });
+    }
+    return response;
   }
 
   const user = await insert<User & Record<string, unknown>>("users", {
@@ -193,5 +195,10 @@ export async function POST(req: Request) {
   try {
     await recordAudit({ actor: "customer", action: "login", module: "Authentication", title: "New customer verified phone login", description: `platform=${"mobile_app"}`, severity: "success" });
   } catch (error) { console.error("[audit] customer login log could not be saved", error); }
-  return NextResponse.json({ user, isNew: true, ...(mobileSession.sessionToken ? { sessionToken: mobileSession.sessionToken } : {}) });
+  const response = NextResponse.json({ user, isNew: true, ...(mobileSession.sessionToken ? { sessionToken: mobileSession.sessionToken } : {}) });
+  if (body.platform === "web") {
+    const token = createWebSessionToken({ phone, uid: verifiedUid, role: "customer", accountId: user.id });
+    response.cookies.set({ name: "kaamdaar_session", value: token, httpOnly: true, secure: process.env.NODE_ENV !== "development", sameSite: "lax", path: "/", maxAge: 12 * 60 * 60 });
+  }
+  return response;
 }
