@@ -31,7 +31,7 @@ function LoginFlow() {
   // effect below never overrides it
   const handledRedirect = useRef(false);
 
-  const [step, setStep] = useState<Step>("pair");
+  const [step, setStep] = useState<Step>("phone");
   const [digits, setDigits] = useState("");
   const [code, setCode] = useState("");
   const [pairCode, setPairCode] = useState("");
@@ -104,7 +104,7 @@ function LoginFlow() {
       signIn(record);
       // returning users land on their dashboard, first-timers complete their
       // profile before browsing
-      router.replace(isNew ? "/profile?setup=1" : "/dashboard");
+      router.replace("/profile" + (isNew ? "?setup=1" : ""));
     } catch (error) {
       otpAttempted.current = "";
       setError(error instanceof Error ? error.message : s.login.verifyFail);
