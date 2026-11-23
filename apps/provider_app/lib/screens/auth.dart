@@ -70,36 +70,58 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(22)),
-              child: const Icon(Icons.handyman, color: PColors.green, size: 46),
+            Image.asset(
+              'assets/kaamdaar-logo-white.png',
+              width: 300,
+              height: 150,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              errorBuilder: (_, __, ___) => const Text(
+                'KAAMDAAR',
+                style: TextStyle(color: Colors.white, fontSize: 38, letterSpacing: 2.2, fontWeight: FontWeight.w900),
+              ),
             ),
-            const SizedBox(height: 18),
-            const Text('Kaamdaar',
-                style: TextStyle(
-                    color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                   color: Colors.white24, borderRadius: BorderRadius.circular(999)),
               child: const Text('PROVIDER',
                   style: TextStyle(
                       color: Colors.white,
-                      fontSize: 10.5,
-                      letterSpacing: 1.4,
+                      fontSize: 11,
+                      letterSpacing: 1.6,
                       fontWeight: FontWeight.w800)),
             ),
-            const SizedBox(height: 8),
-            const Text('Har Kaam Turant',
-                style: TextStyle(color: PColors.amber, fontSize: 13)),
-            const SizedBox(height: 28),
+            const SizedBox(height: 10),
+            const Text('HAR KAAM TURANT',
+                style: TextStyle(color: PColors.amber, fontSize: 14, letterSpacing: 2, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 24),
             const SizedBox(
               width: 26,
               height: 26,
               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            const Spacer(),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 22),
+              child: Column(
+                children: [
+                  Text('© Unique IT Solutions. All rights reserved.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white60, fontSize: 10)),
+                  SizedBox(height: 5),
+                  Text('Made with Love & Care by Unique IT Solutions',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w700)),
+                  Text('A Unit of Unique Computers, The Best One',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white54, fontSize: 9)),
+                  SizedBox(height: 4),
+                  Text('Terms & Privacy',
+                      style: TextStyle(color: PColors.amber, fontSize: 9, fontWeight: FontWeight.w700)),
+                ],
+              ),
             ),
           ],
         ),
@@ -159,7 +181,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             color: PColors.green.withValues(alpha: .1),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(icon, size: 64, color: PColors.green),
+                          child: Icon(icon, size: 64, color: PColors.flame),
                         ),
                         const SizedBox(height: 32),
                         Text(title,
@@ -192,7 +214,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         height: 7,
                         width: _index == i ? 22 : 7,
                         decoration: BoxDecoration(
-                          color: _index == i ? PColors.green : const Color(0xFFD1D9D6),
+                          color: _index == i ? PColors.flame : const Color(0xFFD1D9D6),
                           borderRadius: BorderRadius.circular(99),
                         ),
                       );
@@ -329,7 +351,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: const BoxDecoration(
-                      color: PColors.green, shape: BoxShape.circle),
+                      color: PColors.flame, shape: BoxShape.circle),
                   child: const Icon(Icons.handyman, color: Colors.white, size: 36),
                 ),
               ),
@@ -592,8 +614,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         return FilterChip(
                           label: Text(s.name, style: const TextStyle(fontSize: 12)),
                           selected: picked,
-                          selectedColor: PColors.green.withValues(alpha: .18),
-                          checkmarkColor: PColors.green,
+                          selectedColor: PColors.flame.withValues(alpha: .18),
+                          checkmarkColor: PColors.flame,
                           onSelected: (on) => setState(() {
                             if (on) {
                               _services.add(s.id);

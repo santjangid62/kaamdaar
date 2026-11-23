@@ -14,6 +14,24 @@ import 'profile.dart';
 import 'service.dart';
 import 'tracking.dart';
 
+ImageProvider? _homeProfileImage(String source) {
+  if (source.isEmpty) return null;
+  try {
+    if (source.startsWith('data:image/')) {
+      final comma = source.indexOf(',');
+      if (comma < 0) return null;
+      return MemoryImage(base64Decode(source.substring(comma + 1)));
+    }
+    final uri = Uri.tryParse(source);
+    if (uri != null && (uri.scheme == 'https' || uri.scheme == 'http')) {
+      return NetworkImage(source);
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
 /// Category / service icon lookup (admin chooses lucide names on the web;
 /// the app maps by keyword so any admin-added service still gets a glyph).
 IconData iconFor(String key) {
@@ -87,6 +105,7 @@ class _HomeTabState extends State<_HomeTab> {
   List<ServiceItem> _services = [];
   List<String> _categories = [];
   List<BookingItem> _recent = [];
+  List<ServiceItem> _recommended = [];
   SessionUser? _user;
   bool _loading = true;
   String? _error;
@@ -122,7 +141,7 @@ class _HomeTabState extends State<_HomeTab> {
           if (retry.accuracy < position.accuracy) position = retry;
         } catch (_) {}
       }
-      final locationIsPrecise = position.accuracy <= 150;
+      final locationIsPrecise = position.accuracy <= 100;
       var label = locationIsPrecise
           ? 'Current location'
           : 'GPS accuracy low (±${position.accuracy.round()} m) — tap to retry';
@@ -174,10 +193,20 @@ class _HomeTabState extends State<_HomeTab> {
       // listed first, every other service still follows in the same list
       final services = await Api.catalog(lat: _latitude, lng: _longitude);
       List<BookingItem> recent = [];
+      List<ServiceItem> recommended = [];
       if (user != null) {
         final all = await Api.userBookings(user.id);
         recent = all.where((b) => b.isLive).toList()
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        try {
+          final data = await Api.get('/api/recommendations');
+          recommended = (data['recommendations'] as List? ?? [])
+              .whereType<Map<String, dynamic>>()
+              .map(ServiceItem.fromJson)
+              .toList();
+        } catch (_) {
+          // Recommendations are optional; catalogue browsing remains available.
+        }
       }
       if (!mounted) return;
       setState(() {
@@ -185,6 +214,7 @@ class _HomeTabState extends State<_HomeTab> {
         _services = services.where((s) => s.parent.isEmpty).toList();
         _categories = services.where((s) => s.parent.isEmpty).map((s) => s.category).toSet().toList();
         _recent = recent;
+        _recommended = recommended;
         _error = null;
       });
     } catch (e) {
@@ -236,9 +266,23 @@ class _HomeTabState extends State<_HomeTab> {
                   onPressed: () {},
                   icon: const Icon(Icons.notifications_none, color: KColors.navy),
                 ),
-                IconButton(
-                  onPressed: () => setState(() {}),
-                  icon: const Icon(Icons.menu, color: KColors.navy),
+                Material(
+                  color: Colors.white,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                    ),
+                    child: CircleAvatar(
+                      radius: 22,
+                      backgroundColor: const Color(0xFFF1F5F9),
+                      backgroundImage: _homeProfileImage(_user?.photo ?? ''),
+                      child: (_user?.photo.isNotEmpty ?? false)
+                          ? null
+                          : const Icon(Icons.person_rounded, color: KColors.navy, size: 25),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -397,6 +441,29 @@ class _HomeTabState extends State<_HomeTab> {
                   }).toList(),
                 ),
                 const SizedBox(height: 20),
+
+                if (_recommended.isNotEmpty) ...[
+                  const Text('Recommended for You', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: KColors.navy)),
+                  const SizedBox(height: 4),
+                  const Text('Based on your service history', style: TextStyle(fontSize: 11.5, color: Colors.black54)),
+                  const SizedBox(height: 10),
+                  ..._recommended.map((s) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: CardBox(
+                      onTap: () => _open(s),
+                      child: Row(children: [
+                        Icon(iconFor(s.icon.isEmpty ? s.category : s.icon), color: KColors.flame, size: 24),
+                        const SizedBox(width: 10),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(s.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                          Text(s.tagline.isEmpty ? s.category : s.tagline, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
+                        ])),
+                        Text(rupees(s.price), style: const TextStyle(fontWeight: FontWeight.w900, color: KColors.flame)),
+                      ]),
+                    ),
+                  )),
+                  const SizedBox(height: 12),
+                ],
 
                 /* popular services */
                 const Text('Popular Services',

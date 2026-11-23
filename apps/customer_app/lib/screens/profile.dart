@@ -21,6 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   SessionUser? _user;
   List<BookingItem> _bookings = [];
   bool _loading = true;
+  String? _loadError;
 
   @override
   void initState() {
@@ -29,22 +30,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _load() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
+    SessionUser? user;
     try {
-      var user = await Api.restoreSession();
+      user = await Api.restoreSession();
       if (user != null) {
         try { user = await Api.refreshProfile(user.phone); } catch (_) {}
       }
-      List<BookingItem> bookings = [];
-      if (user != null) {
-        try {
-          bookings = await Api.userBookings(user.id);
-        } catch (_) {}
-      }
+      final bookings = user == null
+          ? <BookingItem>[]
+          : await Api.userBookings(user.id);
       if (!mounted) return;
       setState(() {
         _user = user;
         _bookings = bookings;
+        _loadError = null;
       });
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _user = user;
+          _loadError = error.toString();
+        });
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -74,6 +87,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not save profile photo: $e')),
       );
+    }
+  }
+
+  Future<void> _pairBrowser() async {
+    try {
+      final result = await Api.createPairingCode();
+      final code = (result['code'] ?? '').toString();
+      if (!mounted || code.isEmpty) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Pair this browser'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Enter this one-time code on the Kaamdaar website. It expires in 3 minutes.'),
+              const SizedBox(height: 18),
+              SelectableText(code, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 8)),
+            ],
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
     }
   }
 
@@ -115,6 +154,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
           children: [
+            if (_loadError != null)
+              CardBox(
+                borderColor: Colors.red.shade200,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Profile / My Bookings could not be refreshed',
+                      style: TextStyle(fontWeight: FontWeight.w800, color: Colors.red),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(_loadError!, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: _load,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -221,6 +284,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _tile(Icons.payment, 'Payment Methods', () {
               _soon();
             }),
+            _tile(Icons.devices, 'Pair Web Browser', _pairBrowser),
             _tile(Icons.help_outline, 'Help & Support', () async {
               await showDialog<void>(
                 context: context,

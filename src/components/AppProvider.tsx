@@ -109,13 +109,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const detectLocation = useCallback(async (force = false) => {
-    if (manualLocationSelectedRef.current && !force) return;
-    if (force) manualLocationSelectedRef.current = false;
+    manualLocationSelectedRef.current = false;
     const requestId = ++locationRequestIdRef.current;
 
     setLocating(true);
     setLocationError(null);
     setLocationPromptVisible(true);
+    // Do not leave a previous/stale address visible while a fresh GPS fix is
+    // being acquired. If the new fix fails, the UI must show the error rather
+    // than presenting an old location as if it were current.
+    locationRef.current = null;
+    setLoc(null);
+    try {
+      window.localStorage.removeItem(LOC_KEY);
+    } catch {
+      /* ignore storage restrictions */
+    }
     try {
       const point = await browserLocation();
       const geo = await reverseGeocode(point);
@@ -127,7 +136,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       if (requestId === locationRequestIdRef.current && !manualLocationSelectedRef.current) {
         const code = error instanceof Error ? error.message : "unavailable";
-        const message = code === "permission-denied"
+        const message = code === "low-accuracy"
+          ? "Your browser could not get a reliable location within 200m. Keep Location Services enabled and retry; desktop Wi-Fi estimates can be less accurate than phone GPS."
+          : code === "inconsistent-location"
+            ? "GPS readings do not agree. Your device may be estimating location from Wi-Fi/IP instead of GPS. Use a phone with precise Location enabled and retry."
+          : code === "permission-denied"
           ? "Browser location permission is blocked. Allow Location access for this site in your browser settings, then retry."
           : code === "position-unavailable"
             ? "Your device could not determine the location. Turn on device Location/GPS and check your internet connection, then retry."
@@ -194,6 +207,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    void fetch("/api/auth/session", { method: "DELETE", credentials: "same-origin" }).catch(() => undefined);
     clearSession();
     resetAnalytics();
     setUser(null);
@@ -331,11 +345,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     initAnalytics();
 
     const session = loadSession();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot mount hydration
-    if (session) setUser(session);
     if (session) {
-      void identifyAccount(session.id);
-      void refreshUser(); // pull the latest row from the backend
+      void (async () => {
+        try {
+          const response = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
+          if (!response.ok) {
+            clearSession();
+            setUser(null);
+            resetAnalytics();
+            return;
+          }
+          const identity = await response.json().catch(() => ({}));
+          if (identity.role !== "customer" || identity.phone !== session.phone) {
+            clearSession();
+            setUser(null);
+            resetAnalytics();
+            return;
+          }
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- validated one-shot session hydration
+          setUser(session);
+          void identifyAccount(session.id);
+          await refreshUser();
+        } catch {
+          // Keep the cached account during a temporary network outage; APIs still enforce the cookie.
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- offline cached session
+          setUser(session);
+        }
+      })();
     }
 
     let hasSavedLocation = false;
@@ -350,13 +386,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const cached = window.localStorage.getItem(LOC_KEY);
       if (cached) {
         const saved = JSON.parse(cached) as GeoResult;
-        setLoc(saved);
-        locationRef.current = saved;
-        hasSavedLocation = true;
-        hasManualLocation = saved.source === "manual";
-        if (hasManualLocation) {
-          manualLocationSelectedRef.current = true;
-          setLocationPromptVisible(false);
+        if (saved.source !== "manual" && Number(saved.accuracy ?? 9999) <= 100) {
+          setLoc(saved);
+          locationRef.current = saved;
+          hasSavedLocation = true;
         }
       }
       const cachedRadius = window.localStorage.getItem(RADIUS_KEY);
@@ -379,7 +412,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // A locality chosen from the Jaipur area list is an explicit user choice.
       // Keep it as the anchor for Area We Serve instead of replacing it with a
       // coarse desktop/browser geolocation result on every page load.
-      if (hasManualLocation) manualLocationSelectedRef.current = false;
+      manualLocationSelectedRef.current = false;
 
       let permissionAvailable = false;
       if (navigator.permissions?.query) {
@@ -394,7 +427,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           /* show the in-app prompt when permission state is unavailable */
         }
       }
-      if (!promptDismissedThisSession && !hasSavedLocation) {
+      if (!promptDismissedThisSession || !hasSavedLocation) {
         // First visit: request the browser's native GPS permission immediately.
         // If the user denies it or the device cannot locate, detectLocation
         // will show the in-app recovery prompt with clear instructions.

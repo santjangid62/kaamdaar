@@ -38,6 +38,7 @@ export type Collection =
   | "walletTxns"
   | "providerPayments"
   | "loginOtps"
+  | "deviceSessions"
   | "adminUsers"
   | "auditLogs"
   | "settings";
@@ -45,7 +46,7 @@ export type Collection =
 export const COLLECTIONS: Collection[] = [
   "users", "addresses", "bookings", "providers", "services", "categories", "subcategories",
   "reviews", "complaints", "banners", "faqs", "pages", "campaigns", "notifications",
-  "payouts", "wallets", "walletTxns", "providerPayments", "loginOtps", "adminUsers", "auditLogs", "settings",
+  "payouts", "wallets", "walletTxns", "providerPayments", "loginOtps", "deviceSessions", "adminUsers", "auditLogs", "settings",
 ];
 
 export type Store = Partial<Record<Collection, Record<string, Doc>>> & { seeded?: boolean };
@@ -287,6 +288,9 @@ async function readStore(): Promise<Store> {
 
 /** Writes are chained so two concurrent requests never interleave partial files. */
 let queue: Promise<void> = Promise.resolve();
+// Isolated lock: device-session critical sections call writeStore(), which
+// itself chains work on the general queue.
+let deviceSessionQueue: Promise<void> = Promise.resolve();
 /**
  * Replace the data file in one step, so a concurrent read never parses a
  * half-written file. On Windows the destination can be held open for a moment
@@ -475,6 +479,102 @@ export async function claimDispatchAdvance(
   queue = queue.then(run, run);
   await queue;
   return claimed;
+}
+
+/**
+ * Atomically claim the single active device slot for one account+role.
+ * Mongo's unique _id arbitrates concurrent first logins; the file engine
+ * serializes the read/compare/write for local development.
+ */
+export async function claimDeviceSession<T extends Record<string, unknown>>(
+  id: string,
+  doc: T & { deviceId: string },
+): Promise<{ claimed: boolean; session: (T & { id: string }) | null }> {
+  if (MONGODB_URI) {
+    const collection = (await mongoDb()).collection<{
+      [key: string]: unknown;
+      _id: string;
+      id: string;
+      deviceId: string;
+    }>("deviceSessions");
+    const now = Date.now();
+    const record = { ...doc, _id: id, id, createdAt: now, updatedAt: now };
+    try {
+      await collection.insertOne(record);
+      return { claimed: true, session: stripId<T & { id: string }>(record) };
+    } catch (error) {
+      if ((error as { code?: number }).code !== 11000) throw error;
+      const current = await collection.findOne({ _id: id });
+      if (!current) throw error;
+      const sameDevice = current.deviceId === doc.deviceId;
+      const inactive = Boolean(current.revokedAt) || Number(current.expiresAt) <= now;
+      if (!sameDevice && !inactive) {
+        return { claimed: false, session: stripId<T & { id: string }>(current) };
+      }
+      const filter: Document = { _id: id, sessionId: current.sessionId };
+      if (sameDevice) filter.deviceId = doc.deviceId;
+      else filter.$or = [{ revokedAt: { $ne: null } }, { expiresAt: { $lte: now } }];
+      const updated = await collection.findOneAndUpdate(
+        filter,
+        { $set: { ...doc, id, updatedAt: now } },
+        { returnDocument: "after", includeResultMetadata: false },
+      );
+      return { claimed: Boolean(updated), session: stripId<T & { id: string }>(updated ?? current) };
+    }
+  }
+
+  let result: { claimed: boolean; session: (T & { id: string }) | null } = { claimed: false, session: null };
+  const run = async () => {
+    const store = await readStore();
+    store.deviceSessions ??= {};
+    const current = store.deviceSessions[id] as (Doc & { deviceId?: string }) | undefined;
+    if (current && current.deviceId !== doc.deviceId && !current.revokedAt && Number(current.expiresAt) > Date.now()) {
+      result = { claimed: false, session: current as T & { id: string } };
+      return;
+    }
+    const now = Date.now();
+    const next = { ...(current ?? {}), ...doc, id, createdAt: current?.createdAt ?? now, updatedAt: now } as Doc;
+    store.deviceSessions[id] = next;
+    await writeStore(store);
+    result = { claimed: true, session: next as T & { id: string } };
+  };
+  deviceSessionQueue = deviceSessionQueue.then(run, run);
+  await deviceSessionQueue;
+  return result;
+}
+
+/** Consume a short-lived pairing code exactly once. */
+export async function consumeDevicePairingCode<T = Doc>(hash: string, now: number): Promise<T | null> {
+  if (MONGODB_URI) {
+    const collection = (await mongoDb()).collection<Document>("deviceSessions");
+    const consumed = await collection.findOneAndUpdate(
+      { pairingCodeHash: hash, pairingExpiresAt: { $gt: now }, expiresAt: { $gt: now }, revokedAt: null },
+      { $unset: { pairingCodeHash: "", pairingExpiresAt: "" }, $set: { lastSeenAt: now, updatedAt: now } },
+      { returnDocument: "after", includeResultMetadata: false },
+    );
+    return stripId<T>(consumed);
+  }
+  let result: T | null = null;
+  const run = async () => {
+    const store = await readStore();
+    const rows = store.deviceSessions ?? {};
+    const entry = Object.entries(rows).find(([, value]) =>
+      value.pairingCodeHash === hash && Number(value.pairingExpiresAt) > now &&
+      Number(value.expiresAt) > now && !value.revokedAt,
+    );
+    if (!entry) return;
+    const [id, current] = entry;
+    const next = { ...current, lastSeenAt: now, updatedAt: now } as Doc;
+    delete next.pairingCodeHash;
+    delete next.pairingExpiresAt;
+    rows[id] = next;
+    store.deviceSessions = rows;
+    await writeStore(store);
+    result = next as T;
+  };
+  deviceSessionQueue = deviceSessionQueue.then(run, run);
+  await deviceSessionQueue;
+  return result;
 }
 
 /** Insert-or-update by explicit id (used by upserts such as settings). */

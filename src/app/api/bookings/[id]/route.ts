@@ -9,6 +9,7 @@ import { appendEvents, eventsForChange, newEvent } from "../../../../server/even
 import { isAuthed } from "../../../../lib/admin/auth";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
 import { advanceProviderDispatch } from "../../../../server/dispatch";
+import { cancelProviderJobOffer, sendProviderBookingCancelled } from "../../../../server/fcm";
 import type {
   Booking,
   BookingActor,
@@ -150,13 +151,26 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       return NextResponse.json({ error: "Invalid provider booking status" }, { status: 403 });
     }
     if (changes.status === "cancelled") {
-      if (!["accepted", "scheduled", "enroute", "arrived"].includes(booking.status)) {
-        return NextResponse.json({ error: "Provider can cancel only an accepted job before work starts" }, { status: 409 });
+      const reason = String((body.patch as Record<string, unknown>)?.cancellationReason ?? "").trim().slice(0, 500);
+      if (reason.length < 10) {
+        return NextResponse.json({ error: "Please provide a genuine cancellation reason (at least 10 characters)." }, { status: 422 });
       }
-      changes.cancelledAt = Date.now();
-      changes.cancelledBy = "provider";
-      changes.cancellationReason = String((body.patch as Record<string, unknown>)?.cancellationReason ?? "Cancelled by provider").slice(0, 300);
-      // Keep the assigned provider snapshot on the cancelled booking for Admin audit/history.
+      if (!["accepted", "scheduled", "enroute", "arrived", "in_progress"].includes(booking.status)) {
+        return NextResponse.json({ error: "Provider cancellation request is not allowed at this booking stage." }, { status: 409 });
+      }
+      // Provider cannot cancel directly. Preserve the live booking until Admin
+      // reviews the reason and manually approves cancellation.
+      changes.cancellationRequest = {
+        requestedAt: Date.now(),
+        requestedBy: authenticatedProviderId,
+        providerName: booking.providerName,
+        reason,
+        status: "pending",
+      };
+      delete changes.status;
+      delete changes.cancelledAt;
+      delete changes.cancelledBy;
+      delete changes.cancellationReason;
     }
     if (changes.status === "enroute") {
       if (!["accepted", "scheduled"].includes(booking.status)) {
@@ -247,8 +261,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       history.push({ providerId: withdraw, outcome: "rejected", at: Date.now() });
     }
     changes.providerOfferHistory = history;
-    // Trigger the next ranked Pro immediately after an explicit rejection.
-    changes.offerExpiresAt = Date.now();
+    // The dispatcher advances immediately only when every recipient in this ring has responded.
   }
 
   /* ---- live tracking: the Pro app reports its GPS while travelling ----
@@ -298,7 +311,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (changes.status === "accepted") {
     const expiresAt = booking.offerExpiresAt ?? ((booking.dispatchedAt ?? booking.createdAt) + 40_000);
     if (booking.status !== "dispatched" || Date.now() >= expiresAt) {
-      return NextResponse.json({ error: "This 40-second job offer has expired" }, { status: 409 });
+      return NextResponse.json({ error: "This provider offer has expired" }, { status: 409 });
     }
     const acceptingId =
       typeof changes.providerId === "string" ? changes.providerId : "";
@@ -406,9 +419,24 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (!claimed) {
       await releaseProviderBooking(acceptingId, id);
       return NextResponse.json(
-        { error: "Request already accepted or this 40-second offer has expired" },
+        { error: "Request already accepted or this provider offer has expired" },
         { status: 409 },
       );
+    }
+    // The booking claim cleared notifiedIds atomically. Send a cancellation
+    // push to every other Pro who received this broadcast so their local alert
+    // disappears immediately, even when their app is backgrounded.
+    const otherRecipientIds = (booking.notifiedIds ?? []).filter((providerId) => providerId !== acceptingId);
+    if (otherRecipientIds.length) {
+      const providerRows = await all<Provider & { fcmTokens?: string[] }>("providers");
+      const cancelTokens = providerRows
+        .filter((provider) => otherRecipientIds.includes(provider.id))
+        .flatMap((provider) => provider.fcmTokens ?? []);
+      try {
+        await cancelProviderJobOffer(cancelTokens, id);
+      } catch (error) {
+        console.error("[fcm] accepted-offer cancellation push failed", error);
+      }
     }
   }
 
@@ -470,6 +498,81 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       createdAt: Date.now(),
     });
   }
+  if (changes.status === "cancelled" && actorRole === "customer") {
+    // Send a high-priority event to the assigned Pro and every Pro whose offer
+    // was still active when the customer cancelled. This avoids app polling delay.
+    const recipientIds = new Set([
+      ...(booking.providerId ? [booking.providerId] : []),
+      ...(booking.notifiedIds ?? []),
+    ]);
+    if (recipientIds.size) {
+      const providerRows = await all<Provider & { fcmTokens?: string[] }>("providers");
+      const tokens = providerRows
+        .filter((provider) => recipientIds.has(provider.id))
+        .flatMap((provider) => provider.fcmTokens ?? []);
+      try {
+        await sendProviderBookingCancelled(tokens, {
+          id: booking.id,
+          serviceName: booking.serviceName,
+        });
+      } catch (error) {
+        // Cancellation remains authoritative even if FCM is temporarily unavailable.
+        console.error("[fcm] customer cancellation notification failed", error);
+      }
+    }
+  }
+  if (changes.status === "cancelled" && actorRole === "customer") {
+    const customerBookings = await all<Booking>("bookings");
+    const customerCancellationCount = customerBookings.filter((row) =>
+      row.userId === booking.userId && row.status === "cancelled" && row.cancelledBy === "customer"
+    ).length;
+    if (customerCancellationCount > 5) {
+      const customers = await all<{ id: string; status?: string }>("users");
+      const account = customers.find((row) => row.id === booking.userId);
+      if (account && account.status !== "blocked") {
+        await patch("users", account.id, { status: "blocked", blockedAt: Date.now(), blockedReason: "More than five customer-initiated booking cancellations" });
+        await insert("notifications", {
+          id: uid("ntf"), type: "customer_account_blocked",
+          title: "Kaamdaar account temporarily blocked",
+          message: "Your account has been blocked after more than five booking cancellations. Contact admin@kaamdaar.com to request an account review.",
+          userId: booking.userId, userName: booking.phone || "Customer", phone: booking.phone || "",
+          platform: "Account policy", readAt: null, createdAt: Date.now(),
+        });
+      }
+    }
+  }
+
+  if (changes.cancellationRequest && actorRole === "provider") {
+    const [customers, providers] = await Promise.all([
+      all<{ id: string; firstName?: string; lastName?: string; phone?: string }>("users"),
+      all<Provider & { phone?: string }>("providers"),
+    ]);
+    const customer = customers.find((row) => row.id === booking.userId);
+    const provider = providers.find((row) => row.id === authenticatedProviderId);
+    const customerName = [customer?.firstName, customer?.lastName].filter(Boolean).join(" ") || "Customer";
+    await insert("notifications", {
+      id: uid("ntf"), type: "provider_cancellation_request",
+      title: "Provider requested booking cancellation",
+      message: `Provider: ${provider?.name || booking.providerName} (${provider?.phone || "mobile unavailable"}). Service: ${booking.serviceName}. Reason: ${String((changes.cancellationRequest as { reason?: string }).reason || "")}. Customer: ${customerName} (${customer?.phone || booking.phone}). Review and contact both parties before cancelling.`,
+      userId: booking.userId, userName: customerName, phone: customer?.phone || booking.phone || "",
+      providerId: authenticatedProviderId, providerName: provider?.name || booking.providerName,
+      providerPhone: provider?.phone || "", serviceName: booking.serviceName,
+      cancellationReason: String((changes.cancellationRequest as { reason?: string }).reason || ""),
+      platform: "Provider cancellation review", bookingId: booking.id, readAt: null, createdAt: Date.now(),
+    });
+  }
+
+  if (actorRole === "admin" && changes.status === "cancelled" && booking.cancellationRequest?.status === "pending") {
+    await patch("bookings", booking.id, { cancellationRequest: { ...booking.cancellationRequest, status: "approved", reviewedAt: Date.now() } });
+    await insert("notifications", {
+      id: uid("ntf"), type: "booking_cancelled_by_admin",
+      title: "Booking cancelled by Kaamdaar Admin",
+      message: `We are sorry. Your ${booking.serviceName} booking has been cancelled after review of the provider's request. Kaamdaar apologises for the inconvenience.`,
+      userId: booking.userId, userName: booking.phone || "Customer", phone: booking.phone || "",
+      platform: "Booking update", bookingId: booking.id, readAt: null, createdAt: Date.now(),
+    });
+  }
+
   if (changes.paymentReportedAt && actorRole === "provider") {
     await insert("notifications", {
       id: uid("ntf"),

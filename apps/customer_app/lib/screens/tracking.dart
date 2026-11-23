@@ -2,6 +2,8 @@
 library;
 /// in progress → OTP confirm → completed, mirroring the web /track page.
 import 'dart:async';
+import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -31,6 +33,10 @@ class _TrackScreenState extends State<TrackScreen> {
   final _reviewText = TextEditingController();
   bool _reviewSubmitted = false;
   DateTime? _startedAt;
+  final _complaintText = TextEditingController();
+  final List<XFile> _complaintEvidence = [];
+  bool _complaintBusy = false;
+  bool _complaintSubmitted = false;
 
   @override
   void initState() {
@@ -42,6 +48,7 @@ class _TrackScreenState extends State<TrackScreen> {
   void dispose() {
     _poll?.cancel();
     _reviewText.dispose();
+    _complaintText.dispose();
     super.dispose();
   }
 
@@ -82,7 +89,7 @@ class _TrackScreenState extends State<TrackScreen> {
       if (mounted && ((previousStatus != null && previousStatus != b?.status) ||
           (!previouslyFailed && b?.dispatchFailedAt != null))) {
         final message = b?.dispatchFailedAt != null
-            ? 'Maaf kijiye, 5 minute mein koi professional booking accept nahi kar saka.'
+            ? 'No provider is accepting your request right now. Please try again after some time.'
             : b?.status == 'accepted'
                 ? 'Professional ne aapki booking accept kar li hai.'
                 : b?.status == 'enroute'
@@ -195,6 +202,8 @@ class _TrackScreenState extends State<TrackScreen> {
                           _stepper(b),
                           const SizedBox(height: 14),
                           _addressCard(b),
+                          const SizedBox(height: 14),
+                          _complaintCard(b),
                           if (b.status == 'arrived') ...[
                             const SizedBox(height: 14),
                             _startOtpCard(b),
@@ -225,7 +234,7 @@ class _TrackScreenState extends State<TrackScreen> {
   }
 
   Widget _actions(BookingItem b) {
-    if (b.isLive) {
+    if (b.isLive && !['in_progress', 'pending_confirm'].contains(b.status)) {
       return Row(
         children: [
           Expanded(
@@ -291,13 +300,25 @@ class _TrackScreenState extends State<TrackScreen> {
             const SizedBox(height: 6),
             Text(
                 b.dispatchRadiusKm > 0
-                    ? '${b.dispatchRadiusKm} km ke andar ke professionals ko ek-ek karke request bheji ja rahi hai.'
-                    : 'Nearby professionals are being contacted one by one.',
+                    ? '${b.dispatchRingKm.clamp(1, 5)} km ring ke providers ko request bheji ja rahi hai.'
+                    : 'Nearby professionals are being contacted ring by ring.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white.withOpacity(.78), fontSize: 12.5)),
             const SizedBox(height: 10),
             Text('Search time left: ${_dispatchRemaining(b)}',
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+            const SizedBox(height: 8),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.radar, color: Colors.white70, size: 16),
+              const SizedBox(width: 6),
+              Text('Search radius: ${b.dispatchRingKm.clamp(1, 5)} / 5 km',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+              const SizedBox(width: 14),
+              const Icon(Icons.notifications_active_outlined, color: Colors.white70, size: 16),
+              const SizedBox(width: 5),
+              Text('${b.dispatchNotifiedTotal} providers notified',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+            ]),
           ] else ...[
             Icon(
               b.status == 'completed'
@@ -618,6 +639,99 @@ class _TrackScreenState extends State<TrackScreen> {
                 fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
                 color: bold ? KColors.navy : Colors.black87)),
       ],
+    );
+  }
+
+  Widget _complaintCard(BookingItem booking) {
+    if (_complaintSubmitted) {
+      return const CardBox(child: Text('Your complaint has been submitted. Kaamdaar Support will review it and reply in your notifications.',
+          style: TextStyle(color: KColors.green, fontWeight: FontWeight.w700)));
+    }
+    return CardBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Need help with this booking?', style: TextStyle(fontWeight: FontWeight.w900, color: KColors.navy)),
+          const SizedBox(height: 5),
+          const Text('Raise a complaint and attach photos as evidence (up to 3 files).',
+              style: TextStyle(fontSize: 11.5, color: Colors.black54)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _complaintText,
+            maxLines: 4,
+            maxLength: 3000,
+            decoration: const InputDecoration(
+              hintText: 'Describe the issue in at least 10 characters…',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: _complaintBusy ? null : () async {
+                final files = await ImagePicker().pickMultiImage(imageQuality: 75, maxWidth: 1600);
+                if (!mounted || files.isEmpty) return;
+                setState(() {
+                  _complaintEvidence
+                    ..clear()
+                    ..addAll(files.take(3));
+                });
+              },
+              icon: const Icon(Icons.attach_file),
+              label: Text(_complaintEvidence.isEmpty ? 'Attach evidence' : '${_complaintEvidence.length} file(s) attached'),
+            ),
+          ),
+          if (_complaintEvidence.isNotEmpty)
+            ..._complaintEvidence.map((file) => Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Text(file.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: Colors.black54)),
+            )),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _complaintBusy ? null : () async {
+                final issue = _complaintText.text.trim();
+                if (issue.length < 10) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please describe the issue in at least 10 characters.')));
+                  return;
+                }
+                setState(() => _complaintBusy = true);
+                try {
+                  final attachments = <Map<String, String>>[];
+                  for (final file in _complaintEvidence) {
+                    final bytes = await file.readAsBytes();
+                    if (bytes.length > 1500000) {
+                      throw Exception('${file.name} is larger than 1.5 MB. Please choose a smaller file.');
+                    }
+                    final lower = file.name.toLowerCase();
+                    final mime = lower.endsWith('.png') ? 'image/png'
+                        : lower.endsWith('.webp') ? 'image/webp'
+                        : lower.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
+                    attachments.add({
+                      'name': file.name,
+                      'dataUrl': 'data:$mime;base64,${base64Encode(bytes)}',
+                    });
+                  }
+                  await Api.post('/api/complaints', {
+                    'bookingId': booking.id,
+                    'issue': issue,
+                    'attachments': attachments,
+                  });
+                  if (mounted) setState(() => _complaintSubmitted = true);
+                } catch (e) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                } finally {
+                  if (mounted) setState(() => _complaintBusy = false);
+                }
+              },
+              icon: const Icon(Icons.support_agent),
+              label: Text(_complaintBusy ? 'Submitting…' : 'Submit complaint'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

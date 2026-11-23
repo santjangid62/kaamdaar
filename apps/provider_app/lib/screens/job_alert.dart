@@ -131,7 +131,7 @@ class _JobAlertScreenState extends State<JobAlertScreen>
                       minHeight: 5,
                       backgroundColor: Colors.white12,
                       valueColor: AlwaysStoppedAnimation(
-                          _left <= 10 ? PColors.red : PColors.green),
+                          _left <= 10 ? PColors.red : PColors.flame),
                     ),
                   ),
 
@@ -143,17 +143,17 @@ class _JobAlertScreenState extends State<JobAlertScreen>
                       height: 116,
                       width: 116,
                       decoration: BoxDecoration(
-                        color: PColors.green.withValues(alpha: .16),
+                        color: PColors.flame.withValues(alpha: .16),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                              color: PColors.green.withValues(alpha: .35),
+                              color: PColors.flame.withValues(alpha: .35),
                               blurRadius: 34,
                               spreadRadius: 2),
                         ],
                       ),
                       child: const Icon(Icons.notifications_active,
-                          color: PColors.green, size: 58),
+                          color: PColors.flame, size: 58),
                     ),
                   ),
                   const SizedBox(height: 22),
@@ -163,7 +163,13 @@ class _JobAlertScreenState extends State<JobAlertScreen>
                           fontSize: 12,
                           letterSpacing: 2,
                           fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 7),
+                  const Text(
+                    'Location aur earning check karke 40 seconds ke andar decision lein',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white60, fontSize: 11.5, height: 1.35),
+                  ),
+                  const SizedBox(height: 10),
                   Text(b.serviceName,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
@@ -204,7 +210,7 @@ class _JobAlertScreenState extends State<JobAlertScreen>
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _amount(rupees(earn), 'You earn (−10%)',
+                        child: _amount(rupees(earn), 'Your earning after 10% fee',
                             highlight: true),
                       ),
                     ],
@@ -224,7 +230,7 @@ class _JobAlertScreenState extends State<JobAlertScreen>
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14)),
                             ),
-                            child: const Text('Reject',
+                            child: const Text('Cancel Request',
                                 style: TextStyle(
                                     fontWeight: FontWeight.w800, fontSize: 15)),
                           ),
@@ -242,8 +248,8 @@ class _JobAlertScreenState extends State<JobAlertScreen>
                                 style: TextStyle(
                                     fontWeight: FontWeight.w900, fontSize: 16)),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: PColors.green,
-                              foregroundColor: Colors.white,
+                              backgroundColor: PColors.flame,
+                              foregroundColor: PColors.ink,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14)),
@@ -287,11 +293,11 @@ class _JobAlertScreenState extends State<JobAlertScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: (highlight ? PColors.green : Colors.white).withValues(alpha: .1),
+        color: (highlight ? PColors.flame : Colors.white).withValues(alpha: .1),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
             color: highlight
-                ? PColors.green.withValues(alpha: .5)
+                ? PColors.flame.withValues(alpha: .5)
                 : Colors.white12),
       ),
       child: Column(
@@ -302,7 +308,7 @@ class _JobAlertScreenState extends State<JobAlertScreen>
           const SizedBox(height: 2),
           Text(value,
               style: TextStyle(
-                  color: highlight ? PColors.green : Colors.white,
+                  color: highlight ? PColors.flame : Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w900)),
         ],

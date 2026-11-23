@@ -198,7 +198,7 @@ function TrackView() {
 
       {status === "dispatched" && !booking.dispatchFailedAt && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-4">
-          <div><p className="font-extrabold text-orange-950">Searching nearby Kaamdaar Pros</p><p className="mt-1 text-sm text-orange-800">We are contacting eligible professionals one by one. Each Pro gets 40 seconds to respond.</p></div>
+          <div className="min-w-0 flex-1"><p className="font-extrabold text-orange-950">Searching nearby Kaamdaar Pros</p><p className="mt-1 text-sm text-orange-800">We notify available professionals in expanding 1 km rings. Each ring gets up to 60 seconds.</p><div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-orange-900"><span className="rounded-full bg-white px-3 py-1.5">Search radius: {Math.max(1, Math.min(5, booking.dispatchRingKm ?? booking.dispatchRadiusKm ?? 1))} / 5 km</span><span className="rounded-full bg-white px-3 py-1.5">Providers notified: {booking.dispatchNotifiedTotal ?? booking.notifiedIds?.length ?? 0}</span><span className="rounded-full bg-white px-3 py-1.5">This ring: {booking.notifiedIds?.length ?? 0}</span></div></div>
           <span className="rounded-full bg-white px-3 py-2 font-mono text-lg font-black text-orange-800">{mmss(dispatchSecondsLeft * 1000)}</span>
         </div>
       )}

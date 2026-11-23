@@ -6,11 +6,14 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
 
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'models.dart';
@@ -24,6 +27,7 @@ class ApiException implements Exception {
 }
 
 class Api {
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   // Enabled only for explicitly-built QA debug APKs. Production release builds
   // keep Firebase app verification enabled.
   static const bool _firebasePhoneAuthTesting = bool.fromEnvironment(
@@ -35,7 +39,6 @@ class Api {
     'QA_MOBILE_AUTH',
     defaultValue: false,
   );
-  static String? _qaBearerToken;
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE',
@@ -43,21 +46,48 @@ class Api {
   );
 
   static Future<Map<String, String>> _headers() async {
-    final prefs = await SharedPreferences.getInstance();
-    final qaToken = _qaBearerToken ?? prefs.getString('kaamdaar.qa.mobile.token');
-    if (_qaMobileAuthEnabled && qaToken != null && qaToken.isNotEmpty) {
-      _qaBearerToken = qaToken;
+    final sessionToken = await _secureStorage.read(key: 'kaamdaar.device.session.token');
+    if (sessionToken != null && sessionToken.isNotEmpty) {
       return {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $qaToken',
+        'X-Kaamdaar-Client': 'mobile',
+        'Authorization': 'Bearer $sessionToken',
       };
     }
     final firebaseToken = await FirebaseAuth.instance.currentUser?.getIdToken();
     return {
       'Content-Type': 'application/json',
+      'X-Kaamdaar-Client': 'mobile',
       if (firebaseToken != null && firebaseToken.isNotEmpty)
         'Authorization': 'Bearer $firebaseToken',
     };
+  }
+
+  static Future<Map<String, dynamic>> _deviceDetails() async {
+    final prefs = await SharedPreferences.getInstance();
+    var id = prefs.getString('kaamdaar.device.installation.id');
+    if (id == null || id.isEmpty) {
+      final random = Random.secure();
+      id = List.generate(40, (_) => random.nextInt(16).toRadixString(16)).join();
+      await prefs.setString('kaamdaar.device.installation.id', id);
+    }
+    final name = Platform.isAndroid
+        ? 'Android phone'
+        : Platform.isIOS
+            ? 'iPhone / iPad'
+            : 'Mobile device';
+    final details = <String, dynamic>{'deviceId': id, 'deviceName': name};
+    try {
+      final position = await Geolocator.getLastKnownPosition();
+      if (position != null) {
+        details['latitude'] = position.latitude;
+        details['longitude'] = position.longitude;
+        details['locationLabel'] = 'Last known GPS (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})';
+      }
+    } catch (_) {
+      // Device location is optional for sign-in; the session records it when available.
+    }
+    return details;
   }
 
   static Map<String, dynamic> _decode(http.Response r) {
@@ -113,9 +143,6 @@ class Api {
   static Future<String> sendOtp(String phone) async {
     _phoneVerificationId = null;
     if (_qaMobileAuthEnabled && kDebugMode) {
-      _qaBearerToken = null;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('kaamdaar.qa.mobile.token');
       await FirebaseAuth.instance.signOut();
       return '123456';
     }
@@ -162,15 +189,14 @@ class Api {
 
   static Future<SessionUser> verifyOtp(String phone, String code) async {
     if (_qaMobileAuthEnabled && kDebugMode) {
+      final device = await _deviceDetails();
       final data = await post('/api/auth', {
         'action': 'qa_verify', 'phone': e164(phone), 'otp': code.trim(),
-        'role': 'provider', 'platform': 'mobile_app',
+        'role': 'provider', 'platform': 'mobile_app', ...device,
       });
       final token = (data['sessionToken'] ?? '').toString();
       if (token.isEmpty) throw ApiException('QA session token was not returned.');
-      _qaBearerToken = token;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('kaamdaar.qa.mobile.token', token);
+      await _secureStorage.write(key: 'kaamdaar.device.session.token', value: token);
       final provider = data['provider'];
       if (provider is! Map<String, dynamic>) throw ApiException('Provider profile was not returned');
       final user = SessionUser(
@@ -190,9 +216,14 @@ class Api {
     }
     final idToken = await auth.currentUser?.getIdToken(true);
     if (idToken == null) throw ApiException('Firebase phone verification did not complete.');
+    final device = await _deviceDetails();
     final data = await post('/api/auth', {
-      'action': 'verify', 'phone': e164(phone), 'idToken': idToken, 'role': 'provider',
+      'action': 'verify', 'phone': e164(phone), 'idToken': idToken,
+      'role': 'provider', 'platform': 'mobile_app', ...device,
     });
+    final sessionToken = (data['sessionToken'] ?? '').toString();
+    if (sessionToken.isEmpty) throw ApiException('Secure device session was not returned.');
+    await _secureStorage.write(key: 'kaamdaar.device.session.token', value: sessionToken);
     final provider = data['provider'];
     if (provider is! Map<String, dynamic>) throw ApiException('Provider profile was not returned');
     final user = SessionUser(
@@ -220,7 +251,20 @@ class Api {
     if (cached != null) return cached;
     final p = await SharedPreferences.getInstance();
     final raw = p.getString(_kSession);
-    if (raw == null) return null;
+    final token = await _secureStorage.read(key: 'kaamdaar.device.session.token');
+    if (raw == null || token == null || token.isEmpty) return null;
+    try {
+      await get('/api/auth/session');
+    } on ApiException catch (error) {
+      if (error.status == 401) {
+        await p.remove(_kSession);
+        await _secureStorage.delete(key: 'kaamdaar.device.session.token');
+        return null;
+      }
+    } catch (_) {
+      // Keep the local session on temporary network failure; protected API
+      // calls still validate the server session before returning account data.
+    }
     final j = jsonDecode(raw);
     if (j is! Map<String, dynamic>) return null;
     cached = SessionUser.fromJson(j);
@@ -228,11 +272,20 @@ class Api {
   }
 
   static Future<void> clearSession() async {
+    try {
+      await http.delete(Uri.parse('$baseUrl/api/auth/session'), headers: await _headers());
+    } catch (_) {
+      // Local logout must still complete if the network is unavailable.
+    }
     cached = null;
     final p = await SharedPreferences.getInstance();
     await p.remove(_kSession);
     await p.remove('kaamdaar.qa.mobile.token');
-    _qaBearerToken = null;
+    await _secureStorage.delete(key: 'kaamdaar.device.session.token');
+  }
+
+  static Future<Map<String, dynamic>> createPairingCode() async {
+    return post('/api/auth/session/pairing', const {});
   }
 
   static Future<bool> get onboarded async {

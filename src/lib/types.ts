@@ -162,12 +162,18 @@ export interface Booking {
   /* ---- dispatch flow ---- */
   /** Nearby Pros currently notified; cleared for everyone else on first accept. */
   notifiedIds?: string[];
-  /** Radius this request was offered in — 3 km first, 5 km after widening. */
+  /** All recipients in the active ring, including providers who already rejected. */
+  dispatchRingIds?: string[];
+  /** Active progressive search ring radius, from 1 through 5 km. */
   dispatchRadiusKm?: number;
+  /** Current progressive search ring, from 1 through 5 km. */
+  dispatchRingKm?: number;
+  /** Cumulative number of providers notified across all rings. */
+  dispatchNotifiedTotal?: number;
   dispatchedAt?: number;
-  /** Hard expiry for the current provider's 40-second dispatch offer. */
+  /** Hard expiry for the active one-kilometre ring offer window. */
   offerExpiresAt?: number;
-  /** Ranked providers to contact one at a time during the 5-minute window. */
+  /** All service-matching provider IDs within 5 km, ordered by distance for ring filtering. */
   dispatchQueueIds?: string[];
   dispatchCursor?: number;
   dispatchStartedAt?: number;
@@ -200,6 +206,17 @@ export interface Booking {
   cancelledAt?: number;
   cancelledBy?: "customer" | "provider" | "admin" | "system";
   cancellationReason?: string;
+  /** Provider cancellation requests remain pending until an Admin reviews them. */
+  cancellationRequest?: {
+    requestedAt: number;
+    requestedBy: string;
+    providerName: string;
+    reason: string;
+    status: "pending" | "approved" | "rejected";
+    reviewedAt?: number;
+    reviewedBy?: string;
+    reviewNote?: string;
+  };
   /** 10% company commission deducted from the Pro's wallet on payment. */
   commission?: number;
   /** Estimated minutes to reach the user, shown while enroute. */

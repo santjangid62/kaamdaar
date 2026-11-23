@@ -7,6 +7,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api.dart';
@@ -33,6 +36,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   final _otp = TextEditingController();
   final _completionOtp = TextEditingController();
   String? _otpError;
+  int _customerRating = 0;
+  bool _customerReviewSubmitted = false;
+  final _customerReviewText = TextEditingController();
+  Position? _currentPosition;
 
   @override
   void initState() {
@@ -45,8 +52,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   void dispose() {
     _poll?.cancel();
     _gpsTimer?.cancel();
+    unawaited(WakelockPlus.disable());
     _otp.dispose();
     _completionOtp.dispose();
+    _customerReviewText.dispose();
     super.dispose();
   }
 
@@ -76,8 +85,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         _error = found.isEmpty ? 'This job is no longer assigned to you.' : null;
       });
       if (_booking?.status == 'enroute') {
+        await WakelockPlus.enable();
         _startLiveGps();
       } else {
+        await WakelockPlus.disable();
         _gpsTimer?.cancel();
         _gpsTimer = null;
       }
@@ -113,6 +124,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           timeLimit: Duration(seconds: 8),
         ),
       );
+      if (mounted) setState(() => _currentPosition = point);
       await Api.updateJob(b.id, {
         'providerPing': {
           'lat': point.latitude,
@@ -225,22 +237,41 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final reason = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel this job?'),
+        title: const Text('Request job cancellation?'),
         content: TextField(controller: controller, maxLines: 3, decoration: const InputDecoration(labelText: 'Cancellation reason (required)')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Keep job')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: PColors.red),
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Confirm cancellation'),
+            child: const Text('Send to Admin'),
           ),
         ],
       ),
     );
     controller.dispose();
-    if (reason == null || reason.trim().length < 3) return;
-    await _patch({'status': 'cancelled', 'cancellationReason': reason.trim()});
-    await _refresh();
+    if (reason == null) return;
+    if (reason.trim().length < 10) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Please enter a genuine reason (at least 10 characters).'),
+        ));
+      }
+      return;
+    }
+    try {
+      await _patch({'status': 'cancelled', 'cancellationReason': reason.trim()});
+      await _refresh();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Cancellation request sent to Kaamdaar Admin. Your booking stays active until Admin reviews it.'),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
   }
 
   Widget _cancelAction(BookingItem b) {
@@ -301,6 +332,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       if (entered == null || entered.length < 6) return;
       reference = entered;
     }
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
       await _patch({
@@ -308,11 +340,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         'paymentMethod': method,
         'paymentReference': reference,
       });
+      if (!mounted) return;
       await _refresh();
       if (!mounted) return;
       if (_booking?.paymentStatus == 'reported') {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Payment report Admin ko bhej di gayi hai. Verification pending hai.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -349,6 +386,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       _customerCard(b),
                       const SizedBox(height: 14),
                       _addressCard(b),
+                      if (b.status == 'enroute') ...[
+                        const SizedBox(height: 14),
+                        _navigationCard(b),
+                      ],
                       if (b.status == 'arrived') ...[
                         const SizedBox(height: 14),
                         _otpCard(),
@@ -360,6 +401,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       if (b.status == 'completed') ...[
                         const SizedBox(height: 14),
                         _invoiceCard(b),
+                        if (b.paidAt != null) ...[
+                          const SizedBox(height: 14),
+                          _customerReviewCard(b),
+                        ],
                       ],
                       const SizedBox(height: 16),
                       _primaryAction(b),
@@ -371,6 +416,77 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _navigationCard(BookingItem booking) {
+    final destinationLat = booking.customerLat;
+    final destinationLng = booking.customerLng;
+    if (destinationLat == null || destinationLng == null ||
+        !destinationLat.isFinite || !destinationLng.isFinite ||
+        destinationLat.abs() > 90 || destinationLng.abs() > 180) {
+      return const CardBox(child: Text('Customer map pin is not available for in-app navigation.'));
+    }
+    final gps = _currentPosition;
+    final fallback = _me;
+    final currentLat = gps?.latitude ?? fallback?.lat;
+    final currentLng = gps?.longitude ?? fallback?.lng;
+    if (currentLat == null || currentLng == null ||
+        !currentLat.isFinite || !currentLng.isFinite ||
+        currentLat.abs() > 90 || currentLng.abs() > 180) {
+      return const CardBox(child: Text('Waiting for your current GPS location…'));
+    }
+    final current = LatLng(currentLat, currentLng);
+    final destination = LatLng(destinationLat, destinationLng);
+    final center = LatLng((current.latitude + destination.latitude) / 2,
+        (current.longitude + destination.longitude) / 2);
+    return CardBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('In-app navigation', style: TextStyle(fontWeight: FontWeight.w900, color: PColors.ink)),
+          const SizedBox(height: 6),
+          const Text('Keep this screen open while travelling. Your live GPS is shared with the customer and Admin.',
+              style: TextStyle(fontSize: 11.5, color: Colors.black54)),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 250,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: FlutterMap(
+                options: MapOptions(initialCenter: center, initialZoom: 14),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.kaamdaar.kaamdaar_provider',
+                  ),
+                  PolylineLayer(polylines: [
+                    Polyline(points: [current, destination], strokeWidth: 4, color: PColors.green),
+                  ]),
+                  MarkerLayer(markers: [
+                    Marker(point: current, width: 44, height: 44,
+                      child: const Icon(Icons.two_wheeler, color: PColors.green, size: 34)),
+                    Marker(point: destination, width: 44, height: 44,
+                      child: const Icon(Icons.location_on, color: PColors.red, size: 38)),
+                  ]),
+                  RichAttributionWidget(attributions: [
+                    TextSourceAttribution('© OpenStreetMap contributors'),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _openCustomerMap(booking),
+              icon: const Icon(Icons.directions),
+              label: const Text('Open turn-by-turn directions'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -600,6 +716,64 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
                 color: bold ? PColors.green : Colors.black87)),
       ],
+    );
+  }
+
+  Widget _customerReviewCard(BookingItem booking) {
+    if (_customerReviewSubmitted) {
+      return const CardBox(child: Text('Customer rating submitted. Thank you.',
+          style: TextStyle(color: PColors.green, fontWeight: FontWeight.w700)));
+    }
+    return CardBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Rate the Customer', style: TextStyle(fontWeight: FontWeight.w900, color: PColors.ink)),
+          const SizedBox(height: 4),
+          const Text('Optional feedback helps Kaamdaar maintain service quality.',
+              style: TextStyle(fontSize: 11.5, color: Colors.black54)),
+          Row(
+            children: List.generate(5, (index) => IconButton(
+              onPressed: () => setState(() => _customerRating = index + 1),
+              icon: Icon(index < _customerRating ? Icons.star : Icons.star_border,
+                  color: Colors.amber, size: 28),
+            )),
+          ),
+          TextField(
+            controller: _customerReviewText,
+            maxLines: 2,
+            maxLength: 500,
+            decoration: const InputDecoration(
+              hintText: 'Optional note about the customer',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _busy || _customerRating == 0 ? null : () async {
+                setState(() => _busy = true);
+                try {
+                  await Api.post('/api/reviews', {
+                    'bookingId': booking.id,
+                    'actorRole': 'provider',
+                    'customerRating': _customerRating,
+                    'text': _customerReviewText.text.trim(),
+                  });
+                  if (mounted) setState(() => _customerReviewSubmitted = true);
+                } catch (e) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(e.toString())),
+                  );
+                } finally {
+                  if (mounted) setState(() => _busy = false);
+                }
+              },
+              child: const Text('Submit Customer Rating'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

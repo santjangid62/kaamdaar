@@ -26,6 +26,7 @@ export const NAV: NavGroup[] = [
       { slug: "all-bookings", label: "All Bookings", icon: "List" },
       { slug: "live-bookings", label: "Live Bookings", icon: "Monitor" },
       { slug: "cancelled-bookings", label: "Cancelled Bookings", icon: "CircleX" },
+      { slug: "cancellation-requests", label: "Cancellation Requests", icon: "ClipboardCheck" },
     ],
   },
   {
