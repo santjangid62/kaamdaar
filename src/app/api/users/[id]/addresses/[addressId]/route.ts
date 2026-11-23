@@ -19,7 +19,6 @@ export async function DELETE(
     return NextResponse.json({ error: "Address not found" }, { status: 404 });
   }
   await remove("addresses", addressId);
-  const { all } = await import("../../../../../../server/db");
   const rows = await all<{ userId: string }>("addresses");
   return NextResponse.json({ addresses: rows.filter((a) => a.userId === id) });
 }
