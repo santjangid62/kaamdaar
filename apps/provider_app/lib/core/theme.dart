@@ -160,7 +160,17 @@ class CardBox extends StatelessWidget {
       child: child,
     );
     if (onTap == null) return card;
-    return InkWell(onTap: onTap, borderRadius: BorderRadius.circular(16), child: card);
+    // InkWell paints its splash through the nearest Material. CardBox is also
+    // used in indexed tabs and other routes without a local Material ancestor.
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: card,
+      ),
+    );
   }
 }
 

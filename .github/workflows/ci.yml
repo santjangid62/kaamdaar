@@ -130,7 +130,7 @@ jobs:
         working-directory: apps/${{ matrix.app }}
         run: >-
           flutter build apk --debug
-          --dart-define=API_BASE=https://kaamdaar-git-feat-mobile-customer-provide-bfc6c0-unique-it-team.vercel.app
+          --dart-define=API_BASE=https://kaamdaar-git-feature-device-bound-sessions-unique-it-team.vercel.app
           --dart-define=FIREBASE_PHONE_AUTH_TESTING=true
           --dart-define=QA_MOBILE_AUTH=true
       - name: Export QA APK signing fingerprints
