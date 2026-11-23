@@ -2,7 +2,7 @@ name: Kaamdaar CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, fix/cross-platform-profile-sync]
   push:
     branches: [main]
   workflow_dispatch:
