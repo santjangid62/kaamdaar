@@ -27,8 +27,26 @@ export default function AddressBook() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) void listAddresses(user.id).then(setList);
-  }, [user]);
+    if (!user) return;
+    let active = true;
+    const refresh = async () => {
+      const latest = await listAddresses(user.id);
+      if (active) setList(latest);
+    };
+    void refresh();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, 15_000);
+    const onFocus = () => void refresh();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [user?.id]);
 
   async function detect() {
     setBusy(true);
