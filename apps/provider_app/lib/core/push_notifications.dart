@@ -22,20 +22,22 @@ int _notificationId(String bookingId) => bookingId.codeUnits.fold<int>(
       (value, unit) => (value * 31 + unit) & 0x7fffffff,
     );
 
+void _handleLocalNotificationResponse(NotificationResponse response) {
+  final bookingId = response.payload ?? '';
+  final action = response.actionId;
+  if (action != null && bookingId.isNotEmpty) {
+    unawaited(JobAlertCenter.instance.handleNotificationAction(action, bookingId));
+  } else {
+    unawaited(JobAlertCenter.instance.checkNow());
+  }
+}
+
 Future<void> _prepareLocalNotifications() async {
   await _localNotifications.initialize(
     const InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     ),
-    onDidReceiveNotificationResponse: (response) {
-      final bookingId = response.payload ?? '';
-      final action = response.actionId;
-      if (action != null && bookingId.isNotEmpty) {
-        unawaited(JobAlertCenter.instance.handleNotificationAction(action, bookingId));
-      } else {
-        unawaited(JobAlertCenter.instance.checkNow());
-      }
-    },
+    onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
     onDidReceiveBackgroundNotificationResponse: providerNotificationActionBackground,
   );
   final android = _localNotifications.resolvePlatformSpecificImplementation<
@@ -206,6 +208,13 @@ class ProviderPushNotifications {
     _registeredProviderId = providerId;
 
     await _prepareLocalNotifications();
+    // Android can launch a terminated app directly from a notification action.
+    // Recover that action explicitly so Accept still opens the requested job.
+    final launchDetails = await _localNotifications.getNotificationAppLaunchDetails();
+    final launchResponse = launchDetails?.notificationResponse;
+    if (launchDetails?.didNotificationLaunchApp == true && launchResponse != null) {
+      _handleLocalNotificationResponse(launchResponse);
+    }
     final messaging = FirebaseMessaging.instance;
     await messaging.requestPermission(alert: true, badge: true, sound: true, announcement: false, carPlay: false, criticalAlert: false, provisional: false);
     await messaging.setAutoInitEnabled(true);
