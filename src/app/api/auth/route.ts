@@ -147,7 +147,7 @@ export async function POST(req: Request) {
     const mobileSession = await issueMobileSession("provider", provider.id);
     if (mobileSession.response) return mobileSession.response;
     try {
-      await recordAudit({ actor: provider.name || "provider", action: "login", module: "Authentication", title: "Provider login successful", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
+      await recordAudit({ actor: provider.name || "provider", action: "login", module: "Authentication", title: "Provider login successful", description: `platform=${"mobile_app"}`, severity: "success" });
     } catch (error) { console.error("[audit] provider login log could not be saved", error); }
     return NextResponse.json({ provider, ...(mobileSession.sessionToken ? { sessionToken: mobileSession.sessionToken } : {}) });
   }
@@ -170,7 +170,7 @@ export async function POST(req: Request) {
     const mobileSession = await issueMobileSession("customer", existing[0].id);
     if (mobileSession.response) return mobileSession.response;
     try {
-      await recordAudit({ actor: "customer", action: "login", module: "Authentication", title: "Customer login successful", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
+      await recordAudit({ actor: "customer", action: "login", module: "Authentication", title: "Customer login successful", description: `platform=${"mobile_app"}`, severity: "success" });
     } catch (error) { console.error("[audit] customer login log could not be saved", error); }
     return NextResponse.json({ user: existing[0], isNew: false, ...(mobileSession.sessionToken ? { sessionToken: mobileSession.sessionToken } : {}) });
   }
@@ -185,13 +185,13 @@ export async function POST(req: Request) {
     referralCode: referralCode(phone),
     role: "customer",
     status: "active",
-    registrationPlatform: body.platform === "web" ? "web" : "mobile_app",
+    registrationPlatform: "mobile_app",
   });
   const mobileSession = await issueMobileSession("customer", user.id);
   if (mobileSession.response) return mobileSession.response;
   await createUserRegisteredNotification(user);
   try {
-    await recordAudit({ actor: "customer", action: "login", module: "Authentication", title: "New customer verified phone login", description: `platform=${body.platform === "web" ? "web" : "mobile_app"}`, severity: "success" });
+    await recordAudit({ actor: "customer", action: "login", module: "Authentication", title: "New customer verified phone login", description: `platform=${"mobile_app"}`, severity: "success" });
   } catch (error) { console.error("[audit] customer login log could not be saved", error); }
   return NextResponse.json({ user, isNew: true, ...(mobileSession.sessionToken ? { sessionToken: mobileSession.sessionToken } : {}) });
 }
