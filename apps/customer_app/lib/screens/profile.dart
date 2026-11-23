@@ -1,5 +1,6 @@
 /// Profile — account, saved addresses (Indian PIN validated), help, logout.
 library;
+import 'dart:async';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
@@ -17,16 +18,47 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserver {
   SessionUser? _user;
   List<BookingItem> _bookings = [];
   bool _loading = true;
   String? _loadError;
+  Timer? _profileSyncTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+    _profileSyncTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        _syncProfile();
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _syncProfile();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _profileSyncTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _syncProfile() async {
+    final current = _user;
+    if (current == null || _loading) return;
+    try {
+      final latest = await Api.refreshProfile(current.phone);
+      if (!mounted) return;
+      setState(() => _user = latest);
+    } catch (_) {
+      // Keep the last good profile during temporary connectivity failures.
+    }
   }
 
   Future<void> _load() async {
