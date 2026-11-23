@@ -4,7 +4,7 @@ import { revokeDeviceSession, type AccountRole } from "../../../../server/device
 
 export async function GET(req: Request) {
   const identity = await firebaseIdentityFromRequest(req);
-  if (!identity?.role || !identity.accountId || !identity.sessionId) {
+  if (!identity?.role || !identity.accountId) {
     return NextResponse.json({ error: "A valid device session is required" }, { status: 401 });
   }
   return NextResponse.json({
