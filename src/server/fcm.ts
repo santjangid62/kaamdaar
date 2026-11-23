@@ -134,3 +134,46 @@ export async function cancelProviderJobOffer(
     }
   }));
 }
+
+/** Notify the provider (and any still ringing offer recipients) when a customer cancels. */
+export async function sendProviderBookingCancelled(
+  tokens: string[],
+  booking: { id: string; serviceName?: string },
+): Promise<void> {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!raw || tokens.length === 0) return;
+  const account = JSON.parse(raw) as ServiceAccount;
+  const projectId = process.env.FIREBASE_PROJECT_ID || account.project_id;
+  if (!account.client_email || !account.private_key || !projectId) {
+    throw new Error("Firebase service account is missing required fields");
+  }
+  const bearer = await accessToken(account);
+  await Promise.all([...new Set(tokens)].map(async (token) => {
+    const response = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${bearer}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          message: {
+            token,
+            data: {
+              type: "booking_cancelled_by_customer",
+              bookingId: booking.id,
+              title: "Customer cancelled the booking",
+              body: `${booking.serviceName || "A service"} booking was cancelled by the customer.`,
+            },
+            android: { priority: "HIGH", ttl: "60s", collapseKey: `kaamdaar_booking_${booking.id}` },
+          },
+        }),
+      },
+    );
+    if (!response.ok) {
+      const detail = await response.text();
+      console.error("[fcm] customer cancellation push failed", response.status, detail.slice(0, 500));
+    }
+  }));
+}

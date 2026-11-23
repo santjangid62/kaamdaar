@@ -9,7 +9,7 @@ import { appendEvents, eventsForChange, newEvent } from "../../../../server/even
 import { isAuthed } from "../../../../lib/admin/auth";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
 import { advanceProviderDispatch } from "../../../../server/dispatch";
-import { cancelProviderJobOffer } from "../../../../server/fcm";
+import { cancelProviderJobOffer, sendProviderBookingCancelled } from "../../../../server/fcm";
 import type {
   Booking,
   BookingActor,
@@ -497,6 +497,29 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       readAt: null,
       createdAt: Date.now(),
     });
+  }
+  if (changes.status === "cancelled" && actorRole === "customer") {
+    // Send a high-priority event to the assigned Pro and every Pro whose offer
+    // was still active when the customer cancelled. This avoids app polling delay.
+    const recipientIds = new Set([
+      ...(booking.providerId ? [booking.providerId] : []),
+      ...(booking.notifiedIds ?? []),
+    ]);
+    if (recipientIds.size) {
+      const providerRows = await all<Provider & { fcmTokens?: string[] }>("providers");
+      const tokens = providerRows
+        .filter((provider) => recipientIds.has(provider.id))
+        .flatMap((provider) => provider.fcmTokens ?? []);
+      try {
+        await sendProviderBookingCancelled(tokens, {
+          id: booking.id,
+          serviceName: booking.serviceName,
+        });
+      } catch (error) {
+        // Cancellation remains authoritative even if FCM is temporarily unavailable.
+        console.error("[fcm] customer cancellation notification failed", error);
+      }
+    }
   }
   if (changes.status === "cancelled" && actorRole === "customer") {
     const customerBookings = await all<Booking>("bookings");
