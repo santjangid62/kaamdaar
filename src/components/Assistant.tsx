@@ -216,7 +216,7 @@ export default function Assistant() {
     rec.onresult = (e) => {
       const transcript = e.results[0]?.[0]?.transcript?.trim() ?? "";
       if (!transcript) return;
-      if (/\\b(hallo|hello|halo)\\s+kaamdaar\\b/i.test(transcript)) {
+      if (/\b(hallo|hello|halo)\s+kaamdaar\b/i.test(transcript)) {
         const greeting = "मैं आपका Kaamdaar साथी हूँ, मैं आपके लिए क्या कर सकता हूँ?";
         setOpen(true);
         push({ role: "bot", text: greeting });
