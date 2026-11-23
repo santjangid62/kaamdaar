@@ -362,7 +362,18 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                         Text('+91 ${u?.phone ?? ''}',
                             style: TextStyle(
                                 color: Colors.white.withOpacity(.8), fontSize: 12.5)),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
+                        TextButton.icon(
+                          onPressed: _editProfile,
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 2),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: const Icon(Icons.edit_outlined, size: 14),
+                          label: const Text('Edit profile', style: TextStyle(fontSize: 11)),
+                        ),
+                        const SizedBox(height: 4),
                         Container(
                           padding:
                               const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
