@@ -38,10 +38,10 @@ export async function POST(req: Request): Promise<NextResponse> {
   const lang = body.lang === "hi" ? "hi" : "en";
   if (!message) return NextResponse.json({ error: "empty message" }, { status: 400 });
 
-  const normalized = message.toLowerCase().replace(/[^\\p{L}\\p{N}\\s]/gu, " ").replace(/\\s+/g, " ").trim();
-  const asksName = /\\b(who are you|your name|what is your name|what should i call you)\\b/.test(normalized) ||
+  const normalized = message.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+  const asksName = /\b(who are you|your name|what is your name|what should i call you)\b/.test(normalized) ||
     /(आपका नाम|तुम्हारा नाम|कौन हो|कौन हैं|अपना नाम)/.test(normalized);
-  const asksCreator = /\\b(who made you|who created you|who built you|who trained you|your creator|which company made you)\\b/.test(normalized) ||
+  const asksCreator = /\b(who made you|who created you|who built you|who trained you|your creator|which company made you)\b/.test(normalized) ||
     /(किसने बनाया|किसने बनाया है|किसने ट्रेन|किसने प्रशिक्षित|आपके निर्माता|किसकी टीम ने)/.test(normalized);
   if (asksName) {
     return NextResponse.json({ reply: lang === "hi"
@@ -63,7 +63,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     `Answer in ${lang === "hi" ? "simple Hindi (Devanagari)" : "simple English"}; mirror the user's language if clear. ` +
     `You may ONLY help with Kaamdaar topics: services, catalogue, published prices, booking, addresses, schedules, provider dispatch, booking status, payments, account, and customer support. ` +
     `If asked anything unrelated, politely refuse. Hindi refusal: "मुझे खेद है, इस प्रश्न के लिए मैं आपकी सहायता नहीं कर सकता।" English refusal: "Sorry, I can't help with that question." ` +
-    `Never claim a booking has been placed unless the booking API confirms it. Never invent providers, availability, prices, policies, or booking status. Ask one clear question at a time when booking details are missing. Do not collect OTPs, passwords, or payment credentials. Final booking requires explicit customer confirmation. Use this live service catalogue:\\n` +
+    `Never claim a booking has been placed unless the booking API confirms it. Never invent providers, availability, prices, policies, or booking status. Ask one clear question at a time when booking details are missing. Do not collect OTPs, passwords, or payment credentials. Final booking requires explicit customer confirmation. Use this live service catalogue:\n` +
     catalogueForPrompt();
 
   const messages = [
