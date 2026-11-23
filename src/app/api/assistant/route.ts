@@ -43,9 +43,9 @@ export async function POST(req: Request): Promise<NextResponse> {
   const asksName = /\b(who are you|your name|what is your name|what should i call you)\b/.test(normalized) ||
     /(आपका नाम|तुम्हारा नाम|कौन हो|कौन हैं|अपना नाम|आप कौन)/.test(normalized) ||
     /\b(aapka naam|tumhara naam|naam kya|aap kaun)\b/.test(normalized);
-  const asksCreator = /\b(who made you|who created you|who built you|who trained you|your creator|which company made you)\b/.test(normalized) ||
-    /(किसने बनाया|किसने बनाया है|किसने ट्रेन|किसने प्रशिक्षित|आपके निर्माता|किसकी टीम ने)/.test(normalized) ||
-    /\b(kisne banaya|kisne train|kisne trained|aapko kisne|kaun banaya)\b/.test(normalized);
+  const asksCreator = /\b(who made you|who created you|who built you|who developed you|who is your developer|who trained you|your creator|which company made you)\b/.test(normalized) ||
+    /(किसने बनाया|किसने बनाया है|किसने डेवलप|किसने विकसित|आपको किसने डेवलप|आपके डेवलपर|किसने ट्रेन|किसने प्रशिक्षित|आपके निर्माता|किसकी टीम ने)/.test(normalized) ||
+    /\b(kisne banaya|kisne develop|kisne developed|kisne train|kisne trained|aapko kisne|kaun banaya)\b/.test(normalized);
   if (asksName) {
     return NextResponse.json({ reply: lang === "hi"
       ? "मेरा नाम Kaamdaar Bot है। मैं Kaamdaar का आपका डिजिटल सहायक हूँ।"
