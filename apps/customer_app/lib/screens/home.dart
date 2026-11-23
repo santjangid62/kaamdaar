@@ -118,7 +118,6 @@ class _HomeTabState extends State<_HomeTab> {
   List<String> _categories = [];
   List<BookingItem> _recent = [];
   List<ServiceItem> _recommended = [];
-  SessionUser? _user;
   bool _loading = true;
   String? _error;
   String _locationLabel = 'Detecting your location…';
