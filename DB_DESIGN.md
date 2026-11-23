@@ -1,6 +1,6 @@
 # Kaamdaar — Database Design
 
-Every record the product writes lives in one database with 18 collections.
+Every record the product writes lives in one logical database with collections declared in `src/server/db.ts`.
 The frontend never touches storage directly: the browser calls `/api/*`,
 API routes run the repository functions in [`src/server/db.ts`](src/server/db.ts),
 and the Admin dashboard reads and writes through the same routes.
@@ -18,11 +18,7 @@ Repository (src/server/db.ts)            ← single swap-point for Firestore / D
 .data/db.json  (file store, git-ignored; one JSON object per collection)
 ```
 
-**Storage engine today:** a serialized JSON file (`.data/db.json`) so the whole
-product runs with zero external services. The repository API is deliberately
-tiny — moving to Firestore or Cloudflare D1 means reimplementing six functions
-(`all / get / insert / patch / upsert / remove`) in `src/server/db.ts`;
-no API route, store client or admin page changes.
+**Storage engine today:** MongoDB Atlas whenever `MONGODB_URI` is configured. The database name is selected by `MONGODB_DB` first, then the database path in the URI, then `kaamdaar`. A file-backed JSON store (`.data/db.json`) is used only when `MONGODB_URI` is absent (local/offline fallback). API routes and Admin integrations use the same repository functions in `src/server/db.ts`; do not treat the JSON fallback as the production database.
 
 ---
 
