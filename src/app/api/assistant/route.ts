@@ -41,9 +41,11 @@ export async function POST(req: Request): Promise<NextResponse> {
   const lang = hasHindiScript || romanHindi || body.lang === "hi" ? "hi" : "en";
   if (!message) return NextResponse.json({ error: "empty message" }, { status: 400 });
   const asksName = /\b(who are you|your name|what is your name|what should i call you)\b/.test(normalized) ||
-    /(आपका नाम|तुम्हारा नाम|कौन हो|कौन हैं|अपना नाम)/.test(normalized);
+    /(आपका नाम|तुम्हारा नाम|कौन हो|कौन हैं|अपना नाम|आप कौन)/.test(normalized) ||
+    /\b(aapka naam|tumhara naam|naam kya|aap kaun)\b/.test(normalized);
   const asksCreator = /\b(who made you|who created you|who built you|who trained you|your creator|which company made you)\b/.test(normalized) ||
-    /(किसने बनाया|किसने बनाया है|किसने ट्रेन|किसने प्रशिक्षित|आपके निर्माता|किसकी टीम ने)/.test(normalized);
+    /(किसने बनाया|किसने बनाया है|किसने ट्रेन|किसने प्रशिक्षित|आपके निर्माता|किसकी टीम ने)/.test(normalized) ||
+    /\b(kisne banaya|kisne train|kisne trained|aapko kisne|kaun banaya)\b/.test(normalized);
   if (asksName) {
     return NextResponse.json({ reply: lang === "hi"
       ? "मेरा नाम Kaamdaar Bot है। मैं Kaamdaar का आपका डिजिटल सहायक हूँ।"
@@ -55,7 +57,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       : "I was created and trained by the team at Unique IT Solutions - A Unit of Unique Computers, The Best One.", ai: false, intent: "creator" });
   }
 
-  const isKaamdaarTopic = /\b(kaamdaar|service|services|clean|cleaning|kitchen|bathroom|car wash|vehicle|plumb|electric|ac |air condition|pest|salon|repair|book|booking|reserve|schedule|appointment|provider|professional|pro |address|location|area|jaipur|slot|available|availability|price|rate|cost|payment|pay|refund|cancel|cancellation|track|status|order|account|profile|login|support|help|otp|wallet)\b/i.test(normalized) || /(सेवा|बुक|बुकिंग|सफाई|किचन|रसोई|बाथरूम|गाड़ी|कार|प्लंबर|बिजली|इलेक्ट्रिशियन|एसी|मरम्मत|समय|कल|आज|अभी|पता|लोकेशन|जगह|जयपुर|रेट|कीमत|भुगतान|पेमेंट|प्रोवाइडर|प्रो|ट्रैक|स्टेटस|रद्द|लॉगिन|मदद|सपोर्ट)/.test(message);
+  const isKaamdaarTopic = /\b(kaamdaar|service|services|clean|cleaning|kitchen|bathroom|car wash|vehicle|plumb|electric|air condition|pest|salon|repair|book|booking|reserve|schedule|appointment|provider|professional|address|location|jaipur|slot|available|availability|price|rate|cost|payment|pay|refund|cancel|cancellation|track|status|order|account|profile|login|otp|wallet)\b/i.test(normalized) || /(सेवा|बुक|बुकिंग|सफाई|किचन|रसोई|बाथरूम|गाड़ी|कार|प्लंबर|बिजली|इलेक्ट्रिशियन|एसी|मरम्मत|पता|लोकेशन|जयपुर|रेट|कीमत|भुगतान|पेमेंट|प्रोवाइडर|ट्रैक|स्टेटस|रद्द|लॉगिन)/.test(message);
   if (!isKaamdaarTopic) {
     return NextResponse.json({ reply: lang === "hi"
       ? "मुझे खेद है, इस प्रश्न के लिए मैं आपकी सहायता नहीं कर सकता।"
