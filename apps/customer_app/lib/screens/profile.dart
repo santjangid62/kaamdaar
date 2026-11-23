@@ -21,6 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   SessionUser? _user;
   List<BookingItem> _bookings = [];
   bool _loading = true;
+  String? _loadError;
 
   @override
   void initState() {
@@ -29,22 +30,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _load() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
     try {
       var user = await Api.restoreSession();
       if (user != null) {
         try { user = await Api.refreshProfile(user.phone); } catch (_) {}
       }
-      List<BookingItem> bookings = [];
-      if (user != null) {
-        try {
-          bookings = await Api.userBookings(user.id);
-        } catch (_) {}
-      }
+      final bookings = user == null
+          ? <BookingItem>[]
+          : await Api.userBookings(user.id);
       if (!mounted) return;
       setState(() {
         _user = user;
         _bookings = bookings;
+        _loadError = null;
       });
+    } catch (error) {
+      if (mounted) setState(() => _loadError = error.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -146,6 +153,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
           children: [
+            if (_loadError != null)
+              CardBox(
+                borderColor: KColors.red.withOpacity(.35),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Profile / My Bookings could not be refreshed',
+                        style: TextStyle(fontWeight: FontWeight.w800, color: KColors.red)),
+                    const SizedBox(height: 6),
+                    Text(_loadError!, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: _load,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(

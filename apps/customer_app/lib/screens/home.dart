@@ -15,6 +15,24 @@ import 'profile.dart';
 import 'service.dart';
 import 'tracking.dart';
 
+ImageProvider? _homeProfileImage(String source) {
+  if (source.isEmpty) return null;
+  try {
+    if (source.startsWith('data:image/')) {
+      final comma = source.indexOf(',');
+      if (comma < 0) return null;
+      return MemoryImage(base64Decode(source.substring(comma + 1)));
+    }
+    final uri = Uri.tryParse(source);
+    if (uri != null && (uri.scheme == 'https' || uri.scheme == 'http')) {
+      return NetworkImage(source);
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
 /// Category / service icon lookup (admin chooses lucide names on the web;
 /// the app maps by keyword so any admin-added service still gets a glyph).
 IconData iconFor(String key) {
@@ -118,6 +136,7 @@ class _HomeTabState extends State<_HomeTab> {
   List<String> _categories = [];
   List<BookingItem> _recent = [];
   List<ServiceItem> _recommended = [];
+  SessionUser? _user;
   bool _loading = true;
   String? _error;
   String _locationLabel = 'Detecting your location…';
@@ -243,6 +262,7 @@ class _HomeTabState extends State<_HomeTab> {
       }
       if (!mounted) return;
       setState(() {
+        _user = user;
         _services = services.where((s) => s.parent.isEmpty).toList();
         _categories = services.where((s) => s.parent.isEmpty).map((s) => s.category).toSet().toList();
         _recent = recent;
@@ -326,7 +346,14 @@ class _HomeTabState extends State<_HomeTab> {
                       height: 44,
                       width: 44,
                       decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFFE7ECF2))),
-                      child: const Icon(Icons.person_rounded, color: KColors.navy, size: 25),
+                      child: CircleAvatar(
+                        radius: 21,
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        backgroundImage: _homeProfileImage(_user?.photo ?? ''),
+                        child: (_user?.photo.isNotEmpty ?? false)
+                            ? null
+                            : const Icon(Icons.person_rounded, color: KColors.navy, size: 25),
+                      ),
                     ),
                   ),
                 ),
