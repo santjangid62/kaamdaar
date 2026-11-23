@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main, fix/cross-platform-profile-sync]
   push:
-    branches: [main]
+    branches: [main, fix/cross-platform-profile-sync]
   workflow_dispatch:
 
 # Keep only the newest CI run for this branch; push and PR events share a key.
