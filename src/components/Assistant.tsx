@@ -335,8 +335,8 @@ export default function Assistant() {
               <Sparkles className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold">{s.assistant.title}</p>
-              <p className="truncate text-[11px] text-blue-200">{s.assistant.tagline}</p>
+              <p className="truncate text-sm font-bold">Kaamdaar Bot</p>
+              <p className="truncate text-[11px] text-blue-200">Your booking companion · आपका सेवा साथी</p>
             </div>
             <button
               type="button"
