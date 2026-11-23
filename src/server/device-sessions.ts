@@ -201,3 +201,33 @@ export async function consumeDevicePairingCodeAndCreateWebToken(code: string): P
   const unsigned = `ks1.${payload}`;
   return { token: `${unsigned}.${sign(unsigned)}`, session };
 }
+
+/** Short-lived, signed browser session issued after Firebase Phone OTP. */
+export function createWebSessionToken(input: { phone: string; uid: string; role: AccountRole; accountId: string }): string {
+  const payload = Buffer.from(JSON.stringify({
+    ...input, exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60,
+  })).toString("base64url");
+  const unsigned = `kw1.${payload}`;
+  return `${unsigned}.${sign(unsigned)}`;
+}
+
+export function validateWebSession(token: string): {
+  phone: string; uid: string; role: AccountRole; accountId: string;
+} | null {
+  if (!token.startsWith("kw1.")) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const unsigned = `${parts[0]}.${parts[1]}`;
+  try {
+    const expected = Buffer.from(sign(unsigned), "base64url");
+    const actual = Buffer.from(parts[2], "base64url");
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
+    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as {
+      phone?: string; uid?: string; role?: AccountRole; accountId?: string; exp?: number;
+    };
+    if (!payload.phone || !payload.uid || !payload.accountId ||
+        (payload.role !== "customer" && payload.role !== "provider") ||
+        typeof payload.exp !== "number" || payload.exp <= Math.floor(Date.now() / 1000)) return null;
+    return { phone: payload.phone, uid: payload.uid, role: payload.role, accountId: payload.accountId };
+  } catch { return null; }
+}
