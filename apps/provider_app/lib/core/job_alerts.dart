@@ -46,7 +46,7 @@ class MissedJob {
 
   bool get expired => reason == "expired";
 
-  String get reasonLabel => expired ? "40s me reply nahi kiya" : "Reject kiya";
+  String get reasonLabel => expired ? "40s me reply nahi kiya" : "Cancelled by Provider";
 
   Map<String, dynamic> toJson() =>
       {"id": id, "service": service, "reason": reason, "at": at};
@@ -127,6 +127,38 @@ class JobAlertCenter {
   }
 
   /// Public wake-up hook used by FCM when a push arrives in the foreground.
+  Future<void> handleNotificationAction(String action, String bookingId) async {
+    if (bookingId.isEmpty || !const {'ACCEPT', 'CANCEL'}.contains(action)) return;
+    var me = _me;
+    if (me == null) {
+      final user = await Api.restoreSession();
+      if (user == null) return;
+      me = await Api.me(user.phone);
+      if (me == null) return;
+      _me = me;
+    }
+    final offers = await Api.inbox(me.id);
+    BookingItem? booking;
+    for (final row in offers) {
+      if (row.id == bookingId && row.status == 'dispatched' &&
+          row.notifiedIds.contains(me.id)) {
+        booking = row;
+        break;
+      }
+    }
+    if (booking == null) return;
+    await cancelOffer(bookingId);
+    _handled.add(bookingId);
+    await _persistHandled();
+    if (action == 'ACCEPT') {
+      await _accept(booking, me);
+    } else {
+      await _decline(booking, me, 'declined');
+    }
+  }
+
+  /// Public wake-up hook used by FCM when a push arrives in the foreground.
+
   Future<void> checkNow() => _check();
 
   /// Close an offer screen immediately when another provider wins the claim.
