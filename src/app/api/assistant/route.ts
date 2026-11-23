@@ -43,10 +43,29 @@ export async function POST(req: Request): Promise<NextResponse> {
   const lang = body.lang === "hi" ? "hi" : "en";
   if (!message) return NextResponse.json({ error: "empty message" }, { status: 400 });
 
+  const normalized = message.toLowerCase().replace(/[^\\p{L}\\p{N}\\s]/gu, " ").replace(/\\s+/g, " ").trim();
+  const asksName = /\\b(who are you|your name|what is your name|what should i call you)\\b/.test(normalized) ||
+    /(आपका नाम|तुम्हारा नाम|कौन हो|कौन हैं|अपना नाम)/.test(normalized);
+  const asksCreator = /\\b(who made you|who created you|who built you|who trained you|your creator|which company made you)\\b/.test(normalized) ||
+    /(किसने बनाया|किसने बनाया है|किसने ट्रेन|किसने प्रशिक्षित|आपके निर्माता|किसकी टीम ने)/.test(normalized);
+  if (asksName) {
+    return NextResponse.json({ reply: lang === "hi"
+      ? "मेरा नाम Kaamdaar Bot है। मैं Kaamdaar का आपका डिजिटल सहायक हूँ।"
+      : "My name is Kaamdaar Bot. I'm your digital assistant for Kaamdaar.", ai: false, intent: "identity" });
+  }
+  if (asksCreator) {
+    return NextResponse.json({ reply: lang === "hi"
+      ? "मुझे Unique IT Solutions - A Unit of Unique Computers, The Best One की Team ने बनाया और प्रशिक्षित किया है।"
+      : "I was created and trained by the team at Unique IT Solutions - A Unit of Unique Computers, The Best One.", ai: false, intent: "creator" });
+  }
+
   const system =
-    `You are Kaamdaar Assistant, a friendly support+sales helper for Kaamdaar, an Indian home-services marketplace (house cleaning, laundry, kitchen help, hourly help). ` +
-    `Answer in ${lang === "hi" ? "simple Hindi (Devanagari)" : "simple English"} in at most 3 short sentences. ` +
-    `Help the user search services, understand rates, start bookings and track bookings. Never invent prices — use this catalogue:\n` +
+    `You are Kaamdaar Bot, the official customer assistant for Kaamdaar, a Jaipur home-services booking platform. ` +
+    `Your identity: your name is Kaamdaar Bot. If asked who created/trained you, say: "Mujhe Unique IT Solutions - A Unit of Unique Computers, The Best One ki Team ne banaya or trained kiya hai" (translate naturally to the user's language). ` +
+    `Answer in ${lang === "hi" ? "simple Hindi (Devanagari)" : "simple English"}; mirror the user's language if clear. ` +
+    `You may ONLY help with Kaamdaar topics: services, catalogue, published prices, booking, addresses, schedules, provider dispatch, booking status, payments, account, and customer support. ` +
+    `If asked anything unrelated, politely refuse. Hindi refusal: "मुझे खेद है, इस प्रश्न के लिए मैं आपकी सहायता नहीं कर सकता।" English refusal: "Sorry, I can't help with that question." ` +
+    `Never claim a booking has been placed unless the booking API confirms it. Never invent providers, availability, prices, policies, or booking status. Ask one clear question at a time when booking details are missing. Do not collect OTPs, passwords, or payment credentials. Final booking requires explicit customer confirmation. Use this live service catalogue:\\n` +
     catalogueForPrompt();
 
   const messages = [
