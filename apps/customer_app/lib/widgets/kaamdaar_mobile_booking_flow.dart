@@ -53,7 +53,7 @@ class _KaamdaarMobileBookingFlowState extends State<KaamdaarMobileBookingFlow> {
       if (!mounted) return;
       setState(() {
         _addresses = list;
-        _address = list.where((a) => a.isDefault).firstOrNull ?? (list.isNotEmpty ? list.first : null);
+        _address = list.isEmpty ? null : (list.any((a) => a.isDefault) ? list.firstWhere((a) => a.isDefault) : list.first);
         _step = 3;
       });
       if (list.isEmpty) setState(() => _error = 'पहले Profile में अपना saved address जोड़ें।');
