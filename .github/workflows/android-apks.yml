@@ -60,6 +60,7 @@ jobs:
           flutter build apk --debug
           --dart-define=API_BASE=https://kaamdaar-git-qa-firebase-test-auth-unique-it-team.vercel.app
           --dart-define=FIREBASE_PHONE_AUTH_TESTING=true
+          --dart-define=QA_MOBILE_AUTH=true
 
       - name: Export debug signing fingerprints
         working-directory: ${{ matrix.directory }}/android
