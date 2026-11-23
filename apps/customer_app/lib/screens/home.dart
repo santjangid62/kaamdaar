@@ -14,6 +14,24 @@ import 'profile.dart';
 import 'service.dart';
 import 'tracking.dart';
 
+ImageProvider? _homeProfileImage(String source) {
+  if (source.isEmpty) return null;
+  try {
+    if (source.startsWith('data:image/')) {
+      final comma = source.indexOf(',');
+      if (comma < 0) return null;
+      return MemoryImage(base64Decode(source.substring(comma + 1)));
+    }
+    final uri = Uri.tryParse(source);
+    if (uri != null && (uri.scheme == 'https' || uri.scheme == 'http')) {
+      return NetworkImage(source);
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
 /// Category / service icon lookup (admin chooses lucide names on the web;
 /// the app maps by keyword so any admin-added service still gets a glyph).
 IconData iconFor(String key) {
@@ -248,9 +266,23 @@ class _HomeTabState extends State<_HomeTab> {
                   onPressed: () {},
                   icon: const Icon(Icons.notifications_none, color: KColors.navy),
                 ),
-                IconButton(
-                  onPressed: () => setState(() {}),
-                  icon: const Icon(Icons.menu, color: KColors.navy),
+                Material(
+                  color: Colors.white,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                    ),
+                    child: CircleAvatar(
+                      radius: 22,
+                      backgroundColor: const Color(0xFFF1F5F9),
+                      backgroundImage: _homeProfileImage(_user?.photo ?? ''),
+                      child: (_user?.photo.isNotEmpty ?? false)
+                          ? null
+                          : const Icon(Icons.person_rounded, color: KColors.navy, size: 25),
+                    ),
+                  ),
                 ),
               ],
             ),

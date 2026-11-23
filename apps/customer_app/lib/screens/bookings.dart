@@ -27,12 +27,16 @@ class _BookingsScreenState extends State<BookingsScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final user = await Api.restoreSession();
       if (user == null) {
+        if (!mounted) return;
         setState(() {
-          _loading = false;
           _error = 'Please log in to see your bookings.';
         });
         return;

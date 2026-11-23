@@ -53,7 +53,9 @@ class _LocationGateState extends State<LocationGate> with WidgetsBindingObserver
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && !_ready) {
+    // Refresh the GPS fix silently on resume. Once the app has passed the
+    // initial gate, never show the splash or permission screen again on unlock.
+    if (state == AppLifecycleState.resumed) {
       unawaited(_checkLocation(requestPermission: false));
     }
   }
