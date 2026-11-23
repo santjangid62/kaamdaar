@@ -64,7 +64,7 @@ class _ProviderShellState extends State<ProviderShell> {
         currentIndex: _tab,
         onTap: (i) => setState(() => _tab = i),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: PColors.green,
+        selectedItemColor: PColors.flame,
         unselectedItemColor: Colors.black45,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5),
         items: const [
@@ -331,7 +331,7 @@ class _DashboardTabState extends State<DashboardTab> {
               const SizedBox(height: 10),
               Text(_error!, textAlign: TextAlign.center),
               const SizedBox(height: 14),
-              GhostBtn(label: 'Retry', onPressed: _load, color: PColors.green),
+              GhostBtn(label: 'Retry', onPressed: _load, color: PColors.flame),
             ],
           ),
         ),
@@ -368,7 +368,7 @@ class _DashboardTabState extends State<DashboardTab> {
                   decoration: BoxDecoration(
                       color: PColors.green.withValues(alpha: .12),
                       shape: BoxShape.circle),
-                  child: const Icon(Icons.handyman, color: PColors.green),
+                  child: const Icon(Icons.handyman, color: PColors.flame),
                 ),
               ],
             ),
@@ -793,8 +793,8 @@ class _OfferCard extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: onAccept,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: PColors.green,
-                      foregroundColor: Colors.white,
+                      backgroundColor: PColors.flame,
+                      foregroundColor: PColors.ink,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
@@ -883,7 +883,7 @@ class _JobsTabState extends State<JobsTab> {
                 child: ChoiceChip(
                   label: Text(e.value),
                   selected: active,
-                  selectedColor: PColors.green,
+                  selectedColor: PColors.flame,
                   labelStyle: TextStyle(
                       color: active ? Colors.white : Colors.black54,
                       fontWeight: FontWeight.w700,
@@ -1084,7 +1084,7 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
             : _error != null
                 ? ListView(padding: const EdgeInsets.all(24), children: [
                     const SizedBox(height: 70), Text(_error!, textAlign: TextAlign.center),
-                    const SizedBox(height: 12), GhostBtn(label: 'Retry', onPressed: _load, color: PColors.green),
+                    const SizedBox(height: 12), GhostBtn(label: 'Retry', onPressed: _load, color: PColors.flame),
                   ])
                 : ListView(padding: const EdgeInsets.all(16), children: [
                     const Text('Cancelled by Provider & Missed', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: PColors.ink)),
@@ -1226,7 +1226,7 @@ class _WalletTabState extends State<WalletTab> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: PColors.green),
+            style: FilledButton.styleFrom(backgroundColor: PColors.flame, foregroundColor: PColors.ink),
             child: const Text('Add'),
           ),
         ],
@@ -1266,7 +1266,7 @@ class _WalletTabState extends State<WalletTab> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                    colors: [PColors.greenDark, PColors.green],
+                    colors: [PColors.greenDark, PColors.flame],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight),
                 borderRadius: BorderRadius.circular(20),

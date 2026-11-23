@@ -181,7 +181,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             color: PColors.green.withValues(alpha: .1),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(icon, size: 64, color: PColors.green),
+                          child: Icon(icon, size: 64, color: PColors.flame),
                         ),
                         const SizedBox(height: 32),
                         Text(title,
@@ -214,7 +214,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         height: 7,
                         width: _index == i ? 22 : 7,
                         decoration: BoxDecoration(
-                          color: _index == i ? PColors.green : const Color(0xFFD1D9D6),
+                          color: _index == i ? PColors.flame : const Color(0xFFD1D9D6),
                           borderRadius: BorderRadius.circular(99),
                         ),
                       );
@@ -351,7 +351,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: const BoxDecoration(
-                      color: PColors.green, shape: BoxShape.circle),
+                      color: PColors.flame, shape: BoxShape.circle),
                   child: const Icon(Icons.handyman, color: Colors.white, size: 36),
                 ),
               ),
@@ -614,8 +614,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         return FilterChip(
                           label: Text(s.name, style: const TextStyle(fontSize: 12)),
                           selected: picked,
-                          selectedColor: PColors.green.withValues(alpha: .18),
-                          checkmarkColor: PColors.green,
+                          selectedColor: PColors.flame.withValues(alpha: .18),
+                          checkmarkColor: PColors.flame,
                           onSelected: (on) => setState(() {
                             if (on) {
                               _services.add(s.id);
