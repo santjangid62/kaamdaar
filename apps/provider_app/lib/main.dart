@@ -33,7 +33,7 @@ class KaamdaarProviderApp extends StatelessWidget {
       home: const LocationGate(
         appTitle: 'Kaamdaar Provider',
         background: PColors.greenDark,
-        accent: PColors.green,
+        accent: PColors.flame,
         child: SplashScreen(),
       ),
     );
