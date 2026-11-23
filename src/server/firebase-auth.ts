@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { touchDeviceSession, validateDeviceSession } from "./device-sessions";
+import { touchDeviceSession, validateDeviceSession, validateWebSession } from "./device-sessions";
 
 const PHONE_RE = /^\+91[6-9]\d{9}$/;
 
@@ -114,9 +114,10 @@ export async function firebaseIdentityFromRequest(
       if (identity) await touchDeviceSession(`${identity.role}:${identity.accountId}`, identity.sessionId);
       return identity;
     }
-    // Firebase ID tokens prove phone ownership, but they do not prove which
-    // physical installation is active. Protected APIs accept only sessions
-    // minted after the account's device slot has been claimed.
+    if (token.startsWith("kw1.")) {
+      const identity = validateWebSession(token);
+      return identity ? { ...identity } : null;
+    }
     return null;
   } catch {
     return null;
