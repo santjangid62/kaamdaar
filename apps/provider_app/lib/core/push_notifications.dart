@@ -145,6 +145,7 @@ Future<void> _showBackgroundOffer(RemoteMessage message) async {
         enableVibration: true,
         category: AndroidNotificationCategory.message,
         visibility: NotificationVisibility.public,
+        fullScreenIntent: true,
         autoCancel: true,
         timeoutAfter: 40000,
         actions: <AndroidNotificationAction>[
