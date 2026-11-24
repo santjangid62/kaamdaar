@@ -402,12 +402,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setReady(true);
 
     void (async () => {
-      // Admin/provider workspaces never request staff device location here.
-      if (isStaffRoute) {
-        setLocationPromptVisible(false);
-        return;
-      }
-      // Require customer GPS on every fresh website visit.
+      // Require a verified device location on every fresh web workspace visit:
+      // customer, provider, admin and super-admin. This is a UI gate only;
+      // staff coordinates are not posted to the customer/provider location API.
+
       setLocationPromptVisible(true);
       // A locality chosen from the Jaipur area list is an explicit user choice.
       // Keep it as the anchor for Area We Serve instead of replacing it with a
