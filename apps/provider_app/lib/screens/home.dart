@@ -23,27 +23,56 @@ class ProviderShell extends StatefulWidget {
   State<ProviderShell> createState() => _ProviderShellState();
 }
 
-class _ProviderShellState extends State<ProviderShell> {
+class _ProviderShellState extends State<ProviderShell> with WidgetsBindingObserver {
   int _tab = 0;
+  bool _watchingOffers = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _watchOffers();
   }
 
-  /// Starts the app-wide offer watcher: a new dispatch rings over whichever
-  /// tab is open, not only the dashboard.
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Re-attempt FCM setup after the user returns from Android notification
+    // settings or after a temporary network/service interruption.
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_watchOffers());
+    }
+  }
+
+  /// Start in-app dispatch polling independently from optional FCM setup.
+  /// A Firebase permission/token error must never disable the 40-second
+  /// in-app offer watcher.
   Future<void> _watchOffers() async {
-    final user = await Api.restoreSession();
-    if (user == null) return;
+    if (_watchingOffers) return;
+    _watchingOffers = true;
     try {
+      final user = await Api.restoreSession();
+      if (user == null) return;
       final me = await Api.me(user.phone);
       if (me == null) return;
-      await ProviderPushNotifications.instance.initialize(me.id);
+
+      // Start polling first: it is the fallback path if push notifications
+      // are disabled, delayed, or temporarily unavailable.
       await JobAlertCenter.instance.start(user: user, me: me);
+      try {
+        await ProviderPushNotifications.instance.initialize(me.id);
+      } catch (_) {
+        // FCM can be retried when the app resumes; polling remains active.
+      }
     } catch (_) {
-      // The dashboard's own retry will surface connectivity problems.
+      // The dashboard's own retry will surface API connectivity problems.
+    } finally {
+      _watchingOffers = false;
     }
   }
 

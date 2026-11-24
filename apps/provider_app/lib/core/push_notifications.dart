@@ -205,7 +205,6 @@ class ProviderPushNotifications {
   Future<void> initialize(String providerId) async {
     if (Firebase.apps.isEmpty || providerId.isEmpty) return;
     if (_registeredProviderId == providerId) return;
-    _registeredProviderId = providerId;
 
     await _prepareLocalNotifications();
     // Android can launch a terminated app directly from a notification action.
@@ -268,5 +267,8 @@ class ProviderPushNotifications {
     if (initial != null && initial.data['type'] == 'job_offer') {
       unawaited(JobAlertCenter.instance.checkNow());
     }
+    // Mark initialized only after all setup steps succeed. If Android denies
+    // a permission or Firebase temporarily fails, app-resume can retry setup.
+    _registeredProviderId = providerId;
   }
 }
