@@ -52,118 +52,56 @@ function requestFix(opts: PositionOptions): Promise<Fix> {
  * Desktop browsers without a real location source may not be able to provide
  * this accuracy; in that case we fail closed instead of showing a false area.
  */
-export async function browserLocation(timeoutMs = 45000): Promise<GeoPoint> {
+export async function browserLocation(): Promise<GeoPoint> {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
     throw new Error("position-unavailable");
   }
 
-  return new Promise((resolve, reject) => {
-    const fixes: Fix[] = [];
-    let watchId: number | null = null;
-    let settled = false;
-    let sawLowAccuracy = false;
+  // Use two sequential one-shot requests instead of watchPosition + a
+  // competing timer. On Windows/macOS desktop browsers the high-accuracy
+  // provider can time out; the old equal-length timer could reject first and
+  // prevent the lower-power Wi-Fi lookup from ever completing.
+  let highAccuracyError: Error | null = null;
+  try {
+    const precise = await requestFix({
+      enableHighAccuracy: true,
+      timeout: 15_000,
+      maximumAge: 0,
+    });
+    if (precise.accuracy <= 1000) {
+      return { lat: precise.lat, lng: precise.lng, accuracy: precise.accuracy };
+    }
+    highAccuracyError = new Error("low-accuracy");
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "position-unavailable";
+    if (code === "permission-denied") throw error;
+    highAccuracyError = error instanceof Error ? error : new Error(code);
+  }
 
-    const finish = (error?: Error, point?: GeoPoint) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-      if (error) reject(error);
-      else if (point) resolve(point);
-      else reject(new Error("position-unavailable"));
-    };
-
-    // Desktop Wi-Fi location can be less precise than phone GPS. Accept a
-    // practical 1 km fix, but still reject coarse IP-level estimates.
-    const timer = window.setTimeout(() => {
-      const usable = fixes.filter((sample) => sample.accuracy <= 1000);
-      if (usable.length) {
-        const best = usable.reduce((a, b) => b.accuracy < a.accuracy ? b : a);
-        finish(undefined, { lat: best.lat, lng: best.lng, accuracy: best.accuracy });
-      } else {
-        finish(new Error(sawLowAccuracy ? "low-accuracy" : "timeout"));
-      }
-    }, timeoutMs);
-
-    watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        const fix: Fix = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy ?? 9999,
-        };
-        if (fix.accuracy > 1000) {
-          sawLowAccuracy = true;
-          return;
-        }
-
-        fixes.push(fix);
-        // Two nearby readings are enough; requiring three fixes within 100m
-        // caused valid desktop/laptop locations to time out indefinitely.
-        const best = fixes.reduce((a, b) => b.accuracy < a.accuracy ? b : a);
-        const agreeing = fixes.filter((sample) => haversineKm(best, sample) <= 0.5);
-        if (agreeing.length >= 2 || fix.accuracy <= 200) {
-          finish(undefined, {
-            lat: best.lat,
-            lng: best.lng,
-            accuracy: best.accuracy,
-          });
-        }
-      },
-      (error) => {
-        if (error.code === error.PERMISSION_DENIED) {
-          finish(new Error("permission-denied"));
-          return;
-        }
-        if (error.code === error.TIMEOUT) {
-          // A high-accuracy GPS lookup can time out on desktops even when
-          // Chrome can provide a usable Wi-Fi location. Try one bounded,
-          // lower-power lookup before showing the blocking error screen.
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const fallback: Fix = {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-                accuracy: position.coords.accuracy ?? 9999,
-              };
-              if (fallback.accuracy <= 1000) {
-                finish(undefined, { lat: fallback.lat, lng: fallback.lng, accuracy: fallback.accuracy });
-              } else {
-                finish(new Error("low-accuracy"));
-              }
-            },
-            (fallbackError) => {
-              finish(new Error(fallbackError.code === fallbackError.PERMISSION_DENIED ? "permission-denied" : "position-unavailable"));
-            },
-            { enableHighAccuracy: false, timeout: 15000, maximumAge: 30000 },
-          );
-          return;
-        }
-        // POSITION_UNAVAILABLE is commonly caused by macOS/Windows location
-        // services not exposing a GPS/Wi-Fi provider to the browser. A coarse
-        // browser lookup can still succeed; never accept an IP-only estimate.
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const fallback: Fix = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-              accuracy: position.coords.accuracy ?? 9999,
-            };
-            if (fallback.accuracy <= 1000) {
-              finish(undefined, { lat: fallback.lat, lng: fallback.lng, accuracy: fallback.accuracy });
-            } else {
-              finish(new Error("low-accuracy"));
-            }
-          },
-          (fallbackError) => {
-            finish(new Error(fallbackError.code === fallbackError.PERMISSION_DENIED ? "permission-denied" : "position-unavailable"));
-          },
-          { enableHighAccuracy: false, timeout: 15000, maximumAge: 30000 },
-        );
-      },
-      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 10000 },
-    );
-  });
+  // Browser/OS Wi-Fi positioning is often the only source available on
+  // laptops and desktops. Give it its own full timeout and allow cached
+  // readings from the OS, but never accept a coarse IP-level estimate.
+  try {
+    const fallback = await requestFix({
+      enableHighAccuracy: false,
+      timeout: 20_000,
+      maximumAge: 30_000,
+    });
+    if (fallback.accuracy <= 1000) {
+      return { lat: fallback.lat, lng: fallback.lng, accuracy: fallback.accuracy };
+    }
+    throw new Error("low-accuracy");
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "position-unavailable";
+    if (code === "permission-denied") throw error;
+    if (code === "low-accuracy" || highAccuracyError?.message === "low-accuracy") {
+      throw new Error("low-accuracy");
+    }
+    if (code === "timeout" && highAccuracyError?.message === "timeout") {
+      throw new Error("timeout");
+    }
+    throw new Error("position-unavailable");
+  }
 }
 
 /** Reverse geocode to a readable label. Falls back gracefully when offline/blocked. */
