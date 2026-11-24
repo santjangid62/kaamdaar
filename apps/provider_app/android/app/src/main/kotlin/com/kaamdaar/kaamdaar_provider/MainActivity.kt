@@ -26,7 +26,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {\n        super.onCreate(savedInstanceState)\n        // Let a full-screen incoming-job notification appear over the keyguard.\n        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {\n            setShowWhenLocked(true)\n            setTurnScreenOn(true)\n        }\n    }\n\n    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         createJobAlertChannel()
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kaamdaar/alerts")
@@ -48,7 +48,7 @@ class MainActivity : FlutterActivity() {
     private fun createJobAlertChannel() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                "kaamdaar_job_alerts_v3",
+                "kaamdaar_job_alerts_v4",
                 "Kaamdaar new job requests",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
