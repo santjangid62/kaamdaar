@@ -113,8 +113,8 @@ export default function Assistant() {
     async (text: string, viaVoice: boolean) => {
       viaVoiceRef.current = viaVoice;
       push({ role: "user", text });
-      const romanHindi = /\\b(kya|kyun|kaise|kab|kahan|kidhar|mujhe|mere|meri|mera|aap|tum|hai|hain|ho|karna|kar do|batao|chahiye|abhi|aaj|kal|kitna|kitne|kitni|dikhao|samjhao)\\b/i.test(text);
-      const responseLang = /[\\u0900-\\u097F]/.test(text) || romanHindi ? "hi" : lang;
+      const romanHindi = /\b(kya|kyun|kaise|kab|kahan|kidhar|mujhe|mere|meri|mera|aap|tum|hai|hain|ho|karna|kar do|batao|chahiye|abhi|aaj|kal|kitna|kitne|kitni|dikhao|samjhao)\b/i.test(text);
+      const responseLang = /[\u0900-\u097F]/.test(text) || romanHindi ? "hi" : lang;
       const messageCtx = { ...ctx, lang: responseLang };
 
       const known = {
@@ -123,7 +123,7 @@ export default function Assistant() {
       const local = localAnswer(text, messageCtx, known);
       if (local) {
         push({ role: "bot", ...local });
-        if (viaVoice) speakOut(local.text, lang);
+        if (viaVoice) speakOut(local.text, responseLang);
         return;
       }
 
@@ -134,7 +134,7 @@ export default function Assistant() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: text,
-            lang,
+            lang: responseLang,
             history: msgs
               .filter((m) => m.role === "user" || m.role === "bot")
               .slice(-6)
@@ -148,7 +148,7 @@ export default function Assistant() {
         push({ role: "bot", ...reply });
         if (viaVoice) speakOut(reply.text, responseLang);
       } catch {
-        const fb = fallbackReply(lang);
+        const fb = fallbackReply(responseLang);
         push({ role: "bot", ...fb });
         if (viaVoice) speakOut(fb.text, responseLang);
       } finally {
