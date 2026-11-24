@@ -52,7 +52,7 @@ function requestFix(opts: PositionOptions): Promise<Fix> {
  * Desktop browsers without a real location source may not be able to provide
  * this accuracy; in that case we fail closed instead of showing a false area.
  */
-export async function browserLocation(timeoutMs = 30000): Promise<GeoPoint> {
+export async function browserLocation(timeoutMs = 45000): Promise<GeoPoint> {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
     throw new Error("position-unavailable");
   }
@@ -73,15 +73,13 @@ export async function browserLocation(timeoutMs = 30000): Promise<GeoPoint> {
       else reject(new Error("position-unavailable"));
     };
 
+    // Desktop Wi-Fi location can be less precise than phone GPS. Accept a
+    // practical 1 km fix, but still reject coarse IP-level estimates.
     const timer = window.setTimeout(() => {
-      if (fixes.length >= 2) {
-        const best = fixes.reduce((a, b) => b.accuracy < a.accuracy ? b : a);
-        const agreeing = fixes.filter((sample) => haversineKm(best, sample) <= 0.3);
-        if (agreeing.length >= 2) {
-          finish(undefined, { lat: best.lat, lng: best.lng, accuracy: best.accuracy });
-          return;
-        }
-        finish(new Error("inconsistent-location"));
+      const usable = fixes.filter((sample) => sample.accuracy <= 1000);
+      if (usable.length) {
+        const best = usable.reduce((a, b) => b.accuracy < a.accuracy ? b : a);
+        finish(undefined, { lat: best.lat, lng: best.lng, accuracy: best.accuracy });
       } else {
         finish(new Error(sawLowAccuracy ? "low-accuracy" : "timeout"));
       }
@@ -94,15 +92,17 @@ export async function browserLocation(timeoutMs = 30000): Promise<GeoPoint> {
           lng: position.coords.longitude,
           accuracy: position.coords.accuracy ?? 9999,
         };
-        if (fix.accuracy > 200) {
+        if (fix.accuracy > 1000) {
           sawLowAccuracy = true;
           return;
         }
 
         fixes.push(fix);
+        // Two nearby readings are enough; requiring three fixes within 100m
+        // caused valid desktop/laptop locations to time out indefinitely.
         const best = fixes.reduce((a, b) => b.accuracy < a.accuracy ? b : a);
-        const agreeing = fixes.filter((sample) => haversineKm(best, sample) <= 0.1);
-        if (agreeing.length >= 3) {
+        const agreeing = fixes.filter((sample) => haversineKm(best, sample) <= 0.5);
+        if (agreeing.length >= 2 || fix.accuracy <= 200) {
           finish(undefined, {
             lat: best.lat,
             lng: best.lng,
@@ -115,7 +115,7 @@ export async function browserLocation(timeoutMs = 30000): Promise<GeoPoint> {
         else if (error.code === error.TIMEOUT) finish(new Error("timeout"));
         else finish(new Error("position-unavailable"));
       },
-      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 },
+      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 10000 },
     );
   });
 }
