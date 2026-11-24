@@ -104,7 +104,9 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
     }
 
     // Re-evaluate providers when each ring opens: they must still be online,
-    // verified, not busy, wallet-funded, have a recent GPS fix and an FCM token.
+    // verified, not busy, wallet-funded and have a recent GPS fix.
+    // FCM is an optional delivery channel, not an eligibility requirement:
+    // the Web portal and Provider app also receive offers through inbox polling.
     const previouslyContacted = new Set([
       ...(booking.notifiedIds ?? []),
       ...(booking.missedProviderIds ?? []),
@@ -127,7 +129,6 @@ export async function advanceProviderDispatch(bookingId: string): Promise<void> 
           !busyIds.has(provider.id) &&
           live &&
           wallet >= minimum &&
-          (provider.fcmTokens ?? []).length > 0 &&
           (provider.services ?? []).includes(booking.serviceId);
       });
 
