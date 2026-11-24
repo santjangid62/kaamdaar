@@ -125,7 +125,7 @@ class _KaamdaarMobileBookingFlowState extends State<KaamdaarMobileBookingFlow> {
         ],
         if (_step == 3) ...[
           const Text('सेवा का पता चुनें'),
-          ..._addresses.map((a) => RadioListTile<String>(dense: true, contentPadding: EdgeInsets.zero, value: a.id, groupValue: _address?.id, title: Text(a.label), subtitle: Text(a.oneLine), onChanged: (v) => setState(() => _address = _addresses.firstWhere((x) => x.id == v))),
+          ..._addresses.map((a) => RadioListTile<String>(dense: true, contentPadding: EdgeInsets.zero, value: a.id, groupValue: _address?.id, title: Text(a.label), subtitle: Text(a.oneLine), onChanged: (v) => setState(() => _address = _addresses.firstWhere((x) => x.id == v)))),
           if (_mode == 'scheduled') ...[
             const SizedBox(height: 8),
             OutlinedButton.icon(onPressed: _busy ? null : () async {
