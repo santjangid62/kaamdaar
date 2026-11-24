@@ -53,7 +53,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPathname(window.location.pathname);
   }, []);
   // Until the browser route is known, do not run customer-only location logic.
-  const isStaffRoute = pathname === null || pathname.startsWith("/admin") || pathname.startsWith("/provider") || pathname.startsWith("/kaamdaar");
+  const isStaffRoute = pathname === null || pathname.startsWith("/admin") || pathname.startsWith("/provider") || pathname.startsWith("/kaamdaar") || pathname.startsWith("/super-admin");
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
