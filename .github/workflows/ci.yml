@@ -66,7 +66,7 @@ jobs:
           FIREBASE_PROJECT_ID: active-valve-162810
 
   flutter:
-    name: Flutter ${{ matrix.app }} checks and QA APK
+    name: Flutter ${{ matrix.app }} checks and production-backend APK
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -111,13 +111,11 @@ jobs:
       - name: Analyze
         working-directory: apps/${{ matrix.app }}
         run: flutter analyze --no-fatal-infos
-      - name: Build Android QA debug APK
+      - name: Build Android APK against Production API
         working-directory: apps/${{ matrix.app }}
         run: >-
           flutter build apk --debug
-          --dart-define=API_BASE=https://kaamdaar-git-feature-kaamdaar-customer-pr-230795-unique-it-team.vercel.app
-          --dart-define=FIREBASE_PHONE_AUTH_TESTING=true
-          --dart-define=QA_MOBILE_AUTH=true
+          --dart-define=API_BASE=https://kaamdaar-seven.vercel.app
       - name: Export QA APK signing fingerprints
         working-directory: apps/${{ matrix.app }}/android
         shell: bash
@@ -126,10 +124,10 @@ jobs:
           awk '/Variant: debug/{show=1; next} show && /^Variant:/{exit} show && /(SHA1|SHA-1|SHA-256):/{print}' signing-report.txt > ../firebase-debug-fingerprints.txt
           echo "Debug signing fingerprints for Firebase Android app registration:"
           cat ../firebase-debug-fingerprints.txt
-      - name: Upload QA APK and Firebase signing fingerprint
+      - name: Upload Production-backend APK and Firebase signing fingerprint
         uses: actions/upload-artifact@v4
         with:
-          name: kaamdaar-${{ matrix.app }}-qa-apk
+          name: kaamdaar-${{ matrix.app }}-production-backend-apk
           path: |
             apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-debug.apk
             apps/${{ matrix.app }}/firebase-debug-fingerprints.txt

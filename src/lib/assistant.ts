@@ -109,6 +109,16 @@ function matchCategory(query: string): string | null {
   return null;
 }
 
+/** Keep the local/offline assistant within the Kaamdaar product domain. */
+export function isKaamdaarTopic(query: string): boolean {
+  const q = norm(query);
+  if (!q) return false;
+  if (matchService(q) || matchCategory(q)) return true;
+  if (/^(hi|hello|hey|namaste|namaskar|नमस्ते|हैलो|हाय)$/.test(q)) return true;
+  if (/(your name|what is your name|who are you|who made you|who created you|who built you|who developed you|who is your developer|who trained you|your creator|aapka naam|naam kya|aap kaun|kisne banaya|kisne banaya hai|kisne develop|kisne developed|kisne train|aapko kisne|आपका नाम|तुम्हारा नाम|कौन हो|कौन हैं|किसने बनाया|किसने डेवलप|किसने विकसित|आपको किसने डेवलप|आपके डेवलपर|किसने प्रशिक्षित|आपके निर्माता)/i.test(query)) return true;
+  return /(kaamdaar|service|services|clean|cleaning|kitchen|bathroom|car wash|vehicle|plumb|electric|air condition|pest|salon|repair|book|booking|reserve|schedule|appointment|provider|professional|address|location|jaipur|slot|available|availability|price|rate|cost|payment|pay|refund|cancel|track|status|account|profile|login|otp|wallet|सेवा|बुक|बुकिंग|सफाई|किचन|रसोई|बाथरूम|गाड़ी|कार|प्लंबर|बिजली|इलेक्ट्रिशियन|एसी|मरम्मत|पता|लोकेशन|जयपुर|रेट|कीमत|भुगतान|प्रोवाइडर|ट्रैक|स्टेटस|रद्द|लॉगिन|मदद|सहायता|शिकायत)/i.test(query);
+}
+
 const GUIDE = [
   "1. Search a service — type or speak its name",
   "2. Pick a Pro near you, choose date & time",

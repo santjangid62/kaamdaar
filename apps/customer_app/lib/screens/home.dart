@@ -13,6 +13,7 @@ import 'bookings.dart';
 import 'profile.dart';
 import 'service.dart';
 import 'tracking.dart';
+import '../widgets/kaamdaar_bot.dart';
 
 ImageProvider? _homeProfileImage(String source) {
   if (source.isEmpty) return null;
@@ -75,7 +76,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final pages = [const _HomeTab(), const BookingsScreen(), const ProfileScreen()];
     return Scaffold(
-      body: IndexedStack(index: _tab, children: pages),
+      body: Stack(children: [
+        IndexedStack(index: _tab, children: pages),
+        const KaamdaarBotLauncher(),
+      ]),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _tab,
         onTap: (i) => setState(() => _tab = i),

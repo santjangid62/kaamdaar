@@ -27,12 +27,14 @@ import { useApp } from "./AppProvider";
 import { fill, useLang } from "../lib/i18n";
 import {
   fallbackReply,
+  isKaamdaarTopic,
   localAnswer,
   type AssistantAction,
   type AssistantReply,
 } from "../lib/assistant";
 import { SERVICE_HI } from "../lib/strings";
 import { nearbyAreaNames } from "../lib/areas";
+import KaamdaarBookingFlow from "./KaamdaarBookingFlow";
 
 interface Msg extends AssistantReply {
   role: "user" | "bot";
@@ -104,6 +106,15 @@ export default function Assistant() {
     async (text: string, viaVoice: boolean) => {
       viaVoiceRef.current = viaVoice;
       push({ role: "user", text });
+
+      if (!isKaamdaarTopic(text)) {
+        const refusal = lang === "hi"
+          ? "मुझे खेद है, इस प्रश्न के लिए मैं आपकी सहायता नहीं कर सकता।"
+          : "Sorry, I can't help with that question.";
+        push({ role: "bot", text: refusal });
+        if (viaVoice) speakOut(refusal, lang);
+        return;
+      }
 
       const known = {
         areas: location ? nearbyAreaNames(location, 10, providers) : undefined,
@@ -205,7 +216,15 @@ export default function Assistant() {
     rec.continuous = false;
     rec.onresult = (e) => {
       const transcript = e.results[0]?.[0]?.transcript?.trim() ?? "";
-      if (transcript) void answer(transcript, true);
+      if (!transcript) return;
+      if (/\b(hallo|hello|halo)\s+kaamdaar\b/i.test(transcript)) {
+        const greeting = "मैं आपका Kaamdaar साथी हूँ, मैं आपके लिए क्या कर सकता हूँ?";
+        setOpen(true);
+        push({ role: "bot", text: greeting });
+        speakOut(greeting, "hi");
+        return;
+      }
+      void answer(transcript, true);
     };
     rec.onerror = () => setListening(false);
     rec.onend = () => setListening(false);
@@ -335,8 +354,8 @@ export default function Assistant() {
               <Sparkles className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold">{s.assistant.title}</p>
-              <p className="truncate text-[11px] text-blue-200">{s.assistant.tagline}</p>
+              <p className="truncate text-sm font-bold">Kaamdaar Bot</p>
+              <p className="truncate text-[11px] text-blue-200">Your booking companion · आपका सेवा साथी</p>
             </div>
             <button
               type="button"
@@ -399,6 +418,8 @@ export default function Assistant() {
               </div>
             )}
           </div>
+
+          <KaamdaarBookingFlow user={user} services={services} location={location} lang={lang} />
 
           {/* quick chips */}
           <div className="flex flex-wrap gap-1.5 border-t border-slate-100 bg-white px-3 pt-2.5">
