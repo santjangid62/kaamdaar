@@ -3,12 +3,10 @@
 import { LoaderCircle, MapPin, Navigation, ShieldCheck } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useApp } from "./AppProvider";
-import { useLang } from "../lib/i18n";
 
-/** Customer-only location gate. GPS is requested from a clear user gesture. */
+/** Blocking device-location verification gate shared by customer and staff web workspaces. */
 export default function LocationNotice() {
   const { locating, locationError, locationPromptVisible, detectLocation } = useApp();
-  const { s } = useLang();
   const pathname = usePathname();
   const isStaff = pathname?.startsWith("/provider") || pathname?.startsWith("/admin") || pathname?.startsWith("/super-admin");
   const heading = isStaff ? "Verify your current location" : "Find help near you";
