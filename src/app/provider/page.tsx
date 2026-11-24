@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
   Bell, BriefcaseBusiness, CalendarX, CheckCircle2, IndianRupee, LogOut,
@@ -45,6 +45,11 @@ export default function ProviderPortalPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [activeOfferId, setActiveOfferId] = useState<string | null>(null);
+  const [offerClock, setOfferClock] = useState(0);
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  const offerAudioRef = useRef<AudioContext | null>(null);
+  const seenOffersRef = useRef<Set<string>>(new Set());
 
   const refresh = useCallback(async (p: Provider) => {
     const [b, w] = await Promise.all([
@@ -54,6 +59,41 @@ export default function ProviderPortalPage() {
     setBookings(b.bookings || []);
     setWalletData(w);
   }, []);
+
+  const playOfferTone = useCallback(() => {
+    const audio = offerAudioRef.current;
+    if (!audio || audio.state !== "running") return;
+    [880, 660, 880].forEach((frequency, index) => {
+      const start = audio.currentTime + index * 0.2;
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.16, start + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+      oscillator.connect(gain);
+      gain.connect(audio.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.17);
+    });
+  }, []);
+
+  function enableIncomingAlerts() {
+    try {
+      if (!offerAudioRef.current && typeof window !== "undefined" && window.AudioContext) {
+        offerAudioRef.current = new window.AudioContext();
+      }
+      void offerAudioRef.current?.resume();
+      if ("Notification" in window && Notification.permission === "default") {
+        void Notification.requestPermission();
+      }
+      setAlertsEnabled(true);
+      setNotice("Incoming request sound enabled. Desktop alerts will appear when browser permission is granted.");
+    } catch {
+      setError("Browser sound permission could not be enabled. Please check browser settings.");
+    }
+  }
 
   const resolveProvider = useCallback(async () => {
     const session = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
@@ -79,12 +119,55 @@ export default function ProviderPortalPage() {
   useEffect(() => {
     if (step !== "dashboard" || !provider) return;
     const poll = () => void refresh(provider).catch((e) => setError(e.message));
-    const timer = window.setInterval(poll, 6000);
+    const timer = window.setInterval(poll, 2500);
     return () => window.clearInterval(timer);
   }, [step, provider, refresh]);
 
   const incoming = useMemo(() => bookings.filter(b => b.status === "dispatched" && (b.notifiedIds || []).includes(provider?.id || "")), [bookings, provider]);
   const active = useMemo(() => bookings.find(b => b.providerId === provider?.id && ACTIVE.includes(b.status)), [bookings, provider]);
+  const activeOffer = incoming.find((booking) => booking.id === activeOfferId) ?? incoming[0] ?? null;
+  const activeOfferExpiry = activeOffer
+    ? activeOffer.offerExpiresAt ?? ((activeOffer.dispatchedAt ?? activeOffer.createdAt) + 40_000)
+    : 0;
+  const offerSecondsLeft = activeOffer ? Math.max(0, Math.ceil((activeOfferExpiry - offerClock) / 1000)) : 0;
+
+  useEffect(() => {
+    if (!incoming.length) {
+      setActiveOfferId(null);
+      return;
+    }
+    const fresh = incoming.filter((booking) => !seenOffersRef.current.has(booking.id));
+    if (!fresh.length) return;
+    fresh.forEach((booking) => seenOffersRef.current.add(booking.id));
+    setActiveOfferId((current) => current && incoming.some((booking) => booking.id === current) ? current : fresh[0].id);
+    if ("Notification" in window && Notification.permission === "granted" && document.visibilityState !== "visible") {
+      fresh.forEach((booking) => {
+        const notification = new Notification("New Kaamdaar service request", {
+          body: `${booking.serviceName} · ${booking.address?.label || booking.address?.line1 || "Jaipur"}`,
+          tag: `kaamdaar-offer-${booking.id}`,
+        });
+        notification.onclick = () => {
+          window.focus();
+          setActiveOfferId(booking.id);
+          notification.close();
+        };
+      });
+    }
+    if (alertsEnabled) playOfferTone();
+  }, [incoming, alertsEnabled, playOfferTone]);
+
+  useEffect(() => {
+    if (!activeOffer) return;
+    const timer = window.setInterval(() => setOfferClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [activeOffer?.id]);
+
+  useEffect(() => {
+    if (!activeOffer || !alertsEnabled) return;
+    playOfferTone();
+    const timer = window.setInterval(playOfferTone, 3500);
+    return () => window.clearInterval(timer);
+  }, [activeOffer?.id, alertsEnabled, playOfferTone]);
   const completed = useMemo(() => bookings.filter(b => b.providerId === provider?.id && b.status === "completed"), [bookings, provider]);
   const earnings = completed.filter(b => b.paymentStatus === "verified" || b.paidAt).reduce((sum, b) => sum + (b.amount || 0) - (b.commission || 0), 0);
   const reviews = provider?.reviews || [];
@@ -236,10 +319,30 @@ export default function ProviderPortalPage() {
   ] as const;
 
   return <main className="min-h-screen bg-slate-100 text-slate-900">
+    {activeOffer && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-labelledby="incoming-offer-title">
+      <article className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div><p className="text-xs font-black uppercase tracking-widest text-orange-600">Kaamdaar · Incoming request</p><h2 id="incoming-offer-title" className="mt-1 text-2xl font-black text-slate-900">New service request</h2></div>
+          <span className={`rounded-full px-3 py-2 text-sm font-black tabular-nums ${offerSecondsLeft <= 10 ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-800"}`}>{offerSecondsLeft > 0 ? `${offerSecondsLeft}s left` : "Expired"}</span>
+        </div>
+        <div className="mt-5 rounded-2xl bg-slate-50 p-4">
+          <h3 className="text-xl font-black">{activeOffer.serviceName}</h3>
+          <p className="mt-2 text-sm text-slate-600">{activeOffer.address?.label || activeOffer.address?.line1 || "Jaipur"}</p>
+          <p className="mt-1 text-sm text-slate-500">{activeOffer.date} · {activeOffer.slot}</p>
+          <p className="mt-3 text-3xl font-black text-slate-900">{money(activeOffer.amount)}</p>
+          <p className="mt-2 text-xs text-slate-500">Please accept or reject before this offer expires.</p>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button disabled={busy || offerSecondsLeft <= 0} onClick={() => void respondToOffer(activeOffer, true)} className="flex items-center justify-center gap-2 rounded-xl bg-flame p-3.5 font-black text-navy disabled:cursor-not-allowed disabled:opacity-40"><CheckCircle2 size={18}/> Accept</button>
+          <button disabled={busy || offerSecondsLeft <= 0} onClick={() => void respondToOffer(activeOffer, false)} className="flex items-center justify-center gap-2 rounded-xl border border-red-200 p-3.5 font-black text-red-700 disabled:cursor-not-allowed disabled:opacity-40"><XCircle size={18}/> Reject</button>
+        </div>
+        <p className="mt-4 text-center text-xs text-slate-400">If another device accepts first, this request will close automatically.</p>
+      </article>
+    </div>}
     <header className="sticky top-0 z-20 border-b bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
         <div className="flex items-center gap-3"><div className="rounded-xl bg-orange-100 p-2 text-orange-600"><BriefcaseBusiness/></div><div><p className="text-xs font-bold uppercase tracking-widest text-orange-600">Kaamdaar Pro</p><h1 className="font-black">{provider.name}</h1><p className="text-xs text-slate-500">{provider.phone} · {provider.city}</p></div></div>
-        <div className="flex items-center gap-2"><span className="hidden rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700 sm:inline-flex"><span className="mr-1">●</span> Live sync</span><button onClick={()=>void refresh(provider)} className="rounded-xl border p-2" title="Refresh"><RefreshCw size={18}/></button><button onClick={()=>void logout()} className="rounded-xl border p-2" title="Logout"><LogOut size={18}/></button></div>
+        <div className="flex items-center gap-2"><span className="hidden rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700 sm:inline-flex"><span className="mr-1">●</span> Live sync</span><button onClick={enableIncomingAlerts} className={`rounded-xl border px-3 py-2 text-xs font-bold ${alertsEnabled ? "border-green-200 bg-green-50 text-green-700" : "border-orange-200 bg-orange-50 text-orange-700"}`} title="Enable request sound and desktop notifications">{alertsEnabled ? "Alerts enabled" : "Enable alerts"}</button><button onClick={()=>void refresh(provider)} className="rounded-xl border p-2" title="Refresh"><RefreshCw size={18}/></button><button onClick={()=>void logout()} className="rounded-xl border p-2" title="Logout"><LogOut size={18}/></button></div>
       </div>
     </header>
     <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[220px_1fr]">
