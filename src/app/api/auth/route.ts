@@ -133,7 +133,7 @@ export async function POST(req: Request) {
     const provider = found[0];
     if (!provider) {
       return NextResponse.json(
-        { error: "This number is not on the Kaamdaar Pro roster. Ask the admin to add you." },
+        { error: "You are not Registered with Kaamdaar as Provider" },
         { status: 403 },
       );
     }
