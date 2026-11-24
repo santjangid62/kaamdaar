@@ -219,9 +219,9 @@ export default function ProviderPortalPage() {
             <form onSubmit={requestProviderOtp} className="space-y-5">
               <div className="text-sm leading-6 text-slate-600">Apne Kaamdaar Provider account mein registered mobile number enter karein. OTP verify hone ke baad Provider Dashboard khulega.</div>
               <label className="block text-sm font-semibold text-slate-800">Registered mobile number
-                <input value={phone} onChange={e=>setPhone(e.target.value.replace(/[^0-9+\s-]/g,"").slice(0,16))} inputMode="tel" autoComplete="tel" required placeholder="10-digit mobile number" className="mt-2 w-full rounded-xl border border-slate-200 p-3.5 text-center text-xl tracking-wider outline-none focus:border-orange-500" />
+                <input value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,"").slice(0,10))} inputMode="numeric" autoComplete="tel-national" maxLength={10} pattern="[6-9][0-9]{9}" required placeholder="10-digit mobile number" className="mt-2 w-full rounded-xl border border-slate-200 p-3.5 text-center text-xl tracking-wider outline-none focus:border-orange-500" />
               </label>
-              <button disabled={busy || phone.replace(/\D/g,"").length<10} className="w-full rounded-xl bg-[#FF7A00] p-3.5 font-bold text-[#0B1F3A] disabled:opacity-50">{busy?"Sending OTP…":"Send OTP"}</button>
+              <button disabled={busy || !/^[6-9]\d{9}$/.test(phone)} className="w-full rounded-xl bg-[#FF7A00] p-3.5 font-bold text-[#0B1F3A] disabled:opacity-50">{busy?"Sending OTP…":"Send OTP"}</button>
             </form>
           ) : (
             <form onSubmit={verifyProviderCode} className="space-y-5">
