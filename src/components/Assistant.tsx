@@ -63,8 +63,14 @@ function getSR(): SRCtor | null {
 function speakOut(text: string, lang: "en" | "hi") {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
   const u = new SpeechSynthesisUtterance(text.replace(/\n+/g, ". "));
-  u.lang = lang === "hi" ? "hi-IN" : "en-IN";
-  u.rate = 1;
+  const preferredLocale = lang === "hi" ? "hi-IN" : "en-IN";
+  const voices = window.speechSynthesis.getVoices();
+  const indian = voices.filter((voice) => voice.lang.toLowerCase().replace("_", "-").startsWith(lang === "hi" ? "hi" : "en") && voice.lang.toLowerCase().includes("in"));
+  const maleVoice = indian.find((voice) => /male|man|ravi|amit|arjun|rahul|hemant|google.*hindi|hindi.*india/i.test(voice.name));
+  const selected = maleVoice ?? indian[0] ?? voices.find((voice) => voice.lang.toLowerCase().startsWith(lang === "hi" ? "hi" : "en"));
+  u.lang = selected?.lang ?? preferredLocale;
+  if (selected) u.voice = selected;
+  u.rate = 0.94;
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(u);
 }
@@ -85,6 +91,8 @@ export default function Assistant() {
   const [open, setOpen] = useState(false);
   const [launcher, setLauncher] = useState<{ left: number; top: number } | null>(null);
   const dragOffset = useRef<{ x: number; y: number } | null>(null);
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const didDrag = useRef(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -145,10 +153,11 @@ export default function Assistant() {
           ? { text: data.reply }
           : fallbackReply(lang);
         push({ role: "bot", ...reply });
-        if (viaVoice && data.reply) speakOut(data.reply, lang);
+        if (viaVoice) speakOut(reply.text, lang);
       } catch {
         const fb = fallbackReply(lang);
         push({ role: "bot", ...fb });
+        if (viaVoice) speakOut(fb.text, lang);
       } finally {
         setBusy(false);
       }
@@ -218,15 +227,15 @@ export default function Assistant() {
       const transcript = e.results[0]?.[0]?.transcript?.trim() ?? "";
       if (!transcript) return;
       if (/\b(hallo|hello|halo)\s+kaamdaar\b/i.test(transcript)) {
-        const greeting = "मैं आपका Kaamdaar साथी हूँ, मैं आपके लिए क्या कर सकता हूँ?";
+        const greeting = lang === "hi" ? "मैं आपका Kaamdaar साथी हूँ। मैं आपकी क्या मदद कर सकता हूँ?" : "I am your Kaamdaar assistant. How can I help you?";
         setOpen(true);
         push({ role: "bot", text: greeting });
-        speakOut(greeting, "hi");
+        speakOut(greeting, lang);
         return;
       }
       void answer(transcript, true);
     };
-    rec.onerror = () => setListening(false);
+    rec.onerror = () => { setListening(false); push({ role: "bot", text: lang === "hi" ? "माइक की अनुमति या आवाज़ पहचान में समस्या आई। कृपया माइक्रोफोन अनुमति जाँचें और फिर बोलें।" : "Microphone access or speech recognition failed. Please check permission and try again." }); };
     rec.onend = () => setListening(false);
     recRef.current = rec;
     setListening(true);
@@ -294,6 +303,22 @@ export default function Assistant() {
     );
   }, [ready, user, s]);
 
+  // Slowly glide a manually dragged bot launcher back to its default bottom-right spot.
+  useEffect(() => {
+    if (open || !launcher) return;
+    const timer = window.setInterval(() => {
+      setLauncher((current) => {
+        if (!current) return null;
+        const target = { left: Math.max(12, window.innerWidth - 76), top: Math.max(12, window.innerHeight - 76) };
+        const dx = target.left - current.left;
+        const dy = target.top - current.top;
+        if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return null;
+        return { left: current.left + dx * 0.035, top: current.top + dy * 0.035 };
+      });
+    }, 80);
+    return () => window.clearInterval(timer);
+  }, [launcher, open]);
+
   // keep messages scrolled to bottom
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -330,19 +355,19 @@ export default function Assistant() {
       {/* floating trigger */}
       <button
         type="button"
-        onClick={() => { if (!dragOffset.current) setOpen((v) => !v); dragOffset.current = null; }}
-        onPointerDown={(e) => { dragOffset.current = { x: e.clientX - e.currentTarget.getBoundingClientRect().left, y: e.clientY - e.currentTarget.getBoundingClientRect().top }; e.currentTarget.setPointerCapture(e.pointerId); }}
-        onPointerMove={(e) => { if (!dragOffset.current || e.buttons === 0) return; setLauncher({ left: Math.max(0, Math.min(window.innerWidth - 56, e.clientX - dragOffset.current.x)), top: Math.max(0, Math.min(window.innerHeight - 56, e.clientY - dragOffset.current.y)) }); }}
-        onPointerUp={() => { dragOffset.current = null; }}
-        onPointerCancel={() => { dragOffset.current = null; }}
+        onClick={() => { if (didDrag.current) { didDrag.current = false; return; } setOpen((v) => !v); }}
+        onPointerDown={(e) => { const rect = e.currentTarget.getBoundingClientRect(); dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }; dragStart.current = { x: e.clientX, y: e.clientY }; didDrag.current = false; e.currentTarget.setPointerCapture(e.pointerId); }}
+        onPointerMove={(e) => { if (!dragOffset.current || e.buttons === 0) return; if (dragStart.current && Math.hypot(e.clientX - dragStart.current.x, e.clientY - dragStart.current.y) > 6) didDrag.current = true; if (didDrag.current) setLauncher({ left: Math.max(0, Math.min(window.innerWidth - 56, e.clientX - dragOffset.current.x)), top: Math.max(0, Math.min(window.innerHeight - 56, e.clientY - dragOffset.current.y)) }); }}
+        onPointerUp={() => { dragOffset.current = null; dragStart.current = null; }}
+        onPointerCancel={() => { dragOffset.current = null; dragStart.current = null; }}
         style={launcher ? { left: launcher.left, top: launcher.top, right: "auto", bottom: "auto", touchAction: "none" } : { touchAction: "none" }}
         title={s.assistant.openLabel + " · drag to move"}
         aria-label={s.assistant.openLabel}
-        className={`fixed bottom-5 right-5 z-[70] grid h-14 w-14 cursor-grab place-items-center rounded-full bg-gradient-to-br from-flame to-flame-600 text-navy shadow-xl shadow-black/30 transition hover:scale-105 active:cursor-grabbing active:scale-95 ${
+        className={`fixed bottom-5 right-5 z-[70] grid h-14 w-14 cursor-grab place-items-center rounded-full bg-gradient-to-br from-flame via-amber-300 to-flame-600 text-navy shadow-xl shadow-black/30 ring-4 ring-flame/15 transition duration-300 hover:scale-110 active:cursor-grabbing active:scale-95 ${
           open ? "hidden" : "block"
         }`}
       >
-        {listening ? <Mic className="h-6 w-6 animate-pulse" /> : <Bot className="h-6 w-6" />}
+        {listening ? <Mic className="h-6 w-6 animate-pulse" /> : <span className="relative grid place-items-center"><Bot className="h-7 w-7 drop-shadow-sm" /><Sparkles className="absolute -right-2 -top-2 h-3.5 w-3.5 animate-pulse text-white" /></span>}
       </button>
 
       {/* panel */}
