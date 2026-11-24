@@ -31,9 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <AppProvider>
           <LangProvider>
             <Suspense fallback={null}>
-              <SiteOnly>
-                <LocationNotice />
-              </SiteOnly>
+              <LocationNotice />
             </Suspense>
             <Suspense fallback={<Navbar />}>
               <SiteOnly>
