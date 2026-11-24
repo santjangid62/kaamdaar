@@ -46,7 +46,7 @@ export default function ProviderPortalPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [activeOfferId, setActiveOfferId] = useState<string | null>(null);
-  const [offerClock, setOfferClock] = useState(Date.now());
+  const [offerClock, setOfferClock] = useState(0);
   const [alertsEnabled, setAlertsEnabled] = useState(false);
   const offerAudioRef = useRef<AudioContext | null>(null);
   const seenOffersRef = useRef<Set<string>>(new Set());
