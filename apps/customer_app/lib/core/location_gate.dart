@@ -16,7 +16,7 @@ class LocationGate extends StatefulWidget {
 
 class _LocationGateState extends State<LocationGate> with WidgetsBindingObserver {
   bool _checking = true, _ready = false, _busy = false, _splash = true;
-  bool _serviceOff = false, _permissionBlocked = false;
+  bool _serviceOff = false, _permissionBlocked = false, _permissionGranted = false;
   double? _accuracy;
   String _message = 'Checking location permission…';
 
@@ -43,7 +43,7 @@ class _LocationGateState extends State<LocationGate> with WidgetsBindingObserver
     if (_busy || !mounted || _ready) return;
     _busy = true;
     setState(() {
-      _checking = true; _serviceOff = false; _permissionBlocked = false;
+      _checking = true; _serviceOff = false; _permissionBlocked = false; _permissionGranted = false;
       _accuracy = null; _message = 'Checking GPS permission and device settings…';
     });
     try {
@@ -63,6 +63,7 @@ class _LocationGateState extends State<LocationGate> with WidgetsBindingObserver
             ? 'Location permission is blocked. Open App Settings and allow location access.'
             : 'Location permission is required. Please allow it to continue.');
       }
+      _permissionGranted = true;
       if (mounted) setState(() => _message = 'Verifying your current GPS location…');
       var fix = await Geolocator.getCurrentPosition(locationSettings:
           const LocationSettings(accuracy: LocationAccuracy.bestForNavigation,
@@ -146,7 +147,7 @@ class _LocationGateState extends State<LocationGate> with WidgetsBindingObserver
             const SizedBox(height: 24),
             _step(Icons.lock_outline_rounded, 'Location permission',
               'Allow Kaamdaar to access device location',
-              !_permissionBlocked && !_serviceOff && !_checking),
+              _permissionGranted),
             const SizedBox(height: 10),
             _step(Icons.gps_fixed_rounded, 'GPS / Location Services',
               'Keep your phone location setting switched on', !_serviceOff && !_checking),
