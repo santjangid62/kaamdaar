@@ -436,7 +436,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setLocationPromptVisible(true);
       }
     })();
-  }, [detectLocation, refreshUser, isStaffRoute]);
+  }, [detectLocation, refreshUser]);
 
   const value = useMemo<AppContextValue>(
     () => ({
