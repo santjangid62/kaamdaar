@@ -37,7 +37,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   const message = body.message?.slice(0, 1000) ?? "";
   const normalized = message.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
   const hasHindiScript = /[\u0900-\u097F]/.test(message);
-  const romanHindi = /\\b(kya|kyun|kaise|kab|kahan|kidhar|mujhe|mere|meri|mera|aap|tum|hai|hain|ho|karna|kar do|batao|chahiye|abhi|aaj|kal|kitna|kitne|kitni|dikhao|samjhao)\\b/i.test(normalized);
+  const romanHindi = /\b(kya|kyun|kaise|kab|kahan|kidhar|mujhe|mere|meri|mera|aap|tum|hai|hain|ho|karna|kar do|batao|chahiye|abhi|aaj|kal|kitna|kitne|kitni|dikhao|samjhao)\b/i.test(normalized);
   const lang = hasHindiScript || romanHindi || body.lang === "hi" ? "hi" : "en";
   if (!message) return NextResponse.json({ error: "empty message" }, { status: 400 });
   const asksName = /\b(who are you|your name|what is your name|what should i call you)\b/.test(normalized) ||
