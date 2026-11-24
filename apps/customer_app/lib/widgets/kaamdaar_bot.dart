@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../core/api.dart';
 import '../core/theme.dart';
 import 'kaamdaar_mobile_booking_flow.dart';
@@ -70,6 +71,44 @@ class _KaamdaarBotSheetState extends State<_KaamdaarBotSheet> {
     {'role': 'assistant', 'text': 'नमस्ते! मैं आपका Kaamdaar Bot साथी हूँ। मैं आपके लिए क्या कर सकता हूँ?'},
   ];
   bool _busy = false;
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechReady = false;
+  bool _listening = false;
+
+  Future<void> _toggleSpeech() async {
+    if (_listening) { await _speech.stop(); if (mounted) setState(() => _listening = false); return; }
+    try {
+      _speechReady = await _speech.initialize(
+        onStatus: (status) { if (mounted) setState(() => _listening = status == 'listening'); },
+        onError: (_) { if (mounted) setState(() => _listening = false); },
+      );
+      if (!_speechReady) { if (mounted) setState(() => _messages.add({'role': 'assistant', 'text': 'इस डिवाइस पर speech recognition उपलब्ध नहीं है।'})); return; }
+      await _speech.listen(
+        localeId: 'hi_IN',
+        listenFor: const Duration(seconds: 12),
+        pauseFor: const Duration(seconds: 3),
+        onResult: (result) {
+          final words = result.recognizedWords.trim();
+          if (!mounted || words.isEmpty) return;
+          final normalized = words.toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').replaceAll(RegExp(r'\\s+'), ' ').trim();
+          final wake = normalized.contains('hallo kaamdaar') || normalized.contains('hello kaamdaar') || normalized.contains('halo kaamdaar');
+          setState(() {
+            if (wake) {
+              _input.clear();
+              _messages.add({'role': 'assistant', 'text': 'जी, मैं सुन रहा हूँ। बताइए, कौन-सी सेवा चाहिए?'});
+            } else {
+              _input.text = words;
+              _input.selection = TextSelection.collapsed(offset: _input.text.length);
+            }
+          });
+          if (result.finalResult && _speech.isListening) _speech.stop();
+        },
+      );
+      if (mounted) setState(() => _listening = true);
+    } catch (_) {
+      if (mounted) setState(() { _listening = false; _messages.add({'role': 'assistant', 'text': 'Microphone शुरू नहीं हो पाया। Permission जाँचें।'}); });
+    }
+  }
 
   Future<void> _send() async {
     final text = _input.text.trim();
@@ -150,6 +189,11 @@ class _KaamdaarBotSheetState extends State<_KaamdaarBotSheet> {
                 decoration: const InputDecoration(hintText: 'अपना सवाल लिखें...', border: OutlineInputBorder()),
               )),
               const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'बोलें या “Hallo Kaamdaar” कहें',
+                onPressed: _busy ? null : _toggleSpeech,
+                icon: Icon(_listening ? Icons.mic : Icons.mic_none, color: _listening ? Colors.red : KColors.navy),
+              ),
               IconButton.filled(
                 onPressed: _busy ? null : _send,
                 style: IconButton.styleFrom(backgroundColor: KColors.flame, foregroundColor: KColors.navy),
@@ -163,5 +207,5 @@ class _KaamdaarBotSheetState extends State<_KaamdaarBotSheet> {
   }
 
   @override
-  void dispose() { _input.dispose(); super.dispose(); }
+  void dispose() { _speech.stop(); _input.dispose(); super.dispose(); }
 }
