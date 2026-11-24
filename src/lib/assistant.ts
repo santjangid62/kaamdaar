@@ -144,6 +144,8 @@ export function localAnswer(
   const wantsHelp = /(help|madad|support|complain|shikayat|मदद|सहायता|शिकायत|सपोर्ट)/i.test(query);
   const wantsLogin = /(login|log in|signin|sign in|laut|लॉगिन|लॉग इन|साइन)/i.test(query);
   const wantsHow = /(kaise|how|कैसे|तरीका)/i.test(query);
+  const wantsBookingHow = /(how to book|how do i book|booking process|book kaise|booking kaise|kaise book|kaise booking|बुकिंग कैसे|कैसे बुक)/i.test(query);
+  const wantsExplore = /(show|list|services|options|dikhao|batao|kaun kaun|kya kya|browse|available|दिखाओ|बताओ|कौन कौन|क्या क्या|सेवाएं|सेवाएँ)/i.test(query);
   const wantsAreas = /(area|ilake|nearby area|इलाके|क्षेत्र|एरिया)/i.test(query);
   const greeting = /^(hi|hello|hey|namaste|namaskar|नमस्ते|हैलो|हाय)\b/.test(q);
   const asksIdentity = /(your name|what is your name|who are you|aapka naam|naam kya|aap kaun|आपका नाम|तुम्हारा नाम|कौन हो|कौन हैं)/i.test(query);
@@ -248,7 +250,7 @@ export function localAnswer(
   }
 
   const cat = matchCategory(query);
-  if (cat) {
+  if (cat && (wantsBook || wantsPrice || wantsExplore || q === norm(cat))) {
     return {
       text: hi
         ? `${cat} की सेवाएं खोल रहा हूँ — रेट और विवरण साथ दिखेगा।`
@@ -257,7 +259,7 @@ export function localAnswer(
     };
   }
 
-  if (wantsHow) {
+  if (wantsBookingHow) {
     return {
       text: hi
         ? `बुकिंग आसान है:\n${[
