@@ -1,6 +1,7 @@
 "use client";
 
 import { LoaderCircle, MapPin, Navigation, ShieldCheck } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useApp } from "./AppProvider";
 import { useLang } from "../lib/i18n";
 
@@ -8,6 +9,12 @@ import { useLang } from "../lib/i18n";
 export default function LocationNotice() {
   const { locating, locationError, locationPromptVisible, detectLocation } = useApp();
   const { s } = useLang();
+  const pathname = usePathname();
+  const isStaff = pathname?.startsWith("/provider") || pathname?.startsWith("/admin") || pathname?.startsWith("/super-admin");
+  const heading = isStaff ? "Verify your current location" : "Find help near you";
+  const intro = isStaff
+    ? "Confirm this device’s current location before opening the Kaamdaar workspace. This helps keep location-based operations accurate."
+    : "Allow your current location to discover nearby professionals and book trusted services in your area.";
   if (!locationPromptVisible) return null;
 
   return (
@@ -21,20 +28,20 @@ export default function LocationNotice() {
             <span className="absolute -bottom-2 -right-2 grid h-8 w-8 place-items-center rounded-full border-4 border-[#14517d] bg-orange-400 text-[#09233e]"><Navigation className="h-4 w-4" /></span>
           </div>
           <p className="relative mt-6 text-center text-xs font-bold uppercase tracking-[0.22em] text-cyan-100">Welcome to Kaamdaar</p>
-          <h2 id="location-gate-title" className="relative mt-2 text-center text-3xl font-black tracking-tight">Find help near you</h2>
-          <p className="relative mx-auto mt-3 max-w-xs text-center text-sm leading-6 text-blue-100">Allow your current location to discover nearby professionals and book trusted services in your area.</p>
+          <h2 id="location-gate-title" className="relative mt-2 text-center text-3xl font-black tracking-tight">{heading}</h2>
+          <p className="relative mx-auto mt-3 max-w-xs text-center text-sm leading-6 text-blue-100">{intro}</p>
         </div>
         <div className="px-7 pb-7 pt-6">
           <div className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
-            <p className="text-xs leading-5 text-slate-600">Your location is used to find nearby Kaamdaar professionals and support your active booking. Admin does not request its own location through this website prompt.</p>
+            <p className="text-xs leading-5 text-slate-600">Your location is used only to verify this device and support location-aware Kaamdaar services. Staff location verification does not update customer or provider profiles.</p>
           </div>
           {locationError && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">{locationError}</p>}
           <button type="button" onClick={() => void detectLocation(true)} disabled={locating} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-400 to-amber-400 px-5 py-4 text-base font-extrabold text-[#102b46] shadow-lg shadow-orange-200 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-wait disabled:opacity-70">
             {locating ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Navigation className="h-5 w-5" />}
             {locating ? "Detecting your location…" : locationError ? "Try location again" : "Allow location & continue"}
           </button>
-          <p className="mt-4 text-center text-[11px] leading-5 text-slate-400">Please choose “Allow” in your browser permission prompt. Location access is required to continue using the customer website.</p>
+          <p className="mt-4 text-center text-[11px] leading-5 text-slate-400">Choose “Allow” in your browser permission prompt. A verified device location is required before continuing to the Kaamdaar workspace.</p>
         </div>
       </div>
     </div>
