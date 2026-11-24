@@ -46,6 +46,8 @@ export async function POST(req: Request): Promise<NextResponse> {
   const asksCreator = /\b(who made you|who created you|who built you|who developed you|who is your developer|who trained you|your creator|which company made you)\b/.test(normalized) ||
     /(किसने बनाया|किसने बनाया है|किसने डेवलप|किसने विकसित|आपको किसने डेवलप|आपके डेवलपर|किसने ट्रेन|किसने प्रशिक्षित|आपके निर्माता|किसकी टीम ने)/.test(normalized) ||
     /\b(kisne banaya|kisne develop|kisne developed|kisne train|kisne trained|aapko kisne|kaun banaya)\b/.test(normalized);
+  const asksCapabilities = /\b(what can you do|what can you help|how can you help|what do you do|introduce yourself)\b/.test(normalized) || /(तुम मेरे लिए क्या|आप मेरे लिए क्या|मेरे लिए क्या कर|आप क्या कर सकते|क्या मदद कर सकते)/.test(normalized) || /\b(tum mere liye kya|mere liye kya kar|aap kya kar sakte)\b/.test(normalized);
+  if (asksCapabilities) return NextResponse.json({ reply: lang === "hi" ? "मैं Kaamdaar की सेवाएँ और कीमतें बताने, आपके इलाके में प्रो खोजने, बुकिंग शुरू कराने, बुकिंग ट्रैक करने और लॉगिन, भुगतान, रद्दीकरण व सहायता से जुड़े सवालों के जवाब देने में मदद कर सकता हूँ। आप मुझसे हिंदी या English में चैट या बोलकर बात कर सकते हैं। बताइए, आपको किस काम में मदद चाहिए?" : "I can explain Kaamdaar services and prices, help find Pros near you, start bookings, track bookings, and answer questions about login, payments, cancellations and support. You can chat with me or speak in Hindi or English. What would you like help with?", ai: false, intent: "capabilities" });
   if (asksName) {
     return NextResponse.json({ reply: lang === "hi"
       ? "मेरा नाम Kaamdaar Bot है। मैं Kaamdaar का आपका डिजिटल सहायक हूँ।"
@@ -57,7 +59,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       : "I was created and trained by the team at Unique IT Solutions - A Unit of Unique Computers, The Best One.", ai: false, intent: "creator" });
   }
 
-  const isKaamdaarTopic = /\b(kaamdaar|service|services|clean|cleaning|kitchen|bathroom|car wash|vehicle|plumb|electric|air condition|pest|salon|repair|book|booking|reserve|schedule|appointment|provider|professional|address|location|jaipur|slot|available|availability|price|rate|cost|payment|pay|refund|cancel|cancellation|track|status|order|account|profile|login|otp|wallet)\b/i.test(normalized) || /(सेवा|बुक|बुकिंग|सफाई|किचन|रसोई|बाथरूम|गाड़ी|कार|प्लंबर|बिजली|इलेक्ट्रिशियन|एसी|मरम्मत|पता|लोकेशन|जयपुर|रेट|कीमत|भुगतान|पेमेंट|प्रोवाइडर|ट्रैक|स्टेटस|रद्द|लॉगिन)/.test(message);
+  const isKaamdaarTopic = asksCapabilities || /\b(kaamdaar|service|services|clean|cleaning|kitchen|bathroom|car wash|vehicle|plumb|electric|air condition|pest|salon|repair|book|booking|reserve|schedule|appointment|provider|professional|address|location|jaipur|slot|available|availability|price|rate|cost|payment|pay|refund|cancel|cancellation|track|status|order|account|profile|login|otp|wallet|help|support|discount|offer|coupon|promo|coverage|covered|service area|rating|review|complaint|contact|policy|safety|refund|what can|how can|what do you do|can you)\b/i.test(normalized) || /(सेवा|बुक|बुकिंग|सफाई|किचन|रसोई|बाथरूम|गाड़ी|कार|प्लंबर|बिजली|इलेक्ट्रिशियन|एसी|मरम्मत|पता|लोकेशन|जयपुर|रेट|कीमत|भुगतान|पेमेंट|प्रोवाइडर|ट्रैक|स्टेटस|रद्द|लॉगिन|मदद|सहायता|छूट|ऑफर|कूपन|इलाका|क्षेत्र|रेटिंग|रिव्यू|शिकायत|संपर्क|नीति|क्या कर सकते|मेरे लिए क्या)/.test(message);
   if (!isKaamdaarTopic) {
     return NextResponse.json({ reply: lang === "hi"
       ? "मुझे खेद है, इस प्रश्न के लिए मैं आपकी सहायता नहीं कर सकता।"

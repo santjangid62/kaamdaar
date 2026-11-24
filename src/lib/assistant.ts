@@ -115,7 +115,7 @@ export function isKaamdaarTopic(query: string): boolean {
   if (!q) return false;
   if (matchService(q) || matchCategory(q)) return true;
   if (/^(hi|hello|hey|namaste|namaskar|नमस्ते|हैलो|हाय)$/.test(q)) return true;
-  if (/(your name|what is your name|who are you|who made you|who created you|who built you|who developed you|who is your developer|who trained you|your creator|aapka naam|naam kya|aap kaun|kisne banaya|kisne banaya hai|kisne develop|kisne developed|kisne train|aapko kisne|आपका नाम|तुम्हारा नाम|कौन हो|कौन हैं|किसने बनाया|किसने डेवलप|किसने विकसित|आपको किसने डेवलप|आपके डेवलपर|किसने प्रशिक्षित|आपके निर्माता)/i.test(query)) return true;
+  if (/(your name|what is your name|who are you|who made you|who created you|who built you|who developed you|who is your developer|who trained you|your creator|what can you do|how can you help|tum mere liye kya|aap kya kar sakte|aapka naam|naam kya|aap kaun|kisne banaya|kisne banaya hai|kisne develop|kisne developed|kisne train|aapko kisne|आपका नाम|तुम्हारा नाम|कौन हो|कौन हैं|किसने बनाया|किसने डेवलप|किसने विकसित|आपको किसने डेवलप|आपके डेवलपर|किसने प्रशिक्षित|आपके निर्माता)/i.test(query)) return true;
   return /(kaamdaar|service|services|clean|cleaning|kitchen|bathroom|car wash|vehicle|plumb|electric|air condition|pest|salon|repair|book|booking|reserve|schedule|appointment|provider|professional|address|location|jaipur|slot|available|availability|price|rate|cost|payment|pay|refund|cancel|track|status|account|profile|login|otp|wallet|सेवा|बुक|बुकिंग|सफाई|किचन|रसोई|बाथरूम|गाड़ी|कार|प्लंबर|बिजली|इलेक्ट्रिशियन|एसी|मरम्मत|पता|लोकेशन|जयपुर|रेट|कीमत|भुगतान|प्रोवाइडर|ट्रैक|स्टेटस|रद्द|लॉगिन|मदद|सहायता|शिकायत)/i.test(query);
 }
 
@@ -146,6 +146,11 @@ export function localAnswer(
   const wantsHow = /(kaise|how|कैसे|तरीका)/i.test(query);
   const wantsAreas = /(area|ilake|nearby area|इलाके|क्षेत्र|एरिया)/i.test(query);
   const greeting = /^(hi|hello|hey|namaste|namaskar|नमस्ते|हैलो|हाय)\b/.test(q);
+  const asksIdentity = /(your name|what is your name|who are you|aapka naam|naam kya|aap kaun|आपका नाम|तुम्हारा नाम|कौन हो|कौन हैं)/i.test(query);
+  const asksCapabilities = /(what can you do|what can you help|how can you help|what do you do|tum mere liye kya|mere liye kya kar|aap kya kar sakte|आप मेरे लिए क्या|मेरे लिए क्या कर|आप क्या कर सकते|क्या मदद कर सकते)/i.test(query);
+  if (asksIdentity) return { text: hi ? "मेरा नाम Kaamdaar Bot है। मैं Kaamdaar का आपका डिजिटल साथी हूँ। आप मुझसे चैट या बोलकर बात कर सकते हैं।" : "My name is Kaamdaar Bot. I'm your digital companion for Kaamdaar. You can chat with me or speak to me.", suggestions: hi ? ["तुम मेरे लिए क्या कर सकते हो?", "सेवाएँ कौन-कौन सी हैं?"] : ["What can you do for me?", "What services do you offer?"] };
+  if (asksCapabilities) return { text: hi ? "मैं Kaamdaar की सेवाएँ और कीमतें बताने, पास के प्रो खोजने, बुकिंग शुरू कराने, बुकिंग ट्रैक करने और लॉगिन, भुगतान, रद्दीकरण व सहायता संबंधी सवालों के जवाब देने में मदद कर सकता हूँ। आप हिंदी या English में टाइप करके या बोलकर बात कर सकते हैं। बताइए, किस काम में मदद चाहिए?" : "I can explain Kaamdaar services and prices, help find nearby Pros, start bookings, track bookings, and answer login, payment, cancellation and support questions. You can chat or speak in Hindi or English. What would you like help with?", suggestions: hi ? ["सेवाएँ दिखाओ", "बुकिंग कैसे करें?", "मेरी बुकिंग ट्रैक करो"] : ["Show services", "How do I book?", "Track my booking"] };
+
 
   if (greeting) {
     return {
