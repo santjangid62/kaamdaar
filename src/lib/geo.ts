@@ -111,9 +111,55 @@ export async function browserLocation(timeoutMs = 45000): Promise<GeoPoint> {
         }
       },
       (error) => {
-        if (error.code === error.PERMISSION_DENIED) finish(new Error("permission-denied"));
-        else if (error.code === error.TIMEOUT) finish(new Error("timeout"));
-        else finish(new Error("position-unavailable"));
+        if (error.code === error.PERMISSION_DENIED) {
+          finish(new Error("permission-denied"));
+          return;
+        }
+        if (error.code === error.TIMEOUT) {
+          // A high-accuracy GPS lookup can time out on desktops even when
+          // Chrome can provide a usable Wi-Fi location. Try one bounded,
+          // lower-power lookup before showing the blocking error screen.
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const fallback: Fix = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+                accuracy: position.coords.accuracy ?? 9999,
+              };
+              if (fallback.accuracy <= 1000) {
+                finish(undefined, { lat: fallback.lat, lng: fallback.lng, accuracy: fallback.accuracy });
+              } else {
+                finish(new Error("low-accuracy"));
+              }
+            },
+            (fallbackError) => {
+              finish(new Error(fallbackError.code === fallbackError.PERMISSION_DENIED ? "permission-denied" : "position-unavailable"));
+            },
+            { enableHighAccuracy: false, timeout: 15000, maximumAge: 30000 },
+          );
+          return;
+        }
+        // POSITION_UNAVAILABLE is commonly caused by macOS/Windows location
+        // services not exposing a GPS/Wi-Fi provider to the browser. A coarse
+        // browser lookup can still succeed; never accept an IP-only estimate.
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const fallback: Fix = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              accuracy: position.coords.accuracy ?? 9999,
+            };
+            if (fallback.accuracy <= 1000) {
+              finish(undefined, { lat: fallback.lat, lng: fallback.lng, accuracy: fallback.accuracy });
+            } else {
+              finish(new Error("low-accuracy"));
+            }
+          },
+          (fallbackError) => {
+            finish(new Error(fallbackError.code === fallbackError.PERMISSION_DENIED ? "permission-denied" : "position-unavailable"));
+          },
+          { enableHighAccuracy: false, timeout: 15000, maximumAge: 30000 },
+        );
       },
       { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 10000 },
     );
