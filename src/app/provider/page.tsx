@@ -45,6 +45,7 @@ export default function ProviderPortalPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [showUnregisteredPopup, setShowUnregisteredPopup] = useState(false);
 
   const refresh = useCallback(async (p: Provider) => {
     const [b, w] = await Promise.all([
@@ -125,9 +126,8 @@ export default function ProviderPortalPage() {
 
   async function requestProviderOtp(e: React.FormEvent) {
     e.preventDefault(); setError(""); setBusy(true);
-    const digits = phone.replace(/\D/g, "");
-    const normalized = digits.length === 10 ? `+91${digits}` : digits.startsWith("91") && digits.length === 12 ? `+${digits}` : "";
-    if (!/^\+91[6-9]\d{9}$/.test(normalized)) { setError("Valid 10-digit Indian mobile number enter karein."); setBusy(false); return; }
+    const normalized = /^\d{10}$/.test(phone) && /^[6-9]\d{9}$/.test(phone) ? `+91${phone}` : "";
+    if (!normalized) { setError("Sirf 10-digit Indian mobile number (6–9 se shuru) enter karein."); setBusy(false); return; }
     try { await sendOtp(normalized); setPhone(normalized); setOtpSent(true); setNotice("OTP sent. Please verify to continue."); }
     catch (e) { setError(e instanceof Error ? e.message : "Firebase OTP send failed."); }
     finally { setBusy(false); }
@@ -139,7 +139,15 @@ export default function ProviderPortalPage() {
       const normalized = phone.startsWith("+") ? phone : `+91${phone.replace(/\D/g, "")}`;
       await verifyProviderOtp(normalized, otp.trim());
       await resolveProvider(); setOtp(""); setOtpSent(false); setNotice("Provider login successful.");
-    } catch (e) { setError(e instanceof Error ? e.message : "OTP verification failed."); }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "OTP verification failed.";
+      if (/not on the Kaamdaar Pro roster/i.test(message)) {
+        setError("");
+        setShowUnregisteredPopup(true);
+      } else {
+        setError(message);
+      }
+    }
     finally { setBusy(false); }
   }
 
@@ -227,6 +235,15 @@ export default function ProviderPortalPage() {
           )}
           {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         </div>
+        {showUnregisteredPopup && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" role="presentation">
+          <section role="dialog" aria-modal="true" aria-labelledby="unregistered-provider-title" className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-orange-100 text-2xl">!</div>
+            <h2 id="unregistered-provider-title" className="text-xl font-black text-slate-900">आप Registered Kaamdaar नहीं हैं।</h2>
+            <p className="mt-2 text-sm text-slate-600">इस मोबाइल नंबर से कोई Provider account नहीं मिला। कृपया Admin से संपर्क करके अपना Provider registration करवाएँ।</p>
+            <button type="button" onClick={() => { setShowUnregisteredPopup(false); backToPhone(); }} className="mt-5 w-full rounded-xl bg-[#FF7A00] p-3 font-bold text-[#0B1F3A]">ठीक है</button>
+          </section>
+        </div>}
+
       </div>
     </main>;
   }
