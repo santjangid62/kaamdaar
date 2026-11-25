@@ -13,6 +13,17 @@ class AdminApi {
       (await _storage.read(key: 'kaamdaar.superadmin.token'))?.isNotEmpty ?? false;
 
   static Future<void> logout() async {
+    final token = await _token();
+    if (token.isNotEmpty) {
+      try {
+        await http.post(
+          Uri.parse('$_base/api/super-admin/mobile/logout'),
+          headers: {'Authorization': 'Bearer $token'},
+        );
+      } catch (_) {
+        // Local credentials are cleared even when the network is unavailable.
+      }
+    }
     await _storage.delete(key: 'kaamdaar.superadmin.token');
   }
 
