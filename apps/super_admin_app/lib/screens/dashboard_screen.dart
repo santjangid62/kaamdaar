@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/admin_api.dart';
 import 'collection_screen.dart';
+import 'live_tracking_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -107,6 +108,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: const Text('Owner Control Centre'),
         actions: [
+          IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const LiveTrackingScreen())), icon: const Icon(Icons.map_outlined), tooltip: 'Live tracking'),
           IconButton(onPressed: load, icon: const Icon(Icons.refresh)),
           IconButton(
               onPressed: widget.onLogout,
