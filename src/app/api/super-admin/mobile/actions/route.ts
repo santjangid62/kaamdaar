@@ -93,5 +93,16 @@ export async function POST(req: Request) {
     await recordAudit({ actor: "super_admin", action: "approved", module: "Provider payments", title: "Demo provider payment verified", description: id, reference: id });
     return NextResponse.json({ ok: true, record: updated, wallet: await getWallet(String(payment.providerId)), mode: "demo" });
   }
+
+  if (action === "payout_mark_paid") {
+    const payout = await get<Record<string, unknown>>("payouts", id);
+    if (!payout) return jsonError("Payout record not found", 404);
+    if (String(payout.status ?? "") !== "Processing") return jsonError("Only Processing payouts can be marked Paid", 409);
+    const reference = String(body.reference ?? "").trim().slice(0, 120);
+    if (reference.length < 6) return jsonError("Enter a valid bank / UPI transaction reference (minimum 6 characters)", 422);
+    const updated = await patch("payouts", id, { status: "Paid", paidAt: now, paymentReference: reference, paidBy: "super_admin" });
+    await recordAudit({ actor: "super_admin", action: "approved", module: "Payouts", title: "Payout marked Paid", description: `${id}; reference=${reference}`, reference: id });
+    return NextResponse.json({ ok: true, record: updated, note: "This records a manually completed transfer; it does not initiate a bank transfer." });
+  }
   return jsonError("Unsupported owner action", 404);
 }
