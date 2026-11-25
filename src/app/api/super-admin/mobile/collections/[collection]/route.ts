@@ -8,6 +8,19 @@ const OWNER_READABLE_COLLECTIONS: Collection[] = [
   "notifications", "payouts", "wallets", "walletTxns", "providerPayments",
   "adminUsers", "auditLogs", "settings",
 ];
+const PRIVATE_FIELD = /password|token|secret|otp|hash|credential|authorization|attachments|privatekey|session/i;
+
+function safeValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(safeValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([key]) => !PRIVATE_FIELD.test(key) && key !== "_id")
+        .map(([key, item]) => [key, safeValue(item)]),
+    );
+  }
+  return value;
+}
 
 export async function GET(
   req: Request,
@@ -37,7 +50,11 @@ export async function GET(
   });
 
   return NextResponse.json(
-    { collection: requested, total: filtered.length, rows: sorted.slice(0, limit) },
+    {
+      collection: requested,
+      total: filtered.length,
+      rows: sorted.slice(0, limit).map((row) => safeValue(row)),
+    },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
