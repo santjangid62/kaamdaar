@@ -23,7 +23,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _decide() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
+    await Future.delayed(Duration.zero);
     if (!mounted) return;
     final seen = await Api.onboarded;
     final user = await Api.restoreSession();
