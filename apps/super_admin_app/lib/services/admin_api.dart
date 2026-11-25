@@ -66,6 +66,39 @@ class AdminApi {
     );
   }
 
+
+  static Future<Map<String, dynamic>> action(Map<String, dynamic> payload) async {
+    final token = await _token();
+    final response = await http.post(
+      Uri.parse('$_base/api/super-admin/mobile/actions'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 401) {
+      await logout();
+      throw Exception('Session expired. Please sign in again.');
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(data['error'] ?? 'Action failed');
+    }
+    return data;
+  }
+
+  static Future<String> csvReport(String collection) async {
+    final token = await _token();
+    final response = await http.get(
+      Uri.parse('$_base/api/super-admin/mobile/reports/${Uri.encodeComponent(collection)}'),
+      headers: {'Authorization': 'Bearer $token', 'Cache-Control': 'no-store'},
+    );
+    if (response.statusCode == 401) {
+      await logout();
+      throw Exception('Session expired. Please sign in again.');
+    }
+    if (response.statusCode != 200) throw Exception('Report export failed');
+    return utf8.decode(response.bodyBytes);
+  }
+
   static Future<Map<String, dynamic>> overview() =>
       _get('/api/super-admin/mobile/overview');
 
