@@ -78,7 +78,7 @@ class PrimaryBtn extends StatelessWidget {
         onPressed: busy ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
-          foregroundColor: Colors.white,
+          foregroundColor: PColors.ink,
           disabledBackgroundColor: color.withValues(alpha: .45),
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -88,7 +88,7 @@ class PrimaryBtn extends StatelessWidget {
             ? const SizedBox(
                 width: 22,
                 height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                child: CircularProgressIndicator(strokeWidth: 2.4, color: PColors.ink),
               )
             : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 if (icon != null) ...[Icon(icon, size: 18), const SizedBox(width: 8)],
