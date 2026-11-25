@@ -8,7 +8,7 @@ const ACTIVE = new Set([
 ]);
 
 export async function GET(req: Request) {
-  if (!verifyMobileSuperAdminToken(bearerToken(req))) {
+  if (!(await verifyMobileSuperAdminToken(bearerToken(req)))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   await ready();
