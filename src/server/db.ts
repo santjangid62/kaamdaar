@@ -506,7 +506,10 @@ export async function claimDeviceSession<T extends Record<string, unknown>>(
       if ((error as { code?: number }).code !== 11000) throw error;
       const current = await collection.findOne({ _id: id });
       if (!current) throw error;
-      const sameDevice = current.deviceId === doc.deviceId;
+      // A reinstall or cleared app data creates a new installation ID on the same phone.
+      // A freshly verified Firebase UID is the account owner, so allow that identity
+      // to reclaim its single-device slot while still keeping only one active session.
+      const sameDevice = current.deviceId === doc.deviceId || current.uid === doc.uid;
       const inactive = Boolean(current.revokedAt) || Number(current.expiresAt) <= now;
       if (!sameDevice && !inactive) {
         return { claimed: false, session: stripId<T & { id: string }>(current) };
@@ -528,7 +531,7 @@ export async function claimDeviceSession<T extends Record<string, unknown>>(
     const store = await readStore();
     store.deviceSessions ??= {};
     const current = store.deviceSessions[id] as (Doc & { deviceId?: string }) | undefined;
-    if (current && current.deviceId !== doc.deviceId && !current.revokedAt && Number(current.expiresAt) > Date.now()) {
+    if (current && current.deviceId !== doc.deviceId && current.uid !== doc.uid && !current.revokedAt && Number(current.expiresAt) > Date.now()) {
       result = { claimed: false, session: current as T & { id: string } };
       return;
     }
