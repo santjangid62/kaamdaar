@@ -10,7 +10,7 @@ function clean(value: unknown): unknown {
   return value;
 }
 function csvCell(value: unknown): string {
-  const raw = value == null ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
+  const rawValue = value == null ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);\n  const raw = /^[=+@\\-\\t]/.test(rawValue) ? "'" + rawValue : rawValue;
   return '"' + raw.replace(/"/g,'""').replace(/[\r\n]+/g," ") + '"';
 }
 export async function GET(req: Request, ctx: { params: Promise<{ collection: string }> }) {
