@@ -53,7 +53,7 @@ export async function GET(
     {
       collection: requested,
       total: filtered.length,
-      rows: sorted.slice(0, limit).map((row) => safeValue(row)),
+      rows: sorted.slice(0, limit).map((row) => {\n        const safe = safeValue(row) as Record<string, unknown>;\n        // This is the existing demo-only OTP used by the provider-payment verification flow.\n        if (requested === "providerPayments" && (row as Record<string, unknown>).demo === true) {\n          safe.verificationOtp = (row as Record<string, unknown>).otp;\n        }\n        return safe;\n      }),
     },
     { headers: { "Cache-Control": "no-store" } },
   );
