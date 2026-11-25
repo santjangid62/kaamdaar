@@ -4,6 +4,7 @@ import { bearerToken, verifyMobileSuperAdminToken } from "../../../../../lib/sup
 import { debitCommission, getWallet, rechargeWallet, type WalletTxn } from "../../../../../server/wallet";
 import { appendEvents, newEvent } from "../../../../../server/events";
 import { recordAudit } from "../../../../../server/audit";
+import { revokeDeviceSession } from "../../../../../server/device-sessions";
 import type { Booking, User, Provider } from "../../../../../lib/types";
 
 const jsonError = (error: string, status = 400) => NextResponse.json({ error }, { status });
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
       const account = await get<User>("users", id);
       if (!account) return jsonError("Customer not found", 404);
       const updated = await patch<User>("users", id, { status, updatedAt: now });
+      if (status === "blocked") await revokeDeviceSession("customer", id);
       await insert("notifications", { id: uid("ntf"), type: status === "blocked" ? "customer_account_blocked" : "customer_account_unblocked", title: status === "blocked" ? "Kaamdaar account restricted" : "Your Kaamdaar account is active again", message: status === "blocked" ? "Your account has been restricted by Kaamdaar Admin. Contact support for assistance." : "Your account has been unblocked. You can book services again.", userId: id, userName: account.firstName || "Customer", phone: account.phone || "", platform: "Owner control centre", readAt: null, createdAt: now });
       await recordAudit({ actor: "super_admin", action: "status_changed", module: "Customers", title: `Customer ${status}`, description: id, reference: id });
       return NextResponse.json({ ok: true, record: updated });
@@ -35,6 +37,7 @@ export async function POST(req: Request) {
       const account = await get<Provider & { status?: string }>("providers", id);
       if (!account) return jsonError("Provider not found", 404);
       const updated = await patch("providers", id, { status, ...(status === "blocked" ? { availabilityStatus: "offline" } : {}), updatedAt: now });
+      if (status === "blocked") await revokeDeviceSession("provider", id);
       await recordAudit({ actor: "super_admin", action: "status_changed", module: "Providers", title: `Provider ${status}`, description: id, reference: id });
       return NextResponse.json({ ok: true, record: updated });
     }
