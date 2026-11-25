@@ -1,4 +1,7 @@
-import 'package:flutter/material.dart';\nimport 'package:share_plus/share_plus.dart';\nimport 'package:printing/printing.dart';\nimport 'package:pdf/widgets.dart' as pw;
+import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/widgets.dart' as pw;
 import '../services/admin_api.dart';
 
 class CollectionScreen extends StatefulWidget {
