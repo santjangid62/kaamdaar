@@ -1,5 +1,4 @@
 import { GET as getOverview } from "../../overview/route";
-import { NextResponse } from "next/server";
 import { bearerToken, verifyMobileSuperAdminToken } from "../../../../../lib/super-admin/mobile-auth";
 export async function GET(req:Request){
  if(!verifyMobileSuperAdminToken(bearerToken(req))) return NextResponse.json({error:"Unauthorized"},{status:401});
