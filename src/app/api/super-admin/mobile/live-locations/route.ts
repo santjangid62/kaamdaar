@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { all, ready } from "../../../../../../server/db";
-import { bearerToken, verifyMobileSuperAdminToken } from "../../../../../../lib/super-admin/mobile-auth";
-import type { Booking } from "../../../../../../lib/types";
+import { all, ready } from "../../../../../server/db";
+import { bearerToken, verifyMobileSuperAdminToken } from "../../../../../lib/super-admin/mobile-auth";
+import type { Booking } from "../../../../../lib/types";
 
 const ACTIVE = new Set([
   "dispatched", "accepted", "scheduled", "enroute", "arrived", "in_progress",
