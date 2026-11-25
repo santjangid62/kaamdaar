@@ -373,33 +373,52 @@ class _DashboardTabState extends State<DashboardTab> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 26),
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Good Morning, ${_user?.firstName.isNotEmpty == true ? _user!.firstName : me.name.split(' ').first}!',
-                          style: const TextStyle(
-                              fontSize: 17, fontWeight: FontWeight.w900, color: PColors.ink)),
-                      const SizedBox(height: 2),
-                      InkWell(
-                        onTap: _detectProviderLocation,
-                        child: Text(_locationLabel == 'Detecting your location…' && me.city.isNotEmpty ? me.city : _locationLabel,
-                          maxLines: 2, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, color: Colors.black45)),
-                      ),
-                    ],
-                  ),
+            Container(
+              padding: const EdgeInsets.fromLTRB(18, 18, 16, 18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0B2240), Color(0xFF173D68), Color(0xFF24517A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                      color: PColors.green.withValues(alpha: .12),
-                      shape: BoxShape.circle),
-                  child: const Icon(Icons.handyman, color: PColors.flame),
-                ),
-              ],
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [BoxShadow(color: PColors.ink.withValues(alpha: .18), blurRadius: 18, offset: const Offset(0, 8))],
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Good Morning, ${_user?.firstName.isNotEmpty == true ? _user!.firstName : me.name.split(' ').first}!',
+                      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white)),
+                    const SizedBox(height: 5),
+                    InkWell(
+                      onTap: _detectProviderLocation,
+                      child: Row(children: [
+                        const Icon(Icons.location_on_rounded, color: Color(0xFFFFB14A), size: 14),
+                        const SizedBox(width: 4),
+                        Expanded(child: Text(_locationLabel == 'Detecting your location…' && me.city.isNotEmpty ? me.city : _locationLabel,
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: .78)))),
+                      ]),
+                    ),
+                  ])),
+                  Container(width: 46, height: 46, decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .12), borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withValues(alpha: .18))),
+                    child: const Icon(Icons.handyman_rounded, color: Color(0xFFFFA12B), size: 24)),
+                ]),
+                const SizedBox(height: 17),
+                Container(height: 1, color: Colors.white.withValues(alpha: .15)),
+                const SizedBox(height: 13),
+                Row(children: [
+                  const Icon(Icons.bolt_rounded, color: Color(0xFFFFB14A), size: 17),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text('Your next great job could be around the corner.',
+                    style: TextStyle(color: Colors.white.withValues(alpha: .88), fontSize: 11.5, fontWeight: FontWeight.w600))),
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: const Color(0xFFFF8A00), borderRadius: BorderRadius.circular(99)),
+                    child: const Text('PRO PARTNER', style: TextStyle(color: PColors.ink, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: .6))),
+                ]),
+              ]),
             ),
             const SizedBox(height: 14),
 
