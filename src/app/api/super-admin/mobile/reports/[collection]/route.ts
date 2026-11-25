@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { all, ready, type Collection } from "../../../../../server/db";
-import { bearerToken, verifyMobileSuperAdminToken } from "../../../../../lib/super-admin/mobile-auth";
+import { all, ready, type Collection } from "../../../../../../server/db";
+import { bearerToken, verifyMobileSuperAdminToken } from "../../../../../../lib/super-admin/mobile-auth";
 
 const ALLOWED: Collection[] = ["users","providers","bookings","services","categories","complaints","providerPayments","wallets","walletTxns","payouts","adminUsers","auditLogs"];
 const PRIVATE = /password|token|secret|otp|hash|credential|authorization|attachments|privatekey|session|dataurl/i;
