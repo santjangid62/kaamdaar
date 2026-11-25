@@ -27,7 +27,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ collection: str
       ["Completed bookings", bookings.filter((b) => (b as Record<string, unknown>).status === "completed").length],
       ["Cancelled bookings", bookings.filter((b) => (b as Record<string, unknown>).status === "cancelled").length],
       ["Revenue (INR)", bookings.reduce((sum, b) => sum + ((b as Record<string, unknown>).status === "completed" ? Number((b as Record<string, unknown>).amount || 0) : 0), 0)],
-      ["Complaints", complaints.length], ["Processing payouts", payouts.filter((p) => (p as Record<string, unknown>).status === "Processing").length],
+      ["Commission (INR)", bookings.reduce((sum, b) => sum + ((b as Record<string, unknown>).status === "completed" ? Number((b as Record<string, unknown>).commission || 0) : 0), 0)],
+      ["Complaints", complaints.length], ["Processing payouts", payouts.filter((p) => !["paid","Paid"].includes(String((p as Record<string, unknown>).status))).length],
     ];
     rows = metrics.map(([metric, value]) => ({ metric, value }));
   } else {
