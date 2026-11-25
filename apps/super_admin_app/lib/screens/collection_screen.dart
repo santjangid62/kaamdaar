@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';\nimport 'package:share_plus/share_plus.dart';\nimport 'package:printing/printing.dart';\nimport 'package:pdf/widgets.dart' as pw;
 import '../services/admin_api.dart';
 
 class CollectionScreen extends StatefulWidget {
@@ -54,6 +54,87 @@ class _CollectionScreenState extends State<CollectionScreen> {
       }
     } finally {
       if (mounted) setState(() => loading = false);
+    }
+  }
+
+
+  Future<void> exportReport({required bool print}) async {
+    try {
+      final csv = await AdminApi.csvReport(widget.collection);
+      if (print) {
+        final doc = pw.Document();
+        doc.addPage(pw.MultiPage(build: (_) => [
+          pw.Text('Kaamdaar - ${widget.title} Report', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 12),
+          pw.Text(csv, style: const pw.TextStyle(fontSize: 6)),
+        ]));
+        await Printing.layoutPdf(onLayout: (_) => doc.save());
+      } else {
+        await Share.share(csv, subject: 'Kaamdaar ${widget.title} CSV report');
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+    }
+  }
+
+  Future<void> runOwnerAction(Map<String, dynamic> row) async {
+    final id = (row['id'] ?? '').toString();
+    if (id.isEmpty) return;
+    String? action;
+    Map<String, dynamic> payload = {'id': id};
+    if (widget.collection == 'users' || widget.collection == 'providers' || widget.collection == 'adminUsers') {
+      final kind = widget.collection == 'users' ? 'customer' : widget.collection == 'providers' ? 'provider' : 'admin';
+      final current = (row['status'] ?? 'active').toString();
+      final next = current == 'blocked' ? 'active' : 'blocked';
+      action = 'account_status';
+      payload.addAll({'action': action, 'kind': kind, 'status': next});
+    } else if (widget.collection == 'complaints') {
+      final responseController = TextEditingController();
+      String status = (row['status'] ?? 'In Review').toString();
+      final accepted = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+        title: const Text('Reply to complaint'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          DropdownButtonFormField<String>(value: ['Open','In Review','Escalated','Resolved'].contains(status) ? status : 'In Review', items: ['Open','In Review','Escalated','Resolved'].map((s) => DropdownMenuItem(value:s,child:Text(s))).toList(), onChanged:(v){ if(v!=null) status=v; }),
+          TextField(controller: responseController, maxLines: 4, decoration: const InputDecoration(labelText: 'Customer-facing response')),
+        ]),
+        actions: [TextButton(onPressed:()=>Navigator.pop(dialogContext,false),child:const Text('Cancel')), ElevatedButton(onPressed:()=>Navigator.pop(dialogContext,true),child:const Text('Send reply'))],
+      ));
+      if (accepted != true) { responseController.dispose(); return; }
+      action = 'complaint_reply';
+      payload.addAll({'action':action,'status':status,'response':responseController.text});
+      responseController.dispose();
+    } else if (widget.collection == 'bookings' && ['reported','disputed'].contains(row['paymentStatus'])) {
+      final decision = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
+        title: const Text('Review reported payment'),
+        content: const Text('Verify the payment (commission validation will run) or dispute this report?'),
+        actions: [TextButton(onPressed:()=>Navigator.pop(ctx,'dispute'),child:const Text('Dispute')), ElevatedButton(onPressed:()=>Navigator.pop(ctx,'verify'),child:const Text('Verify'))],
+      ));
+      if (decision == null) return;
+      action = 'booking_payment';
+      payload.addAll({'action':action,'decision':decision});
+    } else if (widget.collection == 'providerPayments' && row['status'] == 'pending') {
+      final otpController = TextEditingController();
+      final decision = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
+        title: const Text('Verify provider payment'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Demo verification OTP: ${row['verificationOtp'] ?? 'Not available'}'),
+          TextField(controller: otpController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Enter OTP')),
+        ]),
+        actions: [TextButton(onPressed:()=>Navigator.pop(ctx,'reject'),child:const Text('Reject')), ElevatedButton(onPressed:()=>Navigator.pop(ctx,'verify'),child:const Text('Verify'))],
+      ));
+      if (decision == null) { otpController.dispose(); return; }
+      action = 'provider_payment';
+      payload.addAll({'action':action,'decision':decision,'otp':otpController.text});
+      otpController.dispose();
+    }
+    if (action == null) return;
+    try {
+      await AdminApi.action(payload);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Action completed successfully')));
+      await load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
     }
   }
 
