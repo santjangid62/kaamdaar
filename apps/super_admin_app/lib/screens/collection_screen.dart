@@ -112,6 +112,22 @@ class _CollectionScreenState extends State<CollectionScreen> {
       if (decision == null) return;
       action = 'booking_payment';
       payload.addAll({'action':action,'decision':decision});
+    } else if (widget.collection == 'payouts' && row['status'] == 'Processing') {
+      final referenceController = TextEditingController();
+      final accepted = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+        title: const Text('Confirm payout completed'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Amount: ₹${row['amount'] ?? 0} · Provider: ${row['provider'] ?? row['providerId'] ?? '—'}'),
+          const SizedBox(height: 12),
+          const Text('Only confirm after the bank / UPI transfer has actually succeeded.'),
+          TextField(controller: referenceController, decoration: const InputDecoration(labelText: 'Bank / UPI transaction reference')),
+        ]),
+        actions: [TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancel')), ElevatedButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Mark Paid'))],
+      ));
+      if (accepted != true) { referenceController.dispose(); return; }
+      action = 'payout_mark_paid';
+      payload.addAll({'action':action,'reference':referenceController.text});
+      referenceController.dispose();
     } else if (widget.collection == 'providerPayments' && row['status'] == 'pending') {
       final otpController = TextEditingController();
       final decision = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
