@@ -58,6 +58,9 @@ class AdminApi {
   static Future<Map<String, dynamic>> overview() =>
       _get('/api/super-admin/mobile/overview');
 
+  static Future<Map<String, dynamic>> liveLocations() =>
+      _get('/api/super-admin/mobile/live-locations');
+
   static Future<Map<String, dynamic>> collection(
     String name, {
     String query = '',
