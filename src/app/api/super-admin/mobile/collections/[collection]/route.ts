@@ -26,7 +26,7 @@ export async function GET(
   req: Request,
   ctx: { params: Promise<{ collection: string }> },
 ) {
-  if (!verifyMobileSuperAdminToken(bearerToken(req))) {
+  if (!(await verifyMobileSuperAdminToken(bearerToken(req)))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
