@@ -378,31 +378,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-class _SocialButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  const _SocialButton({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 56,
-        height: 48,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Text(label,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-      ),
-    );
-  }
-}
-
 class OtpScreen extends StatefulWidget {
   final String phone;
   final String devCode;
