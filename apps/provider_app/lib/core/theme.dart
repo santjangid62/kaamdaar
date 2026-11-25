@@ -4,7 +4,7 @@ library;
 import 'package:flutter/material.dart';
 
 class PColors {
-  static const green = Color(0xFF0E9F6E);
+  static const green = Color(0xFF0E9F6E); // success/status colour
   static const greenDark = Color(0xFF0B2240);
   static const ink = Color(0xFF0B2240);
   static const amber = Color(0xFFFBBF24);
