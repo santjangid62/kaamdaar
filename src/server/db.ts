@@ -509,14 +509,25 @@ export async function claimDeviceSession<T extends Record<string, unknown>>(
       // A reinstall or cleared app data creates a new installation ID on the same phone.
       // A freshly verified Firebase UID is the account owner, so allow that identity
       // to reclaim its single-device slot while still keeping only one active session.
-      const sameDevice = current.deviceId === doc.deviceId || current.uid === doc.uid;
+      const sameDevice = current.deviceId === doc.deviceId;
+      // The request reaches this function only after Firebase OTP verification
+      // and account lookup by the verified phone. Legacy sessions may not have
+      // a UID (or may have an older UID), so use the verified account identity
+      // to recover the one slot for this same account after reinstall/data reset.
+      const sameVerifiedAccount =
+        current.accountId === doc.accountId &&
+        current.role === doc.role &&
+        current.phone === doc.phone;
       const inactive = Boolean(current.revokedAt) || Number(current.expiresAt) <= now;
-      if (!sameDevice && !inactive) {
+      if (!sameDevice && !sameVerifiedAccount && !inactive) {
         return { claimed: false, session: stripId<T & { id: string }>(current) };
       }
+      // Compare-and-set against the session version we just read. Do not filter
+      // by deviceId here: a legitimate reinstall necessarily has a new ID.
       const filter: Document = { _id: id, sessionId: current.sessionId };
-      if (sameDevice) filter.deviceId = doc.deviceId;
-      else filter.$or = [{ revokedAt: { $ne: null } }, { expiresAt: { $lte: now } }];
+      if (!sameDevice && !sameVerifiedAccount) {
+        filter.$or = [{ revokedAt: { $ne: null } }, { expiresAt: { $lte: now } }];
+      }
       const updated = await collection.findOneAndUpdate(
         filter,
         { $set: { ...doc, id, updatedAt: now } },
