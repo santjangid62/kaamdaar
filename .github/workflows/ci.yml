@@ -71,7 +71,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [customer_app, provider_app]
+        app: [customer_app, provider_app, super_admin_app]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
