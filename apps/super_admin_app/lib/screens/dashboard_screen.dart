@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';\nimport 'package:share_plus/share_plus.dart';\nimport 'package:printing/printing.dart';\nimport 'package:pdf/widgets.dart' as pw;
 import '../services/admin_api.dart';
 import 'collection_screen.dart';
 import 'live_tracking_screen.dart';
@@ -37,6 +37,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     load();
+  }
+
+
+  Future<void> exportDashboard({required bool print}) async {
+    try {
+      final csv = await AdminApi.csvReport('dashboard');
+      if (print) {
+        final doc = pw.Document();
+        doc.addPage(pw.Page(build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          pw.Text('Kaamdaar Dashboard Report', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 16),
+          pw.Text(csv, style: const pw.TextStyle(fontSize: 10)),
+        ])));
+        await Printing.layoutPdf(onLayout: (_) => doc.save());
+      } else {
+        await Share.share(csv, subject: 'Kaamdaar Dashboard CSV report');
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+    }
   }
 
   Future<void> load() async {
