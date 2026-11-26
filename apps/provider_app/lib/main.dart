@@ -34,7 +34,7 @@ class KaamdaarProviderApp extends StatelessWidget {
         appTitle: 'Kaamdaar Provider',
         background: PColors.greenDark,
         accent: PColors.flame,
-        child: SplashScreen(),
+        child: const LoginScreen(),
       ),
     );
   }
