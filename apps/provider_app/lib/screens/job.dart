@@ -69,7 +69,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     await _refresh();
     _poll = Timer.periodic(const Duration(seconds: 4), (_) {
       final b = _booking;
-      if (b != null && b.status != 'completed' && b.status != 'cancelled') _refresh();
+      if (b != null && (b.status != 'cancelled') && (b.status != 'completed' || (b.paymentReportedAt != null && b.providerReviewedAt == null))) _refresh();
     });
   }
 
@@ -401,7 +401,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       if (b.status == 'completed') ...[
                         const SizedBox(height: 14),
                         _invoiceCard(b),
-                        if (b.paidAt != null) ...[
+                        if (b.paymentReportedAt != null && b.paymentStatus != 'disputed') ...[
                           const SizedBox(height: 14),
                           _customerReviewCard(b),
                         ],
@@ -720,7 +720,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Widget _customerReviewCard(BookingItem booking) {
-    if (_customerReviewSubmitted) {
+    if (_customerReviewSubmitted || booking.providerReviewedAt != null) {
       return const CardBox(child: Text('Customer rating submitted. Thank you.',
           style: TextStyle(color: PColors.green, fontWeight: FontWeight.w700)));
     }
