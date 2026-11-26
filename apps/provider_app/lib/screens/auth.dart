@@ -50,18 +50,25 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _decide() async {
     await Future.delayed(const Duration(milliseconds: 1400));
     if (!mounted) return;
-    final seen = await Api.onboarded;
-    final user = await Api.restoreSession();
-    if (!mounted) return;
     Widget next;
-    if (!seen) {
-      next = const OnboardingScreen();
-    } else if (user == null) {
+    try {
+      final seen = await Api.onboarded;
+      final user = await Api.restoreSession();
+      if (!seen) {
+        next = const OnboardingScreen();
+      } else if (user == null) {
+        next = const LoginScreen();
+      } else {
+        next = const ProviderShell();
+      }
+    } catch (_) {
+      // A local session/storage read failure must not strand startup.
       next = const LoginScreen();
-    } else {
-      next = const ProviderShell();
     }
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => next));
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => next),
+    );
   }
 
   @override
