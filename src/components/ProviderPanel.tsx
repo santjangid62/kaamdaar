@@ -362,7 +362,7 @@ export default function ProviderPanel({
             ) : (
               <>
                 <p className="text-sm font-bold text-slate-900">Review Customer</p>
-                <p className="mt-1 text-xs text-slate-600">Rate the customer's cooperation and communication.</p>
+                <p className="mt-1 text-xs text-slate-600">Rate the customer&apos;s cooperation and communication.</p>
                 <div className="mt-2 flex gap-1">
                   {[1,2,3,4,5].map((rating) => <button key={rating} type="button" aria-label={`${rating} stars`} onClick={() => setCustomerRating(rating)} className={`text-2xl ${rating <= customerRating ? "text-amber-500" : "text-slate-300"}`}>★</button>)}
                 </div>
@@ -373,7 +373,7 @@ export default function ProviderPanel({
                     await submitBookingReview({ bookingId: booking.id, actorRole: "provider", customerRating, text: customerReviewText });
                     setCustomerReviewSubmittedFor(booking.id);
                     onChanged?.();
-                  } catch (error) { setError(true); }
+                  } catch { setError(true); }
                 }} className="mt-2 rounded-lg bg-blue-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-40">Submit Customer Review</button>
               </>
             )}
