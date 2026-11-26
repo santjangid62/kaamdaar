@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { all, get, insert, patch, ready, uid } from "../../../server/db";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
-import type { Booking, Provider, User } from "../../../lib/types";
+import type { Booking, Provider, Service, User } from "../../../lib/types";
 
 export async function POST(req: Request) {
   await ready();
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   if (!booking || booking.status !== "completed" || !booking.paymentReportedAt || booking.paymentStatus === "disputed" || !booking.providerId) {
     return NextResponse.json({ error: "Ratings are available after the provider confirms payment collection" }, { status: 409 });
   }
-  if (reviews.some((r) => r.bookingId === bookingId && (r.reviewerRole ?? "customer") === actorRole)) {
+  if ((actorRole === "customer" ? booking.customerReviewedAt : booking.providerReviewedAt) || reviews.some((r) => r.bookingId === bookingId && (r.reviewerRole ?? "customer") === actorRole)) {
     return NextResponse.json({ error: "You have already rated this booking" }, { status: 409 });
   }
 
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       text, createdAt: Date.now(),
     });
     const providerReviews = [...(provider.reviews ?? []), { author, rating, text }];
-    const service = (await all<import("../../../lib/types").Service>("services")).find((item) => item.id === booking.serviceId);
+    const service = (await all<Service>("services")).find((item) => item.id === booking.serviceId);
     if (service) {
       const serviceReviewRows = [...reviews.filter((row: { serviceId?: string; reviewerRole?: string }) => row.serviceId === booking.serviceId && (row.reviewerRole ?? "customer") === "customer"), { serviceId: booking.serviceId, reviewerRole: "customer", serviceRating }];
       const serviceAverage = serviceReviewRows.reduce((sum, row) => sum + Number((row as { serviceRating?: number }).serviceRating ?? serviceRating), 0) / serviceReviewRows.length;
