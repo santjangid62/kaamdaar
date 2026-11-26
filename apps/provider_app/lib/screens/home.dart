@@ -202,15 +202,19 @@ class _DashboardTabState extends State<DashboardTab> with WidgetsBindingObserver
         } catch (_) {}
       }
       final locationIsPrecise = position.accuracy <= 100;
+      final savedCity = _me?.city.trim() ?? '';
       var label = locationIsPrecise
-          ? 'Current location'
+          ? (savedCity.isNotEmpty ? savedCity : 'Location detected')
           : 'GPS accuracy low (±${position.accuracy.round()} m) — move outdoors and tap to retry';
       if (locationIsPrecise && reverseGeocode) try {
         final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
           'format': 'jsonv2', 'lat': '${position.latitude}', 'lon': '${position.longitude}',
           'zoom': '18', 'addressdetails': '1', 'accept-language': 'en',
         });
-        final response = await http.get(uri, headers: {'User-Agent': 'Kaamdaar/1.0 (location lookup)'});
+        final response = await http.get(uri, headers: {
+          'User-Agent': 'Kaamdaar/1.0 (location lookup)',
+          'Accept-Language': 'en-IN,en;q=0.9',
+        }).timeout(const Duration(seconds: 6));
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body) as Map<String, dynamic>;
           final a = (data['address'] as Map?)?.cast<String, dynamic>() ?? {};
@@ -219,9 +223,19 @@ class _DashboardTabState extends State<DashboardTab> with WidgetsBindingObserver
           final city = a['city'] ?? a['town'] ?? a['village'] ?? a['state_district'] ?? '';
           final pin = a['postcode'] ?? '';
           label = [street, locality, city, pin].where((v) => '$v'.isNotEmpty).toSet().join(', ');
-          if (label.isEmpty) label = (data['display_name'] ?? 'Current location').toString();
+          if (label.isEmpty) {
+            label = (data['display_name'] ?? '').toString();
+          }
         }
       } catch (_) {}
+      // Never leave the header saying only “Current location” when reverse
+      // geocoding is temporarily unavailable. Use the provider's saved city;
+      // GPS coordinates are still synced independently below.
+      if (locationIsPrecise &&
+          (label.isEmpty || label == 'Current location' || label == 'Location detected') &&
+          savedCity.isNotEmpty) {
+        label = savedCity;
+      }
       if (mounted) setState(() => _locationLabel = label);
       if (locationIsPrecise) {
         try {
