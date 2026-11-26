@@ -373,72 +373,57 @@ class _DashboardTabState extends State<DashboardTab> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 26),
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Good Morning, ${_user?.firstName.isNotEmpty == true ? _user!.firstName : me.name.split(' ').first}!',
-                          style: const TextStyle(
-                              fontSize: 17, fontWeight: FontWeight.w900, color: PColors.ink)),
-                      const SizedBox(height: 2),
-                      InkWell(
-                        onTap: _detectProviderLocation,
-                        child: Text(_locationLabel == 'Detecting your location…' && me.city.isNotEmpty ? me.city : _locationLabel,
-                          maxLines: 2, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, color: Colors.black45)),
-                      ),
-                    ],
-                  ),
+            /* Partner dashboard hero — availability logic remains unchanged */
+            Container(
+              padding: const EdgeInsets.fromLTRB(18, 18, 16, 16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0B2240), Color(0xFF123D55), Color(0xFF0E7468)],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [BoxShadow(color: PColors.greenDark.withValues(alpha: .18), blurRadius: 20, offset: const Offset(0, 9))],
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Good Morning, ${_user?.firstName.isNotEmpty == true ? _user!.firstName : me.name.split(' ').first}!',
+                      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white)),
+                    const SizedBox(height: 5),
+                    InkWell(onTap: _detectProviderLocation, child: Row(children: [
+                      const Icon(Icons.location_on_outlined, color: Color(0xFF69D5B0), size: 15),
+                      const SizedBox(width: 4),
+                      Expanded(child: Text(_locationLabel == 'Detecting your location…' && me.city.isNotEmpty ? me.city : _locationLabel,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: .70)))),
+                    ])),
+                  ])),
+                  Container(width: 46, height: 46, decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .12), borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.white.withValues(alpha: .18))),
+                    child: const Icon(Icons.handyman_rounded, color: Color(0xFFFFB15C), size: 25)),
+                ]),
+                const SizedBox(height: 18),
                 Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                      color: PColors.green.withValues(alpha: .12),
-                      shape: BoxShape.circle),
-                  child: const Icon(Icons.handyman, color: PColors.flame),
+                  padding: const EdgeInsets.fromLTRB(13, 10, 8, 10),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: .10), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withValues(alpha: .14))),
+                  child: Row(children: [
+                    Container(width: 9, height: 9, decoration: BoxDecoration(
+                      color: _available ? const Color(0xFF4ADE80) : Colors.white54, shape: BoxShape.circle)),
+                    const SizedBox(width: 9),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(_available ? 'You are Online' : 'You are Offline',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
+                      Text(_available ? 'New service requests are enabled' : 'Turn on to receive nearby jobs',
+                        style: TextStyle(color: Colors.white.withValues(alpha: .65), fontSize: 10.5)),
+                    ])),
+                    Switch(value: _available, activeThumbColor: const Color(0xFF4ADE80),
+                      onChanged: _setAvailability),
+                  ]),
                 ),
-              ],
+              ]),
             ),
             const SizedBox(height: 14),
-
-            /* availability */
-            CardBox(
-              child: Row(
-                children: [
-                  Container(
-                    height: 38,
-                    width: 38,
-                    decoration: BoxDecoration(
-                      color: (_available ? PColors.green : Colors.grey).withValues(alpha: .12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(Icons.power_settings_new,
-                        size: 20, color: _available ? PColors.green : Colors.grey),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_available ? 'Online — receiving requests' : 'Offline',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w800, fontSize: 13.5)),
-                        const Text('Naye requests lene ke liye online rahein',
-                            style: TextStyle(fontSize: 11.5, color: Colors.black45)),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    value: _available,
-                    activeThumbColor: PColors.green,
-                    onChanged: _setAvailability,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
 
             /* today stats */
             CardBox(
