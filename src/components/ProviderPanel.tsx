@@ -74,7 +74,7 @@ export default function ProviderPanel({
   const [paymentGateway, setPaymentGateway] = useState<"phonepe" | "razorpay" | "paytm" | "other">("phonepe");
   const [customerRating, setCustomerRating] = useState(0);
   const [customerReviewText, setCustomerReviewText] = useState("");
-  const [customerReviewSubmitted, setCustomerReviewSubmitted] = useState(false);
+  const [customerReviewSubmittedFor, setCustomerReviewSubmittedFor] = useState<string | null>(null);
 
   const proId = booking?.providerId || candidate?.id || null;
   const proName = booking?.providerProfile?.name || candidate?.name || "—";
@@ -357,7 +357,7 @@ export default function ProviderPanel({
         )}
         {booking.paymentReportedAt && booking.paymentStatus !== "disputed" && (
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
-            {booking.providerReviewedAt || customerReviewSubmitted ? (
+            {booking.providerReviewedAt || customerReviewSubmittedFor === booking.id ? (
               <p className="text-sm font-bold text-green-700">Customer review submitted. Thank you.</p>
             ) : (
               <>
@@ -367,10 +367,11 @@ export default function ProviderPanel({
                   {[1,2,3,4,5].map((rating) => <button key={rating} type="button" aria-label={`${rating} stars`} onClick={() => setCustomerRating(rating)} className={`text-2xl ${rating <= customerRating ? "text-amber-500" : "text-slate-300"}`}>★</button>)}
                 </div>
                 <textarea value={customerReviewText} onChange={(e) => setCustomerReviewText(e.target.value)} maxLength={1000} rows={2} placeholder="Optional feedback about the customer" className="mt-2 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm"/>
+                {error && <p className="mt-2 text-xs font-semibold text-red-700">Review could not be submitted. Please retry.</p>}
                 <button type="button" disabled={!customerRating || busy} onClick={async () => {
                   try {
                     await submitBookingReview({ bookingId: booking.id, actorRole: "provider", customerRating, text: customerReviewText });
-                    setCustomerReviewSubmitted(true);
+                    setCustomerReviewSubmittedFor(booking.id);
                     onChanged?.();
                   } catch (error) { setError(true); }
                 }} className="mt-2 rounded-lg bg-blue-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-40">Submit Customer Review</button>
