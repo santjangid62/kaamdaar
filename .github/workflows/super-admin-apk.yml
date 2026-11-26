@@ -1,4 +1,4 @@
-name: Build Kaamdaar Super Admin APK
+name: Build Kaamdaar Super Admin APK # Preview artifact
 
 on:
   push:
