@@ -161,11 +161,19 @@ class Api {
       },
       verificationFailed: (error) {
         final rawMessage = error.message ?? '';
+        final normalizedMessage = rawMessage.toLowerCase();
         final isAndroidClientBlocked = rawMessage.contains('are blocked') ||
             rawMessage.contains('API_KEY_ANDROID_APP_BLOCKED');
+        final isServicePermissionDenied =
+            normalizedMessage.contains('permission denied on the service') ||
+            normalizedMessage.contains('permission_denied') ||
+            normalizedMessage.contains('api_key_service_blocked') ||
+            normalizedMessage.contains('service_disabled');
         final message = isAndroidClientBlocked
-            ? 'Firebase has blocked this Android build. Add this app package name and the QA APK signing SHA-1 in Firebase Project Settings and Google Cloud > APIs & Services > Credentials > Firebase Android API key restrictions, then rebuild the APK.'
-            : switch (error.code) {
+            ? 'Firebase blocked this Android app. In Firebase Project Settings, add the provider app SHA-1 and SHA-256 fingerprints. In Google Cloud > APIs & Services > Credentials, check the Firebase Android API key restrictions and allow Identity Toolkit API and Secure Token API. Then download the refreshed google-services.json and rebuild.'
+            : isServicePermissionDenied
+                ? 'Firebase Phone OTP service denied this request. This is a Firebase/Google Cloud project setting, not an invalid mobile number. In Google Cloud > APIs & Services > Credentials, open the API key used by this app and allow Identity Toolkit API and Secure Token API. In Firebase Console, enable Authentication > Phone, allow India in the SMS region policy, and verify the provider Android app SHA-1/SHA-256 fingerprints. If restrictions were changed, download the refreshed google-services.json and rebuild. Raw Firebase error: ' + (error.message ?? error.code)
+                : switch (error.code) {
           'billing-not-enabled' || 'auth/billing-not-enabled' =>
             'Firebase billing is not enabled. For QA, use a fictional number configured in Firebase Console and install the QA debug APK.',
           'invalid-phone-number' => 'Enter a valid Indian mobile number.',
