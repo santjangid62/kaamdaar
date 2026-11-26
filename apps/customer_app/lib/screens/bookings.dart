@@ -140,6 +140,62 @@ class _BookingsScreenState extends State<BookingsScreen> {
     note.dispose();
   }
 
+  Future<void> _reviewBooking(BookingItem booking) async {
+    var providerRating = 0;
+    var serviceRating = 0;
+    final note = TextEditingController();
+    var submitting = false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Rate your experience'),
+          content: SingleChildScrollView(child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Provider rating', style: TextStyle(fontWeight: FontWeight.w800)),
+              Wrap(children: List.generate(5, (i) => IconButton(
+                onPressed: () => setDialogState(() => providerRating = i + 1),
+                icon: Icon(i < providerRating ? Icons.star : Icons.star_border, color: Colors.amber),
+              ))),
+              const Text('Service rating', style: TextStyle(fontWeight: FontWeight.w800)),
+              Wrap(children: List.generate(5, (i) => IconButton(
+                onPressed: () => setDialogState(() => serviceRating = i + 1),
+                icon: Icon(i < serviceRating ? Icons.star : Icons.star_border, color: Colors.amber),
+              ))),
+              TextField(controller: note, maxLines: 3, maxLength: 1000, decoration: const InputDecoration(hintText: 'Optional feedback')),
+            ],
+          )),
+          actions: [
+            TextButton(onPressed: submitting ? null : () => Navigator.pop(dialogContext), child: const Text('Later')),
+            FilledButton(
+              onPressed: submitting || providerRating == 0 || serviceRating == 0 ? null : () async {
+                setDialogState(() => submitting = true);
+                try {
+                  await Api.post('/api/reviews', {
+                    'bookingId': booking.id, 'actorRole': 'customer',
+                    'providerRating': providerRating, 'serviceRating': serviceRating,
+                    'text': note.text.trim(),
+                  });
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                  await _load();
+                } catch (e) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(e.toString())));
+                    setDialogState(() => submitting = false);
+                  }
+                }
+              },
+              child: const Text('Submit review'),
+            ),
+          ],
+        ),
+      ),
+    );
+    note.dispose();
+  }
+
   List<BookingItem> get _view {
     if (_tab == 1) return _all.where((b) => b.isLive).toList();
     if (_tab == 2) return _all.where((b) => !b.isLive).toList();
@@ -275,6 +331,17 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                                 if (b.paymentMethod != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Selected: ${b.paymentMethod!.toUpperCase()} · Pay your provider directly.', style: const TextStyle(fontSize: 11, color: KColors.blue))),
                                               ],
                                               if (b.paymentReportedAt != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text('Payment collection reported · ${(b.paymentMethod ?? '').toUpperCase()} · Admin verification pending', style: const TextStyle(fontSize: 11, color: KColors.flame, fontWeight: FontWeight.w700))),
+                                              if (b.paymentReportedAt != null && b.paymentStatus != 'disputed') ...[
+                                                const SizedBox(height: 10),
+                                                if (b.customerReviewedAt != null)
+                                                  const Text('Thank you! Your Provider and Service review is submitted.', style: TextStyle(color: KColors.green, fontWeight: FontWeight.w700, fontSize: 12))
+                                                else
+                                                  Align(alignment: Alignment.centerLeft, child: OutlinedButton.icon(
+                                                    onPressed: () => _reviewBooking(b),
+                                                    icon: const Icon(Icons.star_rate_rounded),
+                                                    label: const Text('Review Provider & Service'),
+                                                  )),
+                                              ],
                                               if (b.paymentReportedAt != null && b.paymentStatus != 'disputed') ...[
                                                 const SizedBox(height: 10),
                                                 if (b.customerReviewedAt != null)
