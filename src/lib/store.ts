@@ -242,3 +242,11 @@ export async function rechargeWallet(providerId: string, amount: number): Promis
   });
   return getWallet(providerId);
 }
+/** Save the customer's Cash/UPI preference after the completion OTP. */
+export async function selectBookingPaymentMethod(bookingId: string, method: "cash" | "upi"): Promise<Booking> {
+  const data = await api<{ booking: Booking }>(`/api/bookings/${encodeURIComponent(bookingId)}/payment-method`, {
+    method: "PATCH",
+    body: JSON.stringify({ method }),
+  });
+  return data.booking;
+}
