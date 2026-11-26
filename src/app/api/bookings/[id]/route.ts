@@ -221,6 +221,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       }
       const method = String(body.patch?.paymentMethod ?? "");
       if (!new Set(["cash", "upi"]).has(method)) return NextResponse.json({ error: "Select cash or UPI payment" }, { status: 422 });
+      if (booking.paymentMethod && booking.paymentMethod !== method) return NextResponse.json({ error: "Provider payment method must match the customer selection" }, { status: 409 });
       const reference = String(body.patch?.paymentReference ?? "").trim().slice(0, 100);
       const gateway = String((body.patch as Record<string, unknown>)?.paymentGateway ?? "phonepe");
       if (!new Set(["phonepe", "razorpay", "paytm", "other"]).has(gateway)) return NextResponse.json({ error: "Unsupported payment gateway" }, { status: 422 });
