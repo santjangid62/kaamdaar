@@ -32,14 +32,15 @@ jobs:
           cache: true
           cache-dependency-path: apps/super_admin_app/pubspec.yaml
 
-      - name: Generate Android project
-        working-directory: apps/super_admin_app
-        run: flutter create --project-name kaamdaar_super_admin --org com.kaamdaar --platforms android .
+      - name: Generate Android platform
+        run: |
+          flutter create --project-name kaamdaar_super_admin --org com.kaamdaar --platforms android /tmp/kaamdaar_super_admin
+          cp -R /tmp/kaamdaar_super_admin/android apps/super_admin_app/android
 
       - name: Configure internet permission
         working-directory: apps/super_admin_app
         run: |
-          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i\\    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
         working-directory: apps/super_admin_app
