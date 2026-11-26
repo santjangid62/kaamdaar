@@ -315,22 +315,21 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
     if (method == null) return;
     String reference = '';
+    String gateway = 'cash';
     if (method == 'upi') {
-      final controller = TextEditingController();
-      final entered = await showDialog<String>(
+      final selectedGateway = await showModalBottomSheet<String>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('UPI transaction reference'),
-          content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(labelText: 'UTR / Transaction ID')),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Continue')),
+        builder: (ctx) => SafeArea(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(padding: EdgeInsets.all(16), child: Text('Select UPI gateway (Dummy Test)', style: TextStyle(fontWeight: FontWeight.w900))),
+            for (final item in const ['phonepe', 'razorpay', 'paytm', 'other'])
+              ListTile(title: Text(item.toUpperCase()), onTap: () => Navigator.pop(ctx, item)),
           ],
-        ),
+        )),
       );
-      controller.dispose();
-      if (entered == null || entered.length < 6) return;
-      reference = entered;
+      if (selectedGateway == null) return;
+      gateway = selectedGateway;
     }
     if (!mounted) return;
     setState(() => _busy = true);
@@ -339,13 +338,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         'paymentReported': true,
         'paymentMethod': method,
         'paymentReference': reference,
+        'paymentGateway': gateway,
       });
       if (!mounted) return;
       await _refresh();
       if (!mounted) return;
       if (_booking?.paymentStatus == 'reported') {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Payment report Admin ko bhej di gayi hai. Verification pending hai.')));
+            content: Text('Dummy test payment report Admin ko bhej di gayi hai. Real payment gateway connect nahi hai.')));
       }
     } catch (e) {
       if (mounted) {
