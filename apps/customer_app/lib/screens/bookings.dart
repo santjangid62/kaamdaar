@@ -286,17 +286,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                                     label: const Text('Review Provider & Service'),
                                                   )),
                                               ],
-                                              if (b.paymentReportedAt != null && b.paymentStatus != 'disputed') ...[
-                                                const SizedBox(height: 10),
-                                                if (b.customerReviewedAt != null)
-                                                  const Text('Thank you! Your Provider and Service review is submitted.', style: TextStyle(color: KColors.green, fontWeight: FontWeight.w700, fontSize: 12))
-                                                else
-                                                  Align(alignment: Alignment.centerLeft, child: OutlinedButton.icon(
-                                                    onPressed: () => _reviewBooking(b),
-                                                    icon: const Icon(Icons.star_rate_rounded),
-                                                    label: const Text('Review Provider & Service'),
-                                                  )),
-                                              ],
+
                                               const SizedBox(height: 10),
                                               Row(
                                                 children: [
