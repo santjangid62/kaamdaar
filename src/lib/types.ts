@@ -197,7 +197,9 @@ export interface Booking {
   paymentMethod?: PaymentMethod;
   /** Transient provider PATCH flag; the API consumes it and does not persist it. */
   paymentReported?: boolean;
-  paymentStatus?: "unpaid" | "reported" | "verified" | "disputed";
+  paymentStatus?: "unpaid" | "reported" | "verified" | "disputed" | "pending";
+  paymentGateway?: "cash" | "phonepe" | "razorpay" | "paytm" | "other";
+  paymentEnvironment?: "dummy" | "production";
   paymentReportedAt?: number;
   paymentReportedBy?: string;
   paymentReference?: string;
