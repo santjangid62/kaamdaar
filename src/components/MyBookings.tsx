@@ -248,6 +248,36 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
                 <MapPin className="h-3.5 w-3.5 shrink-0" /> {b.address.label}, {b.address.city}
               </span>
             </div>
+            {b.status === "completed" && b.paymentStatus !== "verified" && !b.paymentReportedAt && (
+              <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
+                <p className="text-sm font-bold text-slate-800">Choose payment method</p>
+                <p className="mt-1 text-xs text-slate-600">Select how you will pay the service provider.</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(["cash", "upi"] as const).map((method) => (
+                    <button key={method} type="button" onClick={async () => {
+                      try {
+                        const res = await fetch(`/api/bookings/${b.id}/payment-method`, {
+                          method: "PATCH", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ method }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || "Could not save payment method");
+                        setBookings((items) => items.map((item) => item.id === b.id ? { ...item, paymentMethod: method } : item));
+                        setNotice(`Payment method selected: ${method.toUpperCase()}. Pay the provider directly.`);
+                      } catch (error) { setNotice(error instanceof Error ? error.message : "Payment selection failed"); }
+                    }} className={`rounded-lg border px-3 py-2 text-xs font-bold ${b.paymentMethod === method ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 bg-white text-slate-700"}`}>
+                      {method === "cash" ? "Cash" : "UPI"}
+                    </button>
+                  ))}
+                </div>
+                {b.paymentMethod && <p className="mt-2 text-xs font-semibold text-blue-800">Selected: {b.paymentMethod.toUpperCase()} · Provider will confirm collection</p>}
+              </div>
+            )}
+            {b.paymentReportedAt && (
+              <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                Payment collection reported · {b.paymentMethod?.toUpperCase()} · Awaiting Admin verification
+              </p>
+            )}
             {canTrack && (
               <p className="mt-3 flex items-center justify-end gap-1.5 text-xs font-semibold text-blue-700">
                 <MapPin className="h-3.5 w-3.5" /> {d.liveTrack}
