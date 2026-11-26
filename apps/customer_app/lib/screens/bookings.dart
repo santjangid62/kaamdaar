@@ -207,6 +207,18 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                                           color: KColors.navy)),
                                                 ],
                                               ),
+                                              if (b.status == 'completed' && b.paymentStatus != 'verified' && b.paymentReportedAt == null) ...[
+                                                const SizedBox(height: 12),
+                                                const Align(alignment: Alignment.centerLeft, child: Text('Choose payment method', style: TextStyle(fontWeight: FontWeight.w800))),
+                                                const SizedBox(height: 6),
+                                                Row(children: [
+                                                  Expanded(child: OutlinedButton.icon(onPressed: () async { try { await Api.selectPaymentMethod(b.id, 'cash'); await _load(); } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()))); } }, icon: const Icon(Icons.payments_outlined), label: const Text('Cash'))),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(child: OutlinedButton.icon(onPressed: () async { try { await Api.selectPaymentMethod(b.id, 'upi'); await _load(); } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()))); } }, icon: const Icon(Icons.qr_code_2), label: const Text('UPI'))),
+                                                ]),
+                                                if (b.paymentMethod != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Selected: ${b.paymentMethod!.toUpperCase()} · Pay your provider directly.', style: const TextStyle(fontSize: 11, color: KColors.blue))),
+                                              ],
+                                              if (b.paymentReportedAt != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text('Payment collection reported · ${(b.paymentMethod ?? '').toUpperCase()} · Admin verification pending', style: const TextStyle(fontSize: 11, color: KColors.flame, fontWeight: FontWeight.w700))),
                                               const SizedBox(height: 10),
                                               Row(
                                                 children: [
