@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, CalendarDays, Clock, IndianRupee, MapPin, Repeat, Zap, X } from "lucide-react";
 import { useApp } from "./AppProvider";
 import { fill, useLang } from "../lib/i18n";
-import { refreshBookings, selectBookingPaymentMethod } from "../lib/store";
+import { refreshBookings, selectBookingPaymentMethod, submitBookingReview } from "../lib/store";
 import type { Booking, BookingTab } from "../lib/types";
 
 type CustomerBookingTab = BookingTab | "cancelled";
@@ -54,6 +54,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [tab, setTab] = useState<CustomerBookingTab>(initialTab ?? "current");
   const [notice, setNotice] = useState<string | null>(null);
+  const [reviewDrafts, setReviewDrafts] = useState<Record<string, { providerRating: number; serviceRating: number; text: string; submitted?: boolean }>>({});
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("default");
   const previousBookings = useRef<Map<string, { status: Booking["status"]; dispatchFailedAt?: number }> | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -272,6 +273,38 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
               <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
                 Payment collection reported · {b.paymentMethod?.toUpperCase()} · Awaiting Admin verification
               </p>
+            )}
+            {b.paymentReportedAt && b.paymentStatus !== "disputed" && (
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+                {b.customerReviewedAt || reviewDrafts[b.id]?.submitted ? (
+                  <p className="text-sm font-bold text-green-700">Thank you! Your Provider and Service review has been submitted.</p>
+                ) : (
+                  <>
+                    <p className="text-sm font-bold text-slate-900">Rate your experience</p>
+                    <p className="mt-1 text-xs text-slate-600">Review both your Provider and the Service.</p>
+                    {(["providerRating", "serviceRating"] as const).map((field) => (
+                      <div key={field} className="mt-3">
+                        <p className="text-xs font-semibold text-slate-700">{field === "providerRating" ? "Provider" : "Service"}</p>
+                        <div className="mt-1 flex gap-1" role="group" aria-label={field === "providerRating" ? "Provider rating" : "Service rating"}>
+                          {[1,2,3,4,5].map((rating) => (
+                            <button key={rating} type="button" aria-label={`${rating} stars`} onClick={() => setReviewDrafts((prev) => ({ ...prev, [b.id]: { providerRating: prev[b.id]?.providerRating ?? 0, serviceRating: prev[b.id]?.serviceRating ?? 0, text: prev[b.id]?.text ?? "", [field]: rating } }))} className={`text-2xl ${rating <= (reviewDrafts[b.id]?.[field] ?? 0) ? "text-amber-500" : "text-slate-300"}`}>★</button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <textarea value={reviewDrafts[b.id]?.text ?? ""} onChange={(e) => setReviewDrafts((prev) => ({ ...prev, [b.id]: { providerRating: prev[b.id]?.providerRating ?? 0, serviceRating: prev[b.id]?.serviceRating ?? 0, text: e.target.value } }))} maxLength={1000} rows={2} placeholder="Share your feedback (optional)" className="mt-3 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm"/>
+                    <button type="button" disabled={!reviewDrafts[b.id]?.providerRating || !reviewDrafts[b.id]?.serviceRating} onClick={async () => {
+                      const draft = reviewDrafts[b.id];
+                      if (!draft) return;
+                      try {
+                        await submitBookingReview({ bookingId: b.id, actorRole: "customer", providerRating: draft.providerRating, serviceRating: draft.serviceRating, text: draft.text });
+                        setReviewDrafts((prev) => ({ ...prev, [b.id]: { ...draft, submitted: true } }));
+                        setNotice("Thank you for reviewing your Provider and Service.");
+                      } catch (error) { setNotice(error instanceof Error ? error.message : "Review could not be submitted"); }
+                    }} className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-40">Submit Review</button>
+                  </>
+                )}
+              </div>
             )}
             {canTrack && (
               <p className="mt-3 flex items-center justify-end gap-1.5 text-xs font-semibold text-blue-700">
