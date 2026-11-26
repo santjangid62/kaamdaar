@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 const String adminUrl = String.fromEnvironment(
@@ -66,14 +67,6 @@ class _AdminWebViewPageState extends State<AdminWebViewPage> {
       ..loadRequest(Uri.parse(adminUrl));
   }
 
-  Future<bool> _handleBack() async {
-    if (await _controller.canGoBack()) {
-      await _controller.goBack();
-      return false;
-    }
-    return true;
-  }
-
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -82,7 +75,7 @@ class _AdminWebViewPageState extends State<AdminWebViewPage> {
         if (!didPop && await _controller.canGoBack()) {
           await _controller.goBack();
         } else if (!didPop && mounted) {
-          Navigator.of(context).maybePop();
+          SystemNavigator.pop();
         }
       },
       child: Scaffold(
