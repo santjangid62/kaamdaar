@@ -1,0 +1,63 @@
+name: Build Kaamdaar Super Admin APK
+
+on:
+  push:
+    branches: [feat/phonepe-payment-gateway]
+    paths:
+      - "apps/super_admin_app/**"
+      - ".github/workflows/super-admin-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Super Admin Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+          cache-dependency-path: apps/super_admin_app/pubspec.yaml
+
+      - name: Generate Android project
+        working-directory: apps/super_admin_app
+        run: flutter create --project-name kaamdaar_super_admin --org com.kaamdaar --platforms android .
+
+      - name: Configure internet permission
+        working-directory: apps/super_admin_app
+        run: |
+          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+
+      - name: Install dependencies
+        working-directory: apps/super_admin_app
+        run: flutter pub get
+
+      - name: Build Preview APK
+        working-directory: apps/super_admin_app
+        run: >-
+          flutter build apk --debug
+          --dart-define=ADMIN_URL=https://kaamdaar-nef2nrtf6-unique-it-team.vercel.app
+
+      - name: Rename APK
+        run: cp apps/super_admin_app/build/app/outputs/flutter-apk/app-debug.apk kaamdaar-super-admin-preview.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaamdaar-super-admin-preview-apk
+          path: kaamdaar-super-admin-preview.apk
+          if-no-files-found: error
+          retention-days: 14
