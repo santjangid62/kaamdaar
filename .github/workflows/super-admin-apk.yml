@@ -2,7 +2,7 @@ name: Build Kaamdaar Super Admin APK # Preview artifact
 
 on:
   push:
-    branches: [feat/phonepe-payment-gateway]
+    branches: [feat/phonepe-payment-gateway, 'fix/**']
     paths:
       - "apps/super_admin_app/**"
       - "apps/customer_app/**"
