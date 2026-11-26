@@ -26,6 +26,7 @@ import {
   MIN_WALLET_BALANCE,
   rechargeWallet,
   updateBooking,
+  submitBookingReview,
   type Wallet,
 } from "../lib/store";
 import { commissionOf } from "../lib/dispatch";
@@ -71,6 +72,9 @@ export default function ProviderPanel({
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi">("cash");
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentGateway, setPaymentGateway] = useState<"phonepe" | "razorpay" | "paytm" | "other">("phonepe");
+  const [customerRating, setCustomerRating] = useState(0);
+  const [customerReviewText, setCustomerReviewText] = useState("");
+  const [customerReviewSubmitted, setCustomerReviewSubmitted] = useState(false);
 
   const proId = booking?.providerId || candidate?.id || null;
   const proName = booking?.providerProfile?.name || candidate?.name || "—";
@@ -350,6 +354,29 @@ export default function ProviderPanel({
           <p className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200">
             {d.balance}<span className="font-extrabold text-navy">₹{wallet.balance}</span>
           </p>
+        )}
+        {booking.paymentReportedAt && booking.paymentStatus !== "disputed" && (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+            {booking.providerReviewedAt || customerReviewSubmitted ? (
+              <p className="text-sm font-bold text-green-700">Customer review submitted. Thank you.</p>
+            ) : (
+              <>
+                <p className="text-sm font-bold text-slate-900">Review Customer</p>
+                <p className="mt-1 text-xs text-slate-600">Rate the customer's cooperation and communication.</p>
+                <div className="mt-2 flex gap-1">
+                  {[1,2,3,4,5].map((rating) => <button key={rating} type="button" aria-label={`${rating} stars`} onClick={() => setCustomerRating(rating)} className={`text-2xl ${rating <= customerRating ? "text-amber-500" : "text-slate-300"}`}>★</button>)}
+                </div>
+                <textarea value={customerReviewText} onChange={(e) => setCustomerReviewText(e.target.value)} maxLength={1000} rows={2} placeholder="Optional feedback about the customer" className="mt-2 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm"/>
+                <button type="button" disabled={!customerRating || busy} onClick={async () => {
+                  try {
+                    await submitBookingReview({ bookingId: booking.id, actorRole: "provider", customerRating, text: customerReviewText });
+                    setCustomerReviewSubmitted(true);
+                    onChanged?.();
+                  } catch (error) { setError(true); }
+                }} className="mt-2 rounded-lg bg-blue-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-40">Submit Customer Review</button>
+              </>
+            )}
+          </div>
         )}
       </div>
     );
