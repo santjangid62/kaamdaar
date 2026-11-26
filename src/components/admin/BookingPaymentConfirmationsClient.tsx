@@ -26,7 +26,7 @@ export default function BookingPaymentConfirmationsClient() {
     } catch (e) { setMessage(e instanceof Error ? e.message : "Load failed"); }
     finally { setLoading(false); }
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, []);
 
   async function act(row: Report, action: "verify" | "dispute") {
     if (action === "verify" && !window.confirm(`Verify ₹${row.amount} ${row.paymentMethod?.toUpperCase()} payment for booking ${row.id}?`)) return;
@@ -50,7 +50,7 @@ export default function BookingPaymentConfirmationsClient() {
         <p className="mt-1 text-sm text-slate-500">Provider reports payment collection; Admin verifies it before marking the booking paid and applying commission.</p></div>
       <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}/> Refresh</button>
     </div>
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><b>Verification rule:</b> UPI reports should be checked against the bank/UPI statement using the reference ID. Cash reports require an admin cash reconciliation. A provider's tap alone does not make a payment verified.</div>
+    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><b>Verification rule:</b> UPI reports should be checked against the bank/UPI statement using the reference ID. Cash reports require an admin cash reconciliation. A provider action alone does not make a payment verified.</div>
     {message && <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-800">{message}</p>}
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <table className="w-full min-w-[900px] text-left text-sm">
