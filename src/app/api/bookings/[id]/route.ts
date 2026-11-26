@@ -221,12 +221,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       const method = String(body.patch?.paymentMethod ?? "");
       if (!new Set(["cash", "upi"]).has(method)) return NextResponse.json({ error: "Select cash or UPI payment" }, { status: 422 });
       const reference = String(body.patch?.paymentReference ?? "").trim().slice(0, 100);
-      if (method === "upi" && reference.length < 6) return NextResponse.json({ error: "UPI transaction/reference ID is required for Admin verification" }, { status: 422 });
+      const dummyMode = process.env.PAYMENT_MODE === "dummy";
+      if (method === "upi" && reference.length < 4 && !dummyMode) return NextResponse.json({ error: "UPI transaction/reference ID is required for Admin verification" }, { status: 422 });
       changes.paymentStatus = "reported";
       changes.paymentReportedAt = Date.now();
       changes.paymentReportedBy = authenticatedProviderId;
       changes.paymentMethod = method;
-      changes.paymentReference = reference;
+      changes.paymentReference = reference || (dummyMode ? `DUMMY-${uid("pay")}` : "");
+      if (dummyMode) {
+        changes.paymentEnvironment = "dummy";
+        changes.paymentGateway = method === "cash" ? "cash" : String((body.patch as Record<string, unknown>)?.paymentGateway ?? "phonepe");
+      }
     }
     if (body.patch?.paidAt !== undefined) {
       return NextResponse.json({ error: "Only Admin can verify and finalize a reported payment" }, { status: 403 });
