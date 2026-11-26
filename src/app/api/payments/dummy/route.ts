@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   const record = await insert("providerPayments", {
     id: uid("dummy_payment"), bookingId, providerId: booking.providerId, userId: booking.userId,
     amount: Number(booking.amount), method, gateway: method === "cash" ? "cash" : gateway,
-    reference, status: isSuccess ? "verified" : outcome, state: outcome.toUpperCase(),
+    reference, status: outcome, state: outcome.toUpperCase(),
     environment: "dummy", dummy: true, verificationSource: "mock_simulator",
     createdAt: timestamp, verifiedAt: isSuccess ? timestamp : null,
   });
@@ -45,19 +45,16 @@ export async function POST(req: Request) {
     paymentMethod: method,
     paymentGateway: method === "cash" ? "cash" : gateway,
     paymentReference: reference,
-    paymentStatus: isSuccess ? "verified" : outcome === "failed" ? "disputed" : "reported",
+    paymentStatus: outcome === "failed" ? "disputed" : "reported",
     paymentReportedAt: timestamp,
     paymentReportedBy: admin ? "admin_dummy_test" : booking.providerId,
-    paymentVerifiedAt: isSuccess ? timestamp : undefined,
-    paymentVerifiedBy: isSuccess ? "dummy_simulator" : undefined,
-    paidAt: isSuccess ? timestamp : undefined,
     paymentEnvironment: "dummy",
   });
   if (isSuccess && booking.providerId) {
     await insert("notifications", {
       id: uid("ntf"), type: "booking_payment_report",
-      title: "Dummy payment successful (Test only)",
-      message: `Dummy ${method.toUpperCase()} payment of ₹${booking.amount} recorded for booking ${booking.id}. This is not a real payment.`,
+      title: "Dummy payment scenario recorded (Test only)",
+      message: `Dummy ${outcome.toUpperCase()} ${method.toUpperCase()} payment scenario of ₹${booking.amount} recorded for booking ${booking.id}. No real payment is verified.`,
       userId: booking.userId, userName: booking.providerName || "Provider", phone: "",
       platform: "Dummy payment test", bookingId, readAt: null, createdAt: timestamp,
     });
