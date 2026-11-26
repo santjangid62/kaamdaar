@@ -158,6 +158,15 @@ class _LocationGateState extends State<LocationGate>
   Widget build(BuildContext context) {
     if (_ready) return widget.child;
 
+    // Keep users informed during the GPS fix after permission is granted.
+    // This also avoids an apparently blank transition between permission and login.
+    if (_permissionGranted && _checking) {
+      return const _KaamdaarLoadingScreen(
+        title: 'Aapki location check kar rahe hain…',
+        subtitle: 'Kaamdaar aapke aas-paas ki services taiyar kar raha hai',
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF071A31),
       body: Stack(
@@ -494,4 +503,99 @@ class _Glow extends StatelessWidget {
 class _GateError implements Exception {
   final String message;
   const _GateError(this.message);
+}
+
+class _KaamdaarLoadingScreen extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  const _KaamdaarLoadingScreen({required this.title, required this.subtitle});
+
+  @override
+  State<_KaamdaarLoadingScreen> createState() => _KaamdaarLoadingScreenState();
+}
+
+class _KaamdaarLoadingScreenState extends State<_KaamdaarLoadingScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this, duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() { _controller.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F8FC),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('KAAMDAAR', style: TextStyle(
+                  color: Color(0xFF0B2240), fontSize: 22,
+                  fontWeight: FontWeight.w900, letterSpacing: 2,
+                )),
+                const SizedBox(height: 4),
+                const Text('HAR KAAM TURANT', style: TextStyle(
+                  color: Color(0xFFFF7A00), fontSize: 10,
+                  fontWeight: FontWeight.w800, letterSpacing: 2,
+                )),
+                const SizedBox(height: 28),
+                AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) => Transform.translate(
+                    offset: Offset(0, -8 * _controller.value),
+                    child: Transform.rotate(
+                      angle: (_controller.value - .5) * .10,
+                      child: child,
+                    ),
+                  ),
+                  child: Container(
+                    width: 172, height: 172,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF7A00).withOpacity(.10),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Text('👷🏻‍♂️', style: TextStyle(fontSize: 104)),
+                        Positioned(
+                          right: 12, bottom: 18,
+                          child: Icon(Icons.home_repair_service_rounded,
+                            color: Color(0xFFFF7A00), size: 34),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(widget.title, textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFF0B2240),
+                    fontSize: 18, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 8),
+                Text(widget.subtitle, textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.black54, fontSize: 13)),
+                const SizedBox(height: 22),
+                const SizedBox(width: 190,
+                  child: LinearProgressIndicator(
+                    minHeight: 5,
+                    backgroundColor: Color(0xFFE6EAF0),
+                    color: Color(0xFFFF7A00),
+                    borderRadius: BorderRadius.all(Radius.circular(99)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('Kripya thoda intezar karein…',
+                  style: TextStyle(color: Colors.black45, fontSize: 12)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
