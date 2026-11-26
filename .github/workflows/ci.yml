@@ -2,9 +2,9 @@ name: Kaamdaar CI
 
 on:
   pull_request:
-    branches: [main]
-  push:
     branches: [main, feat/phonepe-payment-gateway]
+  push:
+    branches: [main, feat/phonepe-payment-gateway, 'fix/**']
   workflow_dispatch:
 
 # Keep only the newest CI run for this branch; push and PR events share a key.
