@@ -287,7 +287,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final b = _booking;
     final me = _me;
     if (b == null || me == null) return;
-    final method = await showModalBottomSheet<String>(
+    final method = b.paymentMethod ?? await showModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
