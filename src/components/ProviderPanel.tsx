@@ -70,6 +70,7 @@ export default function ProviderPanel({
   const [busy, setBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi">("cash");
   const [paymentReference, setPaymentReference] = useState("");
+  const [paymentGateway, setPaymentGateway] = useState<"phonepe" | "razorpay" | "paytm" | "other">("phonepe");
 
   const proId = booking?.providerId || candidate?.id || null;
   const proName = booking?.providerProfile?.name || candidate?.name || "—";
@@ -167,6 +168,7 @@ export default function ProviderPanel({
         paymentReported: true,
         paymentMethod,
         paymentReference: paymentMethod === "upi" ? paymentReference.trim() : "",
+        paymentGateway: paymentMethod === "upi" ? paymentGateway : "cash",
       } as Partial<Booking>);
       onChanged?.();
     } finally {
@@ -337,8 +339,8 @@ export default function ProviderPanel({
             <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as "cash" | "upi")} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm">
               <option value="cash">Cash received</option><option value="upi">UPI received</option>
             </select>
-            {paymentMethod === "upi" && <input value={paymentReference} onChange={e => setPaymentReference(e.target.value)} placeholder="UPI transaction/reference ID" className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"/>}
-            <button type="button" onClick={() => void collectPayment()} disabled={busy || (paymentMethod === "upi" && paymentReference.trim().length < 6)} className="btn-primary w-full justify-center">
+            {paymentMethod === "upi" && <><select value={paymentGateway} onChange={e => setPaymentGateway(e.target.value as typeof paymentGateway)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"><option value="phonepe">PhonePe (Dummy)</option><option value="razorpay">Razorpay (Dummy)</option><option value="paytm">Paytm (Dummy)</option><option value="other">Other (Dummy)</option></select><p className="text-xs text-amber-700">Test only — no actual UPI transfer or gateway verification.</p></>}
+            <button type="button" onClick={() => void collectPayment()} disabled={busy || false} className="btn-primary w-full justify-center">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Report Payment to Admin
             </button>
