@@ -215,14 +215,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       changes.completedAt = Date.now();
     }
     if (body.patch?.paymentReported === true) {
-      if (booking.status !== "completed" || booking.paymentStatus === "verified" || booking.paymentReportedAt) {
+      const dummyMode = process.env.PAYMENT_MODE === "dummy";
+      if (booking.status !== "completed" || booking.paymentStatus === "verified" || (!dummyMode && booking.paymentReportedAt)) {
         return NextResponse.json({ error: "Payment can be reported once, after customer completion verification" }, { status: 409 });
       }
       const method = String(body.patch?.paymentMethod ?? "");
       if (!new Set(["cash", "upi"]).has(method)) return NextResponse.json({ error: "Select cash or UPI payment" }, { status: 422 });
       const reference = String(body.patch?.paymentReference ?? "").trim().slice(0, 100);
-      const dummyMode = process.env.PAYMENT_MODE === "dummy";
+      const gateway = String((body.patch as Record<string, unknown>)?.paymentGateway ?? "phonepe");
+      if (!new Set(["phonepe", "razorpay", "paytm", "other"]).has(gateway)) return NextResponse.json({ error: "Unsupported payment gateway" }, { status: 422 });
       if (method === "upi" && reference.length < 4 && !dummyMode) return NextResponse.json({ error: "UPI transaction/reference ID is required for Admin verification" }, { status: 422 });
+      if (dummyMode && !authenticatedProviderId) return NextResponse.json({ error: "Provider identity required for dummy collection report" }, { status: 403 });
       changes.paymentStatus = "reported";
       changes.paymentReportedAt = Date.now();
       changes.paymentReportedBy = authenticatedProviderId;
@@ -230,7 +233,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       changes.paymentReference = reference || (dummyMode ? `DUMMY-${uid("pay")}` : "");
       if (dummyMode) {
         changes.paymentEnvironment = "dummy";
-        changes.paymentGateway = method === "cash" ? "cash" : String((body.patch as Record<string, unknown>)?.paymentGateway ?? "phonepe");
+        changes.paymentGateway = method === "cash" ? "cash" : gateway;
       }
     }
     if (body.patch?.paidAt !== undefined) {
