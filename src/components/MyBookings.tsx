@@ -60,17 +60,22 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      setNotificationPermission("unsupported");
-      return;
-    }
-    setNotificationPermission(window.Notification.permission);
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      if (typeof window === "undefined" || !("Notification" in window)) {
+        setNotificationPermission("unsupported");
+        return;
+      }
+      setNotificationPermission(window.Notification.permission);
+    });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
     if (!user) {
       previousBookings.current = null;
-      setBookings([]);
+      queueMicrotask(() => setBookings([]));
       return;
     }
     let active = true;
