@@ -250,3 +250,15 @@ export async function selectBookingPaymentMethod(bookingId: string, method: "cas
   });
   return data.booking;
 }
+
+/** Submit an authenticated booking review from either side of the marketplace. */
+export async function submitBookingReview(input: {
+  bookingId: string;
+  actorRole: "customer" | "provider";
+  providerRating?: number;
+  serviceRating?: number;
+  customerRating?: number;
+  text?: string;
+}): Promise<void> {
+  await api("/api/reviews", { method: "POST", body: JSON.stringify(input) });
+}
