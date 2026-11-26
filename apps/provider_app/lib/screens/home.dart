@@ -130,7 +130,7 @@ class DashboardTab extends StatefulWidget {
   State<DashboardTab> createState() => _DashboardTabState();
 }
 
-class _DashboardTabState extends State<DashboardTab> {
+class _DashboardTabState extends State<DashboardTab> with WidgetsBindingObserver {
   ProviderItem? _me;
   SessionUser? _user;
   List<BookingItem> _offers = [];
@@ -148,6 +148,7 @@ class _DashboardTabState extends State<DashboardTab> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
     _detectProviderLocation();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -162,7 +163,18 @@ class _DashboardTabState extends State<DashboardTab> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Android may briefly lose DNS/network after screen unlock. Refresh silently
+    // when the app resumes; keep the last good dashboard visible meanwhile.
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_load(silent: true));
+      unawaited(_detectProviderLocation(reverseGeocode: false));
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _poll?.cancel();
     _locationPoll?.cancel();
@@ -269,7 +281,12 @@ class _DashboardTabState extends State<DashboardTab> {
         _error = null;
       });
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      // A transient DNS/socket failure must not replace a previously loaded
+      // dashboard with a full-screen error. The 5-second poll and resume hook
+      // retry automatically; only show the retry state before first data load.
+      if (mounted && _me == null) {
+        setState(() => _error = e.toString());
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
