@@ -29,7 +29,7 @@ class KaamdaarApp extends StatelessWidget {
         appTitle: 'Kaamdaar',
         background: Color(0xFF0B2240),
         accent: Color(0xFFFF7A00),
-        child: SplashScreen(),
+        child: const LoginScreen(),
       ),
     );
   }
