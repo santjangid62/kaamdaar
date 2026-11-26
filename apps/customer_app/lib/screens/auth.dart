@@ -1,5 +1,7 @@
 /// Splash → Onboarding → Login → OTP (mirrors the web flow).
 library;
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../core/api.dart';
@@ -254,117 +256,108 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 30),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                    color: const Color(0xFF0B2240),
-                    borderRadius: BorderRadius.circular(20)),
-                child: const Icon(Icons.home_repair_service,
-                    color: Color(0xFFFF7A00), size: 44),
-                alignment: Alignment.center,
-              ),
-              const SizedBox(height: 24),
-              const Text('Welcome Back!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 6),
-              const Text('Enter your mobile number to continue',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.black54)),
-              const SizedBox(height: 28),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: _error == null
-                          ? const Color(0xFFE2E8F0)
-                          : const Color(0xFFDC2626)),
-                ),
-                child: Row(
+      backgroundColor: const Color(0xFF071A31),
+      body: Stack(
+        children: [
+          Positioned(top: -90, right: -70, child: _GlowOrb(color: const Color(0xFFFF7A00).withOpacity(.28), size: 260)),
+          Positioned(bottom: 80, left: -110, child: _GlowOrb(color: const Color(0xFF2476B8).withOpacity(.30), size: 280)),
+          SafeArea(
+            child: LayoutBuilder(builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 16),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF4F6F9),
-                        border: Border(
-                            right: BorderSide(color: Color(0xFFE2E8F0))),
+                    Row(children: [
+                      Container(
+                        width: 54, height: 54,
+                        decoration: BoxDecoration(color: Colors.white.withOpacity(.10), borderRadius: BorderRadius.circular(17), border: Border.all(color: Colors.white.withOpacity(.18))),
+                        padding: const EdgeInsets.all(8),
+                        child: Image.asset('assets/kaamdaar-logo-white.png', fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(Icons.home_repair_service, color: Color(0xFFFF7A00), size: 32)),
                       ),
-                      child: const Text('+91',
-                          style: TextStyle(fontWeight: FontWeight.w700)),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _phone,
-                        keyboardType: TextInputType.phone,
-                        maxLength: 10,
-                        autofocus: true,
-                        onChanged: (_) => setState(() => _error = null),
-                        style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.2),
-                        decoration: const InputDecoration(
-                          counterText: '',
-                          hintText: '98765 43210',
-                          border: InputBorder.none,
-                          fillColor: Colors.transparent,
-                          filled: true,
+                      const SizedBox(width: 12),
+                      const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('KAAMDAAR', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.8)),
+                        Text('HAR KAAM TURANT', style: TextStyle(color: Color(0xFFFFB15C), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 2)),
+                      ]),
+                    ]),
+                    const SizedBox(height: 48),
+                    const Text('Your home.\nOur responsibility.', style: TextStyle(color: Colors.white, fontSize: 32, height: 1.12, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 12),
+                    Text('Trusted professionals for every little job, right at your doorstep.', style: TextStyle(color: Colors.white.withOpacity(.68), fontSize: 14, height: 1.5)),
+                    const SizedBox(height: 30),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(28),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                        child: Container(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
+                          decoration: BoxDecoration(color: Colors.white.withOpacity(.10), borderRadius: BorderRadius.circular(28), border: Border.all(color: Colors.white.withOpacity(.20))),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                            const Text('Welcome back 👋', style: TextStyle(color: Colors.white, fontSize: 23, fontWeight: FontWeight.w900)),
+                            const SizedBox(height: 6),
+                            Text('Sign in with your mobile number to book a service.', style: TextStyle(color: Colors.white.withOpacity(.66), fontSize: 12.5)),
+                            const SizedBox(height: 22),
+                            const Text('MOBILE NUMBER', style: TextStyle(color: Color(0xFFFFB15C), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+                            const SizedBox(height: 9),
+                            Container(
+                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _error == null ? Colors.white : const Color(0xFFDC2626), width: 1.4)),
+                              child: Row(children: [
+                                Container(padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 17), decoration: const BoxDecoration(border: Border(right: BorderSide(color: Color(0xFFE2E8F0)))),
+                                  child: const Text('+91', style: TextStyle(color: Color(0xFF0B2240), fontWeight: FontWeight.w900))),
+                                Expanded(child: TextField(
+                                  controller: _phone, keyboardType: TextInputType.phone, maxLength: 10, autofocus: true,
+                                  onChanged: (_) => setState(() => _error = null),
+                                  style: const TextStyle(color: Color(0xFF0B2240), fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: 1.1),
+                                  decoration: const InputDecoration(counterText: '', hintText: '98765 43210', hintStyle: TextStyle(color: Colors.black38), border: InputBorder.none, filled: false, contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 16)),
+                                )),
+                              ]),
+                            ),
+                            if (_error != null) Padding(padding: const EdgeInsets.only(top: 9), child: Text(_error!, style: const TextStyle(color: Color(0xFFFF9B9B), fontSize: 12))),
+                            const SizedBox(height: 18),
+                            SizedBox(height: 54, child: ElevatedButton(
+                              onPressed: _busy ? null : _sendOtp,
+                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF7A00), foregroundColor: const Color(0xFF0B2240), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                              child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0B2240))) : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text('Continue securely', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)), SizedBox(width: 8), Icon(Icons.arrow_forward_rounded, size: 19)]),
+                            )),
+                            const SizedBox(height: 16),
+                            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Icon(Icons.verified_user_outlined, color: Colors.white.withOpacity(.55), size: 14),
+                              const SizedBox(width: 6),
+                              Text('OTP secured login • No password required', style: TextStyle(color: Colors.white.withOpacity(.58), fontSize: 10.5)),
+                            ]),
+                          ]),
                         ),
                       ),
                     ),
+                    const Spacer(),
+                    const SizedBox(height: 28),
+                    Text('By continuing, you agree to our Terms & Privacy Policy', textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withOpacity(.48), fontSize: 11)),
+                    const SizedBox(height: 8),
+                    Text('© Unique IT Solutions  •  Made with care in India', textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withOpacity(.35), fontSize: 10)),
                   ],
                 ),
               ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(_error!,
-                      style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13)),
-                ),
-              const SizedBox(height: 20),
-              PrimaryBtn(
-                label: 'Continue',
-                busy: _busy,
-                onPressed: _busy ? null : _sendOtp,
-              ),
-              const SizedBox(height: 18),
-              const Row(children: [
-                Expanded(child: Divider()),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Text('or continue with',
-                      style: TextStyle(color: Colors.grey, fontSize: 12)),
-                ),
-                Expanded(child: Divider()),
-              ]),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _SocialButton(label: 'G', onTap: () {}),
-                  const SizedBox(width: 16),
-                  _SocialButton(label: '', onTap: () {}),
-                ],
-              ),
-              const SizedBox(height: 24),
-              const Text('By continuing, you agree to our Terms & Privacy Policy',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey, fontSize: 12)),
-            ],
+            )),
           ),
-        ),
+        ],
       ),
     );
   }
+
+}
+
+class _GlowOrb extends StatelessWidget {
+  final Color color;
+  final double size;
+  const _GlowOrb({required this.color, required this.size});
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size, height: size,
+    decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: [BoxShadow(color: color, blurRadius: 90, spreadRadius: 25)]),
+  );
 }
 
 class _SocialButton extends StatelessWidget {
