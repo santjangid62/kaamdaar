@@ -9,224 +9,211 @@ import '../core/theme.dart';
 import 'home.dart';
 import 'setup.dart';
 
-class LandingScreen extends StatefulWidget {
-  const LandingScreen({super.key});
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
 
   @override
-  State<LandingScreen> createState() => _LandingScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _LandingScreenState extends State<LandingScreen> {
-  bool _busy = false;
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _decide();
+  }
 
-  Future<void> _continue() async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      final user = await Api.restoreSession();
-      if (!mounted) return;
-      final Widget next = user == null
-          ? const LoginScreen()
-          : (user.firstName.trim().isEmpty
-              ? ProfileSetupScreen(user: user)
-              : const HomeScreen(homeTab: 0));
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => next),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    }
+  Future<void> _decide() async {
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (!mounted) return;
+    final seen = await Api.onboarded;
+    final user = await Api.restoreSession();
+    if (!mounted) return;
+    // Returning customers go straight to booking; an account created but never
+    // completed (empty name) is sent back to the profile step, like the web.
+    final Widget next = !seen
+        ? const OnboardingScreen()
+        : (user == null
+            ? const LoginScreen()
+            : (user.firstName.trim().isEmpty
+                ? ProfileSetupScreen(user: user)
+                : const HomeScreen(homeTab: 0)));
+    Navigator.of(context)
+        .pushReplacement(MaterialPageRoute(builder: (_) => next));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF071A31),
-      body: Stack(
-        children: [
-          Positioned(
-            top: -100,
-            right: -90,
-            child: _GlowOrb(
-              color: const Color(0xFFFF7A00).withOpacity(.27),
-              size: 270,
+      backgroundColor: const Color(0xFF0B2240),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/kaamdaar-logo-white.png',
+              width: 300,
+              height: 150,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              errorBuilder: (_, __, ___) => const Text(
+                'KAAMDAAR',
+                style: TextStyle(color: Colors.white, fontSize: 38, letterSpacing: 2.2, fontWeight: FontWeight.w900),
+              ),
             ),
-          ),
-          Positioned(
-            bottom: -100,
-            left: -100,
-            child: _GlowOrb(
-              color: const Color(0xFF2476B8).withOpacity(.25),
-              size: 280,
+            const SizedBox(height: 18),
+            const Text('HAR KAAM TURANT',
+                style: TextStyle(color: Color(0xFFFFC857), fontSize: 14, letterSpacing: 2, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 24),
+            const SizedBox(
+              width: 26,
+              height: 26,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Color(0xFFFF7A00)),
             ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
+            const Spacer(),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 22),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 58,
-                        height: 58,
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.10),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(.18),
-                          ),
-                        ),
-                        child: Image.asset(
-                          'assets/kaamdaar-logo-white.png',
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.home_repair_service_rounded,
-                            color: Color(0xFFFF7A00),
-                            size: 32,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'KAAMDAAR',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.8,
-                            ),
-                          ),
-                          SizedBox(height: 3),
-                          Text(
-                            'HAR KAAM TURANT',
-                            style: TextStyle(
-                              color: Color(0xFFFFB15C),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.8,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.all(21),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(.09),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(.17),
-                      ),
-                    ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  Text('© Unique IT Solutions. All rights reserved.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white60, fontSize: 10)),
+                  SizedBox(height: 5),
+                  Text('Made with Love & Care by Unique IT Solutions',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w700)),
+                  Text('A Unit of Unique Computers, The Best One',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white54, fontSize: 9)),
+                  SizedBox(height: 4),
+                  Text('Terms & Privacy',
+                      style: TextStyle(color: Color(0xFFFFC857), fontSize: 9, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class OnboardingScreen extends StatefulWidget {
+  const OnboardingScreen({super.key});
+
+  @override
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
+}
+
+class _OnboardingScreenState extends State<OnboardingScreen> {
+  final _page = PageController();
+  int _index = 0;
+
+  static const _slides = [
+    (Icons.cleaning_services, 'Har Kaam Turant Book Karein',
+        'Plumbing, Electrical, Cleaning, AC Repair, Painting aur kai aur services'),
+    (Icons.mic_none, 'Voice Se Book Karein',
+        'Bas boliye, Kaamdaar samajh kar turant service dikhayega'),
+    (Icons.verified_user_outlined, 'Trusted & Secure',
+        'Verified Professionals\nLive Tracking • Safe Payments'),
+  ];
+
+  Future<void> _done() async {
+    await Api.setOnboarded();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const LoginScreen()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: PageView.builder(
+                controller: _page,
+                itemCount: _slides.length,
+                onPageChanged: (i) => setState(() => _index = i),
+                itemBuilder: (_, i) {
+                  final (icon, title, sub) = _slides[i];
+                  return Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.home_repair_service_rounded,
-                          color: Color(0xFFFFB15C),
-                          size: 34,
-                        ),
-                        SizedBox(height: 18),
-                        Text(
-                          'Your home.\nOur responsibility.',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 29,
-                            height: 1.12,
-                            fontWeight: FontWeight.w900,
+                        Container(
+                          padding: const EdgeInsets.all(34),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF7A00).withOpacity(0.12),
+                            shape: BoxShape.circle,
                           ),
+                          child: Icon(icon, size: 84, color: const Color(0xFFFF7A00)),
                         ),
-                        SizedBox(height: 10),
-                        Text(
-                          'Trusted professionals for every little job, right at your doorstep.',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                            height: 1.5,
-                          ),
-                        ),
+                        const SizedBox(height: 40),
+                        Text(title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 24, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 12),
+                        Text(sub,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 15, height: 1.5, color: Colors.black54)),
                       ],
                     ),
+                  );
+                },
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                _slides.length,
+                (i) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: i == _index ? 22 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: i == _index
+                        ? const Color(0xFFFF7A00)
+                        : Colors.black12,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(height: 23),
-                  _landingFeature(Icons.verified_user_outlined,
-                      'Verified local professionals'),
-                  _landingFeature(Icons.location_on_outlined,
-                      'Nearby services with live tracking'),
-                  _landingFeature(Icons.lock_outline_rounded,
-                      'Secure and convenient payments'),
-                  const Spacer(),
-                  PrimaryBtn(
-                    label: 'Get Started',
-                    icon: Icons.arrow_forward_rounded,
-                    busy: _busy,
-                    onPressed: _continue,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Row(
+                children: [
+                  TextButton(
+                    onPressed: _done,
+                    child: const Text('Skip', style: TextStyle(color: Colors.grey)),
                   ),
-                  const SizedBox(height: 15),
-                  Text(
-                    '© Unique IT Solutions  •  A Unit of Unique Computers, The Best One',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(.43),
-                      fontSize: 10,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Terms & Privacy',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFFFFB15C),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: PrimaryBtn(
+                      label: _index == _slides.length - 1 ? 'Get Started' : 'Next →',
+                      onPressed: () {
+                        if (_index == _slides.length - 1) {
+                          _done();
+                        } else {
+                          _page.nextPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOut);
+                        }
+                      },
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _landingFeature(IconData icon, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 35,
-            height: 35,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFF7A00).withOpacity(.13),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(icon, color: const Color(0xFFFFB15C), size: 19),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withOpacity(.82),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
