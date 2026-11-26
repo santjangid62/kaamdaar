@@ -305,6 +305,8 @@ class BookingItem {
   final String? paymentMethod;
   final String? paymentStatus;
   final int? paymentReportedAt;
+  final int? customerReviewedAt;
+  final int? providerReviewedAt;
   final String? paymentReference;
   final String? paymentGateway;
   final String? cancelledBy;
@@ -352,6 +354,8 @@ class BookingItem {
         paymentMethod: j["paymentMethod"]?.toString(),
         paymentStatus: j["paymentStatus"]?.toString(),
         paymentReportedAt: _optInt(j["paymentReportedAt"]),
+        customerReviewedAt: _optInt(j["customerReviewedAt"]),
+        providerReviewedAt: _optInt(j["providerReviewedAt"]),
         paymentReference: j["paymentReference"]?.toString(),
         paymentGateway: j["paymentGateway"]?.toString(),
         cancelledBy: j["cancelledBy"]?.toString(),
@@ -402,6 +406,8 @@ class BookingItem {
     this.paymentMethod,
     this.paymentStatus,
     this.paymentReportedAt,
+    this.customerReviewedAt,
+    this.providerReviewedAt,
     this.paymentReference,
     this.paymentGateway,
     this.cancelledBy,
