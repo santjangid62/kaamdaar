@@ -6,7 +6,7 @@ import { CheckCircle2, RefreshCw, ShieldAlert } from "lucide-react";
 type Report = {
   id: string; serviceName: string; amount: number; providerName: string; providerId: string;
   phone: string; paymentMethod?: "cash" | "upi"; paymentReference?: string;
-  paymentReportedAt?: number; paymentStatus?: string; userId: string; date: string; slot: string;
+  paymentReportedAt?: number; paymentStatus?: string; paymentGateway?: string; paymentEnvironment?: string; paidAt?: number; isTest?: boolean; userId: string; date: string; slot: string;
 };
 
 export default function BookingPaymentConfirmationsClient() {
@@ -59,16 +59,16 @@ export default function BookingPaymentConfirmationsClient() {
           <td className="px-4 py-3"><b>{row.id}</b><div className="text-xs text-slate-500">{row.serviceName}</div><div className="text-xs text-slate-400">{row.date} · {row.slot}</div></td>
           <td className="px-4 py-3"><b>{row.providerName}</b><div className="text-xs text-slate-500">{row.phone}</div></td>
           <td className="px-4 py-3 font-bold">₹{row.amount}</td>
-          <td className="px-4 py-3"><b className="uppercase">{row.paymentMethod ?? "—"}</b><div className="max-w-[220px] break-all text-xs text-slate-500">{row.paymentReference || "Cash — reconcile manually"}</div></td>
+          <td className="px-4 py-3"><b className="uppercase">{row.paymentMethod ?? "—"} · {row.paymentGateway ?? "—"}</b><div className="max-w-[220px] break-all text-xs text-slate-500">{row.paymentReference || "Cash — reconcile manually"}</div><div className="mt-1 text-[11px] font-bold">{row.isTest ? <span className="text-orange-700">DUMMY / TEST — NO MONEY MOVED</span> : <span className="text-green-700">PRODUCTION RECORD</span>}</div></td>
           <td className="px-4 py-3 text-xs text-slate-500">{row.paymentReportedAt ? new Date(row.paymentReportedAt).toLocaleString("en-IN") : "—"}<div className="mt-1 font-semibold text-amber-700">{row.paymentStatus}</div></td>
-          <td className="px-4 py-3">{row.paymentStatus === "reported" ? <div className="space-y-2">
+          <td className="px-4 py-3">{row.paymentEnvironment === "dummy" ? <span className="text-xs font-semibold text-orange-700">Test record · no verification action</span> : row.paymentStatus === "reported" ? <div className="space-y-2">
             <input value={note[row.id] ?? ""} onChange={e=>setNote(s=>({...s,[row.id]:e.target.value}))} placeholder="Dispute note (if needed)" className="w-full rounded-lg border px-2 py-2 text-xs"/>
             <div className="flex gap-2"><button onClick={()=>void act(row,"verify")} disabled={!!busy} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><CheckCircle2 className="h-3.5 w-3.5"/> Verify</button>
             <button onClick={()=>void act(row,"dispute")} disabled={!!busy} className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 disabled:opacity-50"><ShieldAlert className="h-3.5 w-3.5"/> Dispute</button></div>
           </div> : row.paymentStatus === "disputed" ? <button onClick={()=>void act(row,"verify")} disabled={!!busy} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><CheckCircle2 className="h-3.5 w-3.5"/> Verify after review</button> : <span className="text-xs text-slate-500">Needs follow-up</span>}</td>
         </tr>)}</tbody>
       </table>
-      {!loading && rows.length === 0 && <p className="p-10 text-center text-sm text-slate-400">No provider payment reports pending.</p>}
+      {!loading && rows.length === 0 && <p className="p-10 text-center text-sm text-slate-400">No payment reports or test records.</p>}
     </div>
   </div>;
 }
