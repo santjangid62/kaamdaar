@@ -19,6 +19,8 @@ export interface Service {
   slots?: string[]; // selectable durations for hourly services
   icon?: string; // icon key chosen in the Admin panel (see lib/service-icons)
   image?: string; // optional cover image URL added in the Admin panel
+  rating?: number;
+  reviewCount?: number;
   /** Set by /api/catalog when a Pro serving this service covers the customer's area. */
   availableInArea?: boolean;
 }
@@ -194,6 +196,9 @@ export interface Booking {
   startedAt?: number;
   completedAt?: number;
   paidAt?: number;
+  /** Customer/provider feedback timestamps, set by the review API. */
+  customerReviewedAt?: number;
+  providerReviewedAt?: number;
   paymentMethod?: PaymentMethod;
   /** Transient provider PATCH flag; the API consumes it and does not persist it. */
   paymentReported?: boolean;
