@@ -422,6 +422,10 @@ class Api {
         (data['booking'] as Map<String, dynamic>?) ?? const {});
   }
 
+  static Future<void> selectPaymentMethod(String bookingId, String method) async {
+    await patch('/api/bookings/$bookingId/payment-method', {'method': method});
+  }
+
   /* --------------------------- wallet --------------------------- */
 
   static Future<WalletInfo> wallet(String providerId) async {
