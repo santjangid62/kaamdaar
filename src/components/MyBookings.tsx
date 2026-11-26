@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, CalendarDays, Clock, IndianRupee, MapPin, Repeat, Zap, X } from "lucide-react";
 import { useApp } from "./AppProvider";
 import { fill, useLang } from "../lib/i18n";
-import { refreshBookings } from "../lib/store";
+import { refreshBookings, selectBookingPaymentMethod } from "../lib/store";
 import type { Booking, BookingTab } from "../lib/types";
 
 type CustomerBookingTab = BookingTab | "cancelled";
@@ -256,12 +256,7 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
                   {(["cash", "upi"] as const).map((method) => (
                     <button key={method} type="button" onClick={async () => {
                       try {
-                        const res = await fetch(`/api/bookings/${b.id}/payment-method`, {
-                          method: "PATCH", headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ method }),
-                        });
-                        const data = await res.json();
-                        if (!res.ok) throw new Error(data.error || "Could not save payment method");
+                        await selectBookingPaymentMethod(b.id, method);
                         setBookings((items) => items.map((item) => item.id === b.id ? { ...item, paymentMethod: method } : item));
                         setNotice(`Payment method selected: ${method.toUpperCase()}. Pay the provider directly.`);
                       } catch (error) { setNotice(error instanceof Error ? error.message : "Payment selection failed"); }
