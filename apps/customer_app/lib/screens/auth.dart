@@ -26,20 +26,28 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _decide() async {
     await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
-    final seen = await Api.onboarded;
-    final user = await Api.restoreSession();
+    Widget next;
+    try {
+      final seen = await Api.onboarded;
+      final user = await Api.restoreSession();
+      if (!seen) {
+        next = const OnboardingScreen();
+      } else if (user == null) {
+        next = const LoginScreen();
+      } else if (user.firstName.trim().isEmpty) {
+        next = ProfileSetupScreen(user: user);
+      } else {
+        next = const HomeScreen(homeTab: 0);
+      }
+    } catch (_) {
+      // Storage/session restoration must never leave the user on a blank
+      // startup screen. Continue to the existing authenticated login flow.
+      next = const LoginScreen();
+    }
     if (!mounted) return;
-    // Returning customers go straight to booking; an account created but never
-    // completed (empty name) is sent back to the profile step, like the web.
-    final Widget next = !seen
-        ? const OnboardingScreen()
-        : (user == null
-            ? const LoginScreen()
-            : (user.firstName.trim().isEmpty
-                ? ProfileSetupScreen(user: user)
-                : const HomeScreen(homeTab: 0)));
-    Navigator.of(context)
-        .pushReplacement(MaterialPageRoute(builder: (_) => next));
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => next),
+    );
   }
 
   @override
