@@ -4,7 +4,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 const String adminUrl = String.fromEnvironment(
   'ADMIN_URL',
-  defaultValue: 'https://kaamdaar-nef2nrtf6-unique-it-team.vercel.app',
+  defaultValue: 'https://kaamdaar-git-feat-phonepe-payment-gateway-unique-it-team.vercel.app',
 );
 
 void main() {
