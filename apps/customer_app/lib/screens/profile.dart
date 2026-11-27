@@ -325,7 +325,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             }),
             _tile(Icons.description_outlined, 'Terms & Privacy', 'Read our policies', () { _soon(); }),
             const SizedBox(height: 8),
-            _tile(Icons.logout_rounded, 'Logout', _logout, danger: true),
+            _tile(Icons.logout_rounded, 'Logout', 'Sign out of your account', _logout, danger: true),
           ],
         ),
       ),
