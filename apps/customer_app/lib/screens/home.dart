@@ -586,6 +586,7 @@ class _HomeTabState extends State<_HomeTab> {
                     ])),
                   )),
                   ],
+                ],
               ] else ...[
               /* search results */
               if (_filtered.isEmpty)
