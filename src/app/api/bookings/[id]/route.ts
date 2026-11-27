@@ -181,7 +181,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       delete changes.cancelledBy;
       delete changes.cancellationReason;
     }
-    if (changes.status === "enroute") {
+    if (actorRole === "provider" && changes.status === "enroute") {
       if (!["accepted", "scheduled"].includes(booking.status)) {
         return NextResponse.json({ error: "Navigation can start only for an accepted or scheduled job" }, { status: 409 });
       }
@@ -193,7 +193,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       }
       changes.enrouteAt = Date.now();
     }
-    if (changes.status === "arrived") {
+    if (actorRole === "provider" && changes.status === "arrived") {
       const point = booking.livePoint ?? booking.providerPoint;
       if (booking.status !== "enroute" || !point || !booking.pingAt ||
           Date.now() - booking.pingAt > 30_000 || !booking.originPoint ||
@@ -202,26 +202,23 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       }
       changes.arrivedAt = Date.now();
     }
-    if (changes.status === "in_progress") {
+    if (actorRole === "provider" && changes.status === "in_progress") {
       if (booking.status !== "arrived" || !booking.startOtp ||
           body.patch?.startOtp !== booking.startOtp) {
         return NextResponse.json({ error: "A valid customer start OTP is required" }, { status: 403 });
       }
       changes.startedAt = Date.now();
     }
-    if (changes.status === "pending_confirm") {
+    if (actorRole === "provider" && changes.status === "pending_confirm") {
       if (booking.status !== "in_progress") {
         return NextResponse.json({ error: "Work can be completed only after it has started" }, { status: 409 });
       }
+      // Customer confirms completion with an explicit Yes/No action; no second OTP.
       changes.workMarkedCompleteAt = Date.now();
-      changes.completeOtp = generateOtp();
+      changes.completeOtp = undefined;
     }
-    if (changes.status === "completed") {
-      if (booking.status !== "pending_confirm" || !booking.completeOtp ||
-          body.completionOtp !== booking.completeOtp) {
-        return NextResponse.json({ error: "Customer completion OTP is invalid" }, { status: 403 });
-      }
-      changes.completedAt = Date.now();
+    if (actorRole === "provider" && changes.status === "completed") {
+      return NextResponse.json({ error: "Only the customer can confirm work completion" }, { status: 403 });
     }
     if (body.patch?.paymentReported === true) {
       const dummyMode = process.env.PAYMENT_MODE === "dummy";
