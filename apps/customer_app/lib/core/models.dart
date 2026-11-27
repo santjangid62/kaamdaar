@@ -295,6 +295,7 @@ class BookingItem {
   final int? arrivedAt;
   final int? startedAt;
   final int? completedAt;
+  final int? workMarkedCompleteAt;
   final int? paidAt;
   final String? paymentMethod;
   final String? paymentStatus;
@@ -342,6 +343,7 @@ class BookingItem {
         arrivedAt: _optInt(j["arrivedAt"]),
         startedAt: _optInt(j["startedAt"]),
         completedAt: _optInt(j["completedAt"]),
+        workMarkedCompleteAt: _optInt(j["workMarkedCompleteAt"]),
         paidAt: _optInt(j["paidAt"]),
         paymentMethod: j["paymentMethod"]?.toString(),
         paymentStatus: j["paymentStatus"]?.toString(),
@@ -389,6 +391,7 @@ class BookingItem {
     this.arrivedAt,
     this.startedAt,
     this.completedAt,
+    this.workMarkedCompleteAt,
     this.paidAt,
     this.paymentMethod,
     this.paymentStatus,
