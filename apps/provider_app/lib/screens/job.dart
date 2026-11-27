@@ -88,6 +88,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           content: Text('Customer ne bataya hai ki kaam abhi complete nahi hua. Pending work complete karke Work Completed dobara mark karein.'),
           duration: Duration(seconds: 6),
         ));
+      } else if (previousStatus == 'pending_confirm' && _booking?.status == 'completed' && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Customer ne work completion confirm kar diya hai. Ab Cash/UPI payment collect karein.'),
+          duration: Duration(seconds: 6),
+        ));
       }
       if (_booking?.status == 'enroute') {
         await WakelockPlus.enable();
