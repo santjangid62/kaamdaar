@@ -11,6 +11,7 @@ import '../core/api.dart';
 import '../core/models.dart';
 import '../core/theme.dart';
 import 'bookings.dart';
+import 'notifications.dart';
 import 'profile.dart';
 import 'service.dart';
 import 'tracking.dart';
@@ -348,7 +349,12 @@ class _HomeTabState extends State<_HomeTab> {
                   const Icon(Icons.keyboard_arrow_down, color: KColors.navy, size: 15),
                 ])),
               ])),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
+              IconButton(
+                tooltip: 'Notifications',
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+                icon: const Icon(Icons.notifications_none_rounded, color: KColors.navy, size: 25),
+              ),
               InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
