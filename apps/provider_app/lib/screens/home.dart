@@ -76,6 +76,30 @@ class _ProviderShellState extends State<ProviderShell> with WidgetsBindingObserv
     }
   }
 
+  Widget _providerNavItem(int index, IconData icon, String label) {
+    final active = _tab == index;
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => setState(() => _tab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
+          decoration: BoxDecoration(
+            color: active ? PColors.ink : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, color: active ? Colors.white : Colors.black45, size: 20),
+            const SizedBox(height: 3),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: active ? Colors.white : Colors.black45, fontSize: 9.5, fontWeight: FontWeight.w800)),
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -89,27 +113,27 @@ class _ProviderShellState extends State<ProviderShell> with WidgetsBindingObserv
           ProfileTab(),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _tab,
-        onTap: (i) => setState(() => _tab = i),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: PColors.flame,
-        unselectedItemColor: Colors.black45,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5),
-        items: const [
-          BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.work_outline), activeIcon: Icon(Icons.work), label: 'Jobs'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.event_busy_outlined), activeIcon: Icon(Icons.event_busy), label: 'Missed'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              activeIcon: Icon(Icons.account_balance_wallet),
-              label: 'Wallet'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
-        ],
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE8EDF4)),
+              boxShadow: [BoxShadow(color: PColors.ink.withValues(alpha: .12), blurRadius: 22, offset: const Offset(0, 8))],
+            ),
+            child: Row(children: [
+              _providerNavItem(0, Icons.home_rounded, 'Home'),
+              _providerNavItem(1, Icons.work_rounded, 'Jobs'),
+              _providerNavItem(2, Icons.event_busy_rounded, 'Missed'),
+              _providerNavItem(3, Icons.account_balance_wallet_rounded, 'Wallet'),
+              _providerNavItem(4, Icons.person_rounded, 'Profile'),
+            ]),
+          ),
+        ),
       ),
     );
   }
