@@ -9,7 +9,7 @@ import { appendEvents, eventsForChange, newEvent } from "../../../../server/even
 import { isAuthed } from "../../../../lib/admin/auth";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
 import { advanceProviderDispatch } from "../../../../server/dispatch";
-import { cancelProviderJobOffer, sendProviderBookingCancelled } from "../../../../server/fcm";
+import { cancelProviderJobOffer, sendProviderBookingCancelled, sendProviderCompletionUpdate } from "../../../../server/fcm";
 import type {
   Booking,
   BookingActor,
@@ -125,8 +125,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       changes.cancelledBy = "customer";
       changes.cancellationReason = String((body.patch as Record<string, unknown>)?.cancellationReason ?? "Cancelled by customer").slice(0, 300);
       changes.notifiedIds = [];
+    } else if (changes.status === "completed" && booking.status === "pending_confirm") {
+      // Customer explicitly confirms the Pro's completion request.
+      changes.completedAt = Date.now();
+      changes.completeOtp = undefined;
+    } else if (changes.status === "in_progress" && booking.status === "pending_confirm") {
+      // Customer says the work is not finished. Keep the original start time so
+      // the elapsed-work timer continues without resetting.
+      changes.completionRejectedAt = Date.now();
+      changes.completeOtp = undefined;
     } else if (changes.status !== undefined) {
-      return NextResponse.json({ error: "Customers can only cancel an active booking" }, { status: 403 });
+      return NextResponse.json({ error: "Customers can only cancel an active booking or confirm completion when requested" }, { status: 403 });
     }
   }
 
@@ -172,7 +181,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       delete changes.cancelledBy;
       delete changes.cancellationReason;
     }
-    if (changes.status === "enroute") {
+    if (actorRole === "provider" && changes.status === "enroute") {
       if (!["accepted", "scheduled"].includes(booking.status)) {
         return NextResponse.json({ error: "Navigation can start only for an accepted or scheduled job" }, { status: 409 });
       }
@@ -184,7 +193,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       }
       changes.enrouteAt = Date.now();
     }
-    if (changes.status === "arrived") {
+    if (actorRole === "provider" && changes.status === "arrived") {
       const point = booking.livePoint ?? booking.providerPoint;
       if (booking.status !== "enroute" || !point || !booking.pingAt ||
           Date.now() - booking.pingAt > 30_000 || !booking.originPoint ||
@@ -193,40 +202,46 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       }
       changes.arrivedAt = Date.now();
     }
-    if (changes.status === "in_progress") {
+    if (actorRole === "provider" && changes.status === "in_progress") {
       if (booking.status !== "arrived" || !booking.startOtp ||
           body.patch?.startOtp !== booking.startOtp) {
         return NextResponse.json({ error: "A valid customer start OTP is required" }, { status: 403 });
       }
       changes.startedAt = Date.now();
     }
-    if (changes.status === "pending_confirm") {
+    if (actorRole === "provider" && changes.status === "pending_confirm") {
       if (booking.status !== "in_progress") {
         return NextResponse.json({ error: "Work can be completed only after it has started" }, { status: 409 });
       }
+      // Customer confirms completion with an explicit Yes/No action; no second OTP.
       changes.workMarkedCompleteAt = Date.now();
-      changes.completeOtp = generateOtp();
+      changes.completeOtp = undefined;
     }
-    if (changes.status === "completed") {
-      if (booking.status !== "pending_confirm" || !booking.completeOtp ||
-          body.completionOtp !== booking.completeOtp) {
-        return NextResponse.json({ error: "Customer completion OTP is invalid" }, { status: 403 });
-      }
-      changes.completedAt = Date.now();
+    if (actorRole === "provider" && changes.status === "completed") {
+      return NextResponse.json({ error: "Only the customer can confirm work completion" }, { status: 403 });
     }
     if (body.patch?.paymentReported === true) {
-      if (booking.status !== "completed" || booking.paymentStatus === "verified" || booking.paymentReportedAt) {
+      const dummyMode = process.env.PAYMENT_MODE === "dummy";
+      if (booking.status !== "completed" || booking.paymentStatus === "verified" || (!dummyMode && booking.paymentReportedAt)) {
         return NextResponse.json({ error: "Payment can be reported once, after customer completion verification" }, { status: 409 });
       }
       const method = String(body.patch?.paymentMethod ?? "");
       if (!new Set(["cash", "upi"]).has(method)) return NextResponse.json({ error: "Select cash or UPI payment" }, { status: 422 });
+      if (booking.paymentMethod && booking.paymentMethod !== method) return NextResponse.json({ error: "Provider payment method must match the customer selection" }, { status: 409 });
       const reference = String(body.patch?.paymentReference ?? "").trim().slice(0, 100);
-      if (method === "upi" && reference.length < 6) return NextResponse.json({ error: "UPI transaction/reference ID is required for Admin verification" }, { status: 422 });
+      const gateway = String((body.patch as Record<string, unknown>)?.paymentGateway ?? "phonepe");
+      if (!new Set(["phonepe", "razorpay", "paytm", "other"]).has(gateway)) return NextResponse.json({ error: "Unsupported payment gateway" }, { status: 422 });
+      if (method === "upi" && reference.length < 4 && !dummyMode) return NextResponse.json({ error: "UPI transaction/reference ID is required for Admin verification" }, { status: 422 });
+      if (dummyMode && !authenticatedProviderId) return NextResponse.json({ error: "Provider identity required for dummy collection report" }, { status: 403 });
       changes.paymentStatus = "reported";
       changes.paymentReportedAt = Date.now();
       changes.paymentReportedBy = authenticatedProviderId;
       changes.paymentMethod = method;
-      changes.paymentReference = reference;
+      changes.paymentReference = reference || (dummyMode ? `DUMMY-${uid("pay")}` : "");
+      if (dummyMode) {
+        changes.paymentEnvironment = "dummy";
+        changes.paymentGateway = method === "cash" ? "cash" : gateway;
+      }
     }
     if (body.patch?.paidAt !== undefined) {
       return NextResponse.json({ error: "Only Admin can verify and finalize a reported payment" }, { status: 403 });
@@ -478,10 +493,49 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (typeof withdraw === "string" && withdraw && updated.status === "dispatched") {
     await advanceProviderDispatch(id);
   }
-  // The Pro becomes available immediately after tapping Work Completed
-  // (pending_confirm), not after the customer enters the completion OTP.
-  if (booking.providerId && ["pending_confirm", "completed", "cancelled"].includes(String(changes.status ?? ""))) {
+  // Keep the provider locked while the customer is reviewing completion.
+  // If the customer selects “No”, the job returns to in_progress and the same
+  // provider must finish it before becoming available for another booking.
+  if (booking.providerId && ["completed", "cancelled"].includes(String(changes.status ?? ""))) {
     await releaseProviderBooking(booking.providerId, id);
+  }
+  if (actorRole === "customer" && changes.status === "in_progress" && booking.status === "pending_confirm" && booking.providerId) {
+    await insert("notifications", {
+      id: uid("ntf"),
+      type: "work_completion_rejected",
+      title: "Work is not completed yet",
+      message: "Customer ne bataya hai ki kaam abhi complete nahi hua hai. Kripya pending work complete karein, phir Work Completed dobara mark karein.",
+      providerId: booking.providerId,
+      userId: booking.userId,
+      bookingId: booking.id,
+      serviceName: booking.serviceName,
+      readAt: null,
+      createdAt: Date.now(),
+    });
+  }
+  if (actorRole === "customer" && changes.status === "completed" && booking.status === "pending_confirm" && booking.providerId) {
+    await insert("notifications", {
+      id: uid("ntf"),
+      type: "work_completion_confirmed",
+      title: "Customer confirmed work completion",
+      message: "Customer ne aapka kaam successfully completed confirm kar diya hai. Ab customer se Cash/UPI payment collect karein.",
+      providerId: booking.providerId,
+      userId: booking.userId,
+      bookingId: booking.id,
+      serviceName: booking.serviceName,
+      readAt: null,
+      createdAt: Date.now(),
+    });
+  }
+  if (actorRole === "customer" && ["in_progress", "completed"].includes(String(changes.status)) && booking.status === "pending_confirm" && booking.providerId) {
+    const providerRows = await all<Provider & { fcmTokens?: string[] }>("providers");
+    const tokens = providerRows.find((provider) => provider.id === booking.providerId)?.fcmTokens ?? [];
+    try {
+      await sendProviderCompletionUpdate(tokens, { id: booking.id, serviceName: booking.serviceName }, changes.status === "completed");
+    } catch (error) {
+      // The booking state is authoritative; FCM failure must not roll it back.
+      console.error("[fcm] customer completion response push failed", error);
+    }
   }
   if (changes.status === "cancelled" && actorRole === "customer") {
     await insert("notifications", {
@@ -577,12 +631,12 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     await insert("notifications", {
       id: uid("ntf"),
       type: "booking_payment_report",
-      title: "Provider reported a booking payment",
-      message: `${booking.providerName} reported ${String(changes.paymentMethod).toUpperCase()} collection of ₹${booking.amount} for booking ${booking.id}. Admin verification is pending.`,
+      title: process.env.PAYMENT_MODE === "dummy" ? "Dummy payment reported (Test only)" : "Provider reported a booking payment",
+      message: process.env.PAYMENT_MODE === "dummy" ? `TEST ONLY: ${booking.providerName} reported ${String(changes.paymentMethod).toUpperCase()} via ${String(changes.paymentGateway ?? "gateway").toUpperCase()} for booking ${booking.id}. No money was transferred.` : `${booking.providerName} reported ${String(changes.paymentMethod).toUpperCase()} collection of ₹${booking.amount} for booking ${booking.id}. Admin verification is pending.`,
       userId: booking.userId,
       userName: booking.providerName || "Provider",
       phone: "",
-      platform: "Booking payment",
+      platform: process.env.PAYMENT_MODE === "dummy" ? "Dummy payment test" : "Booking payment",
       bookingId: booking.id,
       readAt: null,
       createdAt: Date.now(),

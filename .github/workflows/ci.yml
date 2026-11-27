@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, feat/phonepe-payment-gateway]
   workflow_dispatch:
 
 # Keep only the newest CI run for this branch; push and PR events share a key.
@@ -35,10 +35,17 @@ jobs:
           src/app/api/auth/route.ts
           'src/app/api/bookings/[id]/route.ts'
           src/app/api/bookings/route.ts
+          'src/app/api/bookings/[id]/payment-method/route.ts'
+          src/app/api/payments/dummy/route.ts
+          src/app/api/admin/booking-payments/route.ts
+          src/app/api/reviews/route.ts
           src/app/api/booking-slots/route.ts
           'src/app/services/[slug]/providers/page.tsx'
           src/components/BookingBox.tsx
           src/components/ProviderPanel.tsx
+          src/components/MyBookings.tsx
+          src/components/admin/BookingPaymentConfirmationsClient.tsx
+          src/lib/store.ts
           src/app/api/providers/device-token/route.ts
           src/app/api/providers/me/route.ts
           src/app/api/providers/route.ts
@@ -66,7 +73,7 @@ jobs:
           FIREBASE_PROJECT_ID: active-valve-162810
 
   flutter:
-    name: Flutter ${{ matrix.app }} checks and production-backend APK
+    name: Flutter ${{ matrix.app }} checks and QA Preview APK
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -111,11 +118,11 @@ jobs:
       - name: Analyze
         working-directory: apps/${{ matrix.app }}
         run: flutter analyze --no-fatal-infos
-      - name: Build Android APK against Production API
+      - name: Build Android APK against isolated QA Preview API
         working-directory: apps/${{ matrix.app }}
         run: >-
           flutter build apk --debug
-          --dart-define=API_BASE=https://kaamdaar-seven.vercel.app
+          --dart-define=API_BASE=https://kaamdaar-git-feat-phonepe-payment-gateway-unique-it-team.vercel.app
       - name: Export QA APK signing fingerprints
         working-directory: apps/${{ matrix.app }}/android
         shell: bash
@@ -124,10 +131,10 @@ jobs:
           awk '/Variant: debug/{show=1; next} show && /^Variant:/{exit} show && /(SHA1|SHA-1|SHA-256):/{print}' signing-report.txt > ../firebase-debug-fingerprints.txt
           echo "Debug signing fingerprints for Firebase Android app registration:"
           cat ../firebase-debug-fingerprints.txt
-      - name: Upload Production-backend APK and Firebase signing fingerprint
+      - name: Upload QA Preview-backend APK and Firebase signing fingerprint
         uses: actions/upload-artifact@v4
         with:
-          name: kaamdaar-${{ matrix.app }}-production-backend-apk
+          name: kaamdaar-${{ matrix.app }}-qa-preview-apk
           path: |
             apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-debug.apk
             apps/${{ matrix.app }}/firebase-debug-fingerprints.txt

@@ -295,8 +295,13 @@ class BookingItem {
   final int? arrivedAt;
   final int? startedAt;
   final int? completedAt;
+  final int? workMarkedCompleteAt;
   final int? paidAt;
   final String? paymentMethod;
+  final String? paymentStatus;
+  final int? paymentReportedAt;
+  final int? customerReviewedAt;
+  final int? providerReviewedAt;
   final int commission;
   final int etaMinutes;
   final ProviderProfile? providerProfile;
@@ -338,8 +343,13 @@ class BookingItem {
         arrivedAt: _optInt(j["arrivedAt"]),
         startedAt: _optInt(j["startedAt"]),
         completedAt: _optInt(j["completedAt"]),
+        workMarkedCompleteAt: _optInt(j["workMarkedCompleteAt"]),
         paidAt: _optInt(j["paidAt"]),
         paymentMethod: j["paymentMethod"]?.toString(),
+        paymentStatus: j["paymentStatus"]?.toString(),
+        paymentReportedAt: _optInt(j["paymentReportedAt"]),
+        customerReviewedAt: _optInt(j["customerReviewedAt"]),
+        providerReviewedAt: _optInt(j["providerReviewedAt"]),
         commission: _int(j["commission"]),
         etaMinutes: _int(j["etaMinutes"]),
         providerProfile: j["providerProfile"] is Map<String, dynamic>
@@ -381,8 +391,13 @@ class BookingItem {
     this.arrivedAt,
     this.startedAt,
     this.completedAt,
+    this.workMarkedCompleteAt,
     this.paidAt,
     this.paymentMethod,
+    this.paymentStatus,
+    this.paymentReportedAt,
+    this.customerReviewedAt,
+    this.providerReviewedAt,
     this.commission = 0,
     this.etaMinutes = 0,
     this.providerProfile,

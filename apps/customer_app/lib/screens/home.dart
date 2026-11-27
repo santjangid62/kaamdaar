@@ -72,6 +72,24 @@ class _HomeScreenState extends State<HomeScreen> {
     _tab = widget.homeTab;
   }
 
+  Widget _navItem(int index, IconData icon, String label) {
+    final active = _tab == index;
+    return Expanded(child: InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => setState(() => _tab = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(color: active ? KColors.navy : Colors.transparent, borderRadius: BorderRadius.circular(18)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: active ? Colors.white : Colors.black45, size: 21),
+          const SizedBox(height: 3),
+          Text(label, style: TextStyle(color: active ? Colors.white : Colors.black45, fontSize: 10.5, fontWeight: FontWeight.w800)),
+        ]),
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [const _HomeTab(), const BookingsScreen(), const ProfileScreen()];
@@ -80,18 +98,25 @@ class _HomeScreenState extends State<HomeScreen> {
         IndexedStack(index: _tab, children: pages),
         const KaamdaarBotLauncher(),
       ]),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _tab,
-        onTap: (i) => setState(() => _tab = i),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: KColors.flame,
-        unselectedItemColor: Colors.black45,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), activeIcon: Icon(Icons.receipt_long), label: 'Bookings'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
-        ],
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 4, 18, 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE8EDF4)),
+              boxShadow: [BoxShadow(color: KColors.navy.withOpacity(.12), blurRadius: 22, offset: const Offset(0, 8))],
+            ),
+            child: Row(children: [
+              _navItem(0, Icons.home_rounded, 'Home'),
+              _navItem(1, Icons.receipt_long_rounded, 'Bookings'),
+              _navItem(2, Icons.person_rounded, 'Profile'),
+            ]),
+          ),
+        ),
       ),
     );
   }
@@ -113,6 +138,7 @@ class _HomeTabState extends State<_HomeTab> {
   SessionUser? _user;
   bool _loading = true;
   String? _error;
+  String? _selectedCategory;
   String _locationLabel = 'Detecting your location…';
   double? _latitude;
   double? _longitude;
@@ -230,13 +256,12 @@ class _HomeTabState extends State<_HomeTab> {
 
   List<ServiceItem> get _filtered {
     final q = _search.text.trim().toLowerCase();
-    if (q.isEmpty) return _services;
-    return _services
-        .where((s) =>
-            s.name.toLowerCase().contains(q) ||
-            s.category.toLowerCase().contains(q) ||
-            s.tagline.toLowerCase().contains(q))
-        .toList();
+    return _services.where((s) {
+      final matchesCategory = _selectedCategory == null || s.category == _selectedCategory;
+      final matchesQuery = q.isEmpty || s.name.toLowerCase().contains(q) ||
+          s.category.toLowerCase().contains(q) || s.tagline.toLowerCase().contains(q);
+      return matchesCategory && matchesQuery;
+    }).toList();
   }
 
   void _open(ServiceItem s) {
@@ -254,46 +279,38 @@ class _HomeTabState extends State<_HomeTab> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
-            /* location header */
-            Row(
-              children: [
-                const Icon(Icons.location_on, color: KColors.flame, size: 20),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: InkWell(
-                    onTap: _detectLocation,
-                    child: Text(_locationLabel, maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800, color: KColors.navy, fontSize: 13)),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(Icons.notifications_none, color: KColors.navy),
-                ),
-                Material(
-                  color: Colors.white,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    ),
-                    child: CircleAvatar(
-                      radius: 22,
-                      backgroundColor: const Color(0xFFF1F5F9),
-                      backgroundImage: _homeProfileImage(_user?.photo ?? ''),
-                      child: (_user?.photo.isNotEmpty ?? false)
-                          ? null
-                          : const Icon(Icons.person_rounded, color: KColors.navy, size: 25),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text('Hi ${_user?.name ?? 'there'} 👋',
-                style: const TextStyle(color: Colors.black54, fontSize: 13)),
-            const SizedBox(height: 12),
+            /* Kaamdaar brand + saved location + profile */
+            Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              Container(
+                width: 43, height: 43, padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(color: KColors.navy, borderRadius: BorderRadius.circular(14)),
+                child: Image.asset('assets/kaamdaar-logo-white.png', fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.home_repair_service, color: KColors.flame, size: 27)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('KAAMDAAR', style: TextStyle(color: KColors.navy, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                const SizedBox(height: 3),
+                InkWell(onTap: _detectLocation, child: Row(children: [
+                  const Icon(Icons.location_on, color: KColors.flame, size: 14),
+                  const SizedBox(width: 3),
+                  Expanded(child: Text(_locationLabel, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: KColors.navy, fontSize: 10.5))),
+                  const Icon(Icons.keyboard_arrow_down, color: KColors.navy, size: 15),
+                ])),
+              ])),
+              const SizedBox(width: 8),
+              InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
+                child: CircleAvatar(radius: 22, backgroundColor: const Color(0xFFEAF0F7),
+                  backgroundImage: _homeProfileImage(_user?.photo ?? ''),
+                  child: (_user?.photo.isNotEmpty ?? false) ? null : const Icon(Icons.person_rounded, color: KColors.navy, size: 25)),
+              ),
+            ]),
+            const SizedBox(height: 16),
+            Text('Hi ${_user?.name ?? 'there'} 👋', style: const TextStyle(color: Colors.black54, fontSize: 12.5)),
+            const SizedBox(height: 8),
 
             /* search bar */
             Row(
@@ -303,7 +320,7 @@ class _HomeTabState extends State<_HomeTab> {
                     controller: _search,
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
-                      hintText: 'Search for a service...',
+                      hintText: 'Search AC repair, plumbing, cleaning...',
                       hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
                       prefixIcon: const Icon(Icons.search, color: Colors.black45),
                       suffixIcon: _search.text.isEmpty
@@ -326,9 +343,10 @@ class _HomeTabState extends State<_HomeTab> {
                   width: 48,
                   decoration: BoxDecoration(
                     color: KColors.flame,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [BoxShadow(color: KColors.flame.withOpacity(.22), blurRadius: 12, offset: const Offset(0, 5))],
                   ),
-                  child: const Icon(Icons.tune, color: Colors.white),
+                  child: const Icon(Icons.tune_rounded, color: Colors.white),
                 ),
               ],
             ),
@@ -409,40 +427,45 @@ class _HomeTabState extends State<_HomeTab> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                GridView.count(
-                  crossAxisCount: 4,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 8,
-                  children: _categories.take(8).map((c) {
-                    return InkWell(
-                      onTap: () {
-                        final first = _services.firstWhere((s) => s.category == c,
-                            orElse: () => _services.first);
-                        _open(first);
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Column(
-                        children: [
-                          Container(
-                            height: 54,
-                            width: 54,
+                SizedBox(
+                  height: 92,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _categories.length + 1,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (context, index) {
+                      final all = index == 0;
+                      final category = all ? null : _categories[index - 1];
+                      final active = _selectedCategory == category;
+                      final label = all ? 'All' : category!;
+                      return InkWell(
+                        onTap: () => setState(() => _selectedCategory = category),
+                        borderRadius: BorderRadius.circular(16),
+                        child: SizedBox(width: 70, child: Column(children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            height: 54, width: 54,
                             decoration: BoxDecoration(
-                              color: KColors.flame.withOpacity(.12),
-                              borderRadius: BorderRadius.circular(16),
+                              color: active ? KColors.navy : KColors.flame.withOpacity(.10),
+                              borderRadius: BorderRadius.circular(17),
+                              border: Border.all(color: active ? KColors.navy : KColors.flame.withOpacity(.12)),
                             ),
-                            child: Icon(iconFor(c), color: KColors.flame, size: 26),
+                            child: Icon(all ? Icons.apps_rounded : iconFor(category!), color: active ? Colors.white : KColors.flame, size: 25),
                           ),
                           const SizedBox(height: 6),
-                          Text(c,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    );
-                  }).toList(),
+                          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 10.5, fontWeight: active ? FontWeight.w900 : FontWeight.w600, color: active ? KColors.navy : Colors.black54)),
+                        ])),
+                      );
+                    },
+                  ),
+                ),
+                if (_selectedCategory != null) Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(children: [
+                    Expanded(child: Text('Showing $_selectedCategory services', style: const TextStyle(fontSize: 12, color: KColors.navy, fontWeight: FontWeight.w800))),
+                    TextButton(onPressed: () => setState(() => _selectedCategory = null), child: const Text('Clear')),
+                  ]),
                 ),
                 const SizedBox(height: 20),
 

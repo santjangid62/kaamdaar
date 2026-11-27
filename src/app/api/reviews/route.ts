@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { all, get, insert, patch, ready, uid } from "../../../server/db";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
-import type { Booking, Provider, User } from "../../../lib/types";
+import type { Booking, Provider, Service, User } from "../../../lib/types";
 
 export async function POST(req: Request) {
   await ready();
@@ -28,10 +28,10 @@ export async function POST(req: Request) {
     all<{ bookingId: string; reviewerRole?: string }>("reviews"),
     all<Provider>("providers"),
   ]);
-  if (!booking || booking.status !== "completed" || !booking.paidAt || !booking.providerId) {
-    return NextResponse.json({ error: "Ratings are available after verified work completion and payment" }, { status: 409 });
+  if (!booking || booking.status !== "completed" || !booking.paymentReportedAt || booking.paymentStatus === "disputed" || !booking.providerId) {
+    return NextResponse.json({ error: "Ratings are available after the provider confirms payment collection" }, { status: 409 });
   }
-  if (reviews.some((r) => r.bookingId === bookingId && (r.reviewerRole ?? "customer") === actorRole)) {
+  if ((actorRole === "customer" ? booking.customerReviewedAt : booking.providerReviewedAt) || reviews.some((r) => r.bookingId === bookingId && (r.reviewerRole ?? "customer") === actorRole)) {
     return NextResponse.json({ error: "You have already rated this booking" }, { status: 409 });
   }
 
@@ -50,6 +50,13 @@ export async function POST(req: Request) {
       text, createdAt: Date.now(),
     });
     const providerReviews = [...(provider.reviews ?? []), { author, rating, text }];
+    const service = (await all<Service>("services")).find((item) => item.id === booking.serviceId);
+    if (service) {
+      const serviceReviewRows = [...reviews.filter((row: { serviceId?: string; reviewerRole?: string }) => row.serviceId === booking.serviceId && (row.reviewerRole ?? "customer") === "customer"), { serviceId: booking.serviceId, reviewerRole: "customer", serviceRating }];
+      const serviceAverage = serviceReviewRows.reduce((sum, row) => sum + Number((row as { serviceRating?: number }).serviceRating ?? serviceRating), 0) / serviceReviewRows.length;
+      await patch("services", service.id, { rating: Math.round(serviceAverage * 10) / 10, reviewCount: serviceReviewRows.length });
+    }
+    await patch<Booking>("bookings", bookingId, { customerReviewedAt: Date.now() });
     const average = providerReviews.reduce((sum, row) => sum + row.rating, 0) / providerReviews.length;
     await patch<Provider>("providers", provider.id, {
       reviews: providerReviews.slice(-100),
@@ -72,6 +79,7 @@ export async function POST(req: Request) {
     author: provider.name, name: provider.name, customerRating: rating, rating,
     text, createdAt: Date.now(),
   });
+  await patch<Booking>("bookings", bookingId, { providerReviewedAt: Date.now() });
   const nextCustomerReviews = [...customerReviews, {
     bookingId, rating, text, service: booking.serviceName, providerName: provider.name, createdAt: Date.now(),
   }];

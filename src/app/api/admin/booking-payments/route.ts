@@ -9,8 +9,9 @@ export async function GET() {
   if (!(await isAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await ready();
   const rows = await all<Booking>("bookings");
-  const reports = rows.filter((b) => b.paymentStatus === "reported" || b.paymentStatus === "disputed")
-    .sort((a,b) => (b.paymentReportedAt ?? 0) - (a.paymentReportedAt ?? 0));
+  const reports = rows.filter((b) => Boolean(b.paymentStatus && b.paymentStatus !== "unpaid") || b.paymentEnvironment === "dummy")
+    .sort((a,b) => (b.paymentReportedAt ?? b.paidAt ?? 0) - (a.paymentReportedAt ?? a.paidAt ?? 0))
+    .map((b) => ({ ...b, isTest: b.paymentEnvironment === "dummy" }));
   return NextResponse.json({ reports });
 }
 
