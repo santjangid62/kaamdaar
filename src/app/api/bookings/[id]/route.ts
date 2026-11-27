@@ -9,7 +9,7 @@ import { appendEvents, eventsForChange, newEvent } from "../../../../server/even
 import { isAuthed } from "../../../../lib/admin/auth";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../../server/firebase-auth";
 import { advanceProviderDispatch } from "../../../../server/dispatch";
-import { cancelProviderJobOffer, sendProviderBookingCancelled } from "../../../../server/fcm";
+import { cancelProviderJobOffer, sendProviderBookingCancelled, sendProviderCompletionUpdate } from "../../../../server/fcm";
 import type {
   Booking,
   BookingActor,
@@ -526,6 +526,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       readAt: null,
       createdAt: Date.now(),
     });
+  }
+  if (actorRole === "customer" && ["in_progress", "completed"].includes(String(changes.status)) && booking.status === "pending_confirm" && booking.providerId) {
+    const providerRows = await all<Provider & { fcmTokens?: string[] }>("providers");
+    const tokens = providerRows.find((provider) => provider.id === booking.providerId)?.fcmTokens ?? [];
+    try {
+      await sendProviderCompletionUpdate(tokens, { id: booking.id, serviceName: booking.serviceName }, changes.status === "completed");
+    } catch (error) {
+      // The booking state is authoritative; FCM failure must not roll it back.
+      console.error("[fcm] customer completion response push failed", error);
+    }
   }
   if (changes.status === "cancelled" && actorRole === "customer") {
     await insert("notifications", {
