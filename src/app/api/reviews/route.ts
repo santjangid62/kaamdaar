@@ -4,6 +4,20 @@ import { all, get, insert, patch, ready, uid } from "../../../server/db";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
 import type { Booking, Provider, Service, User } from "../../../lib/types";
 
+export async function GET(req: Request) {
+  await ready();
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  const providers = await all<Provider>("providers");
+  const provider = providers.find((p) => normalizeIndianPhone(p.phone ?? "") === identity.phone);
+  if (!provider) return NextResponse.json({ error: "Provider account not found" }, { status: 404 });
+  const rows = await all<Record<string, unknown> & { providerId?: string; reviewerRole?: string }>("reviews");
+  return NextResponse.json({
+    reviews: rows.filter((row) => row.providerId === provider.id && row.reviewerRole === "customer")
+      .sort((a, b) => Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0)),
+  });
+}
+
 export async function POST(req: Request) {
   await ready();
   const identity = await firebaseIdentityFromRequest(req);
