@@ -708,16 +708,30 @@ class _DashboardTabState extends State<DashboardTab> with WidgetsBindingObserver
       color: const Color(0xFFEDF2F0));
 
   Widget _stat(String label, String value, String sub) {
+    final icon = switch (label) {
+      'Today' => Icons.work_history_rounded,
+      'Earnings' => Icons.currency_rupee_rounded,
+      'Rating' => Icons.star_rounded,
+      _ => Icons.account_balance_wallet_rounded,
+    };
+    final accent = label == 'Earnings' ? PColors.green : label == 'Rating' ? const Color(0xFFF59E0B) : PColors.flame;
     return Expanded(
       child: Column(
         children: [
-          Text(label,
-              style: const TextStyle(fontSize: 10.5, color: Colors.black45)),
+          Container(
+            width: 31,
+            height: 31,
+            decoration: BoxDecoration(color: accent.withValues(alpha: .11), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 16, color: accent),
+          ),
+          const SizedBox(height: 6),
+          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: PColors.ink)),
           const SizedBox(height: 2),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w900, color: PColors.ink)),
-          Text(sub, style: const TextStyle(fontSize: 10, color: Colors.black38)),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10, color: Colors.black54, fontWeight: FontWeight.w700)),
+          Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 9, color: Colors.black38)),
         ],
       ),
     );
