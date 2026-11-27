@@ -80,10 +80,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       final jobs = await Api.inbox(me.id);
       final found = jobs.where((b) => b.id == widget.bookingId).toList();
       if (!mounted) return;
+      final previousStatus = _booking?.status;
       setState(() {
         _booking = found.isEmpty ? null : found.first;
         _error = found.isEmpty ? 'This job is no longer assigned to you.' : null;
       });
+      if (previousStatus == 'pending_confirm' && _booking?.status == 'in_progress' && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Customer ne bataya hai ki kaam abhi complete nahi hua. Pending work complete karke Work Completed dobara mark karein.'),
+          duration: Duration(seconds: 6),
+        ));
+      }
       if (_booking?.status == 'enroute') {
         await WakelockPlus.enable();
         _startLiveGps();
