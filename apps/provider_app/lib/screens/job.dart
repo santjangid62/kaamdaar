@@ -212,7 +212,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     await _patch({'status': 'pending_confirm'});
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Customer ko completion OTP bhej diya gaya hai. OTP lekar yahan verify karein.')),
+      const SnackBar(content: Text('Customer ko completion confirmation bhej diya gaya hai. Yes/No response ka wait karein.')),
     );
   }
 
@@ -649,25 +649,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Enter customer completion OTP',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-          const SizedBox(height: 6),
-          const Text('Customer ko app par mila OTP lein aur yahan enter karein.',
-              style: TextStyle(fontSize: 11.5, color: Colors.black54)),
+          const Row(children: [
+            Icon(Icons.hourglass_top_rounded, color: PColors.amber),
+            SizedBox(width: 8),
+            Expanded(child: Text('Waiting for customer confirmation',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5))),
+          ]),
+          const SizedBox(height: 7),
+          const Text('Customer ko app par Yes / No confirmation popup dikh raha hai. Customer Yes karega to job complete hogi. No karega to aapko kaam continue karna hoga.',
+              style: TextStyle(fontSize: 11.5, color: Colors.black54, height: 1.4)),
           const SizedBox(height: 10),
-          TextField(
-            controller: _completionOtp,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 8),
-            decoration: InputDecoration(counterText: '', errorText: _otpError),
-          ),
-          PrimaryBtn(
-            label: 'Verify & Close Job',
-            busy: _busy,
-            onPressed: _completionOtp.text.trim().length == 6 ? _verifyCompletionOtp : null,
-          ),
+          const LinearProgressIndicator(minHeight: 4, color: PColors.amber, backgroundColor: Color(0xFFFFF0D6)),
         ],
       ),
     );
@@ -822,7 +814,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               onPressed: _completeWork,
             ),
             const SizedBox(height: 8),
-            const Text('Customer ko completion OTP dikhega — verify karte hi payment lega.',
+            const Text('Customer app par completion confirm karega. Confirm hone ke baad payment collect karein.',
                 style: TextStyle(fontSize: 11, color: Colors.black45)),
           ],
         );
