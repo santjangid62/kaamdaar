@@ -15,6 +15,7 @@ import '../core/models.dart';
 import '../core/theme.dart';
 import 'auth.dart';
 import 'job.dart';
+import 'feedback.dart';
 
 class ProviderShell extends StatefulWidget {
   const ProviderShell({super.key});
@@ -1629,6 +1630,9 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
           ),
           const SizedBox(height: 14),
+          _tile(Icons.support_agent_rounded, 'Complaints & Reviews', () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProviderFeedbackScreen()));
+          }),
           _tile(Icons.devices, 'Pair Web Browser', _pairBrowser),
           _tile(Icons.help_outline, 'Help & Support', () {
             showDialog<void>(
