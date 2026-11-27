@@ -1,0 +1,80 @@
+name: Build Kaamdaar Preview QA APKs
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base:
+        description: "Successful Vercel Preview URL (for example https://kaamdaar-<deployment>.vercel.app)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.app }} QA APK
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: customer
+            directory: apps/customer_app
+            apk: app-customer-preview-qa.apk
+          - app: provider
+            directory: apps/provider_app
+            apk: app-provider-preview-qa.apk
+
+    steps:
+      - name: Validate Preview API URL
+        env:
+          API_BASE: ${{ inputs.api_base }}
+        run: |
+          case "$API_BASE" in
+            https://*.vercel.app) ;;
+            *) echo "API_BASE must be an HTTPS Vercel Preview URL"; exit 1 ;;
+          esac
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: integrate/nov27-consolidated
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+          cache-dependency-path: ${{ matrix.directory }}/pubspec.lock
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.directory }}
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: ${{ matrix.directory }}
+        run: flutter analyze
+
+      - name: Build Android QA APK against isolated Preview API
+        working-directory: ${{ matrix.directory }}
+        env:
+          API_BASE: ${{ inputs.api_base }}
+        run: flutter build apk --debug --dart-define=API_BASE="$API_BASE"
+
+      - name: Rename APK
+        run: cp "${{ matrix.directory }}/build/app/outputs/flutter-apk/app-debug.apk" "${{ matrix.apk }}"
+
+      - name: Upload QA APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaamdaar-${{ matrix.app }}-preview-qa-apk
+          path: ${{ matrix.apk }}
+          if-no-files-found: error
+          retention-days: 14
