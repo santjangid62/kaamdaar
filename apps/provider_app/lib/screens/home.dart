@@ -129,7 +129,7 @@ class _ProviderShellState extends State<ProviderShell> with WidgetsBindingObserv
             child: Row(children: [
               _providerNavItem(0, Icons.home_rounded, 'Home'),
               _providerNavItem(1, Icons.work_rounded, 'Jobs'),
-              _providerNavItem(2, Icons.event_busy_rounded, 'Missed'),
+              _providerNavItem(2, Icons.event_busy_rounded, 'Cancelled'),
               _providerNavItem(3, Icons.account_balance_wallet_rounded, 'Wallet'),
               _providerNavItem(4, Icons.person_rounded, 'Profile'),
             ]),
@@ -1171,9 +1171,9 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
                     const SizedBox(height: 12), GhostBtn(label: 'Retry', onPressed: _load, color: PColors.flame),
                   ])
                 : ListView(padding: const EdgeInsets.all(16), children: [
-                    const Text('Cancelled by Provider & Missed', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: PColors.ink)),
+                    const Text('Cancelled Bookings & Missed', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: PColors.ink)),
                     const SizedBox(height: 4),
-                    const Text('40-second ring timeouts and offers you cancelled or declined', style: TextStyle(fontSize: 12, color: Colors.black45)),
+                    const Text('Offers you cancelled or declined, plus requests you missed', style: TextStyle(fontSize: 12, color: Colors.black45)),
                     const SizedBox(height: 14),
                     Row(children: [
                       Expanded(child: _missedStat('Today', '$today')),
