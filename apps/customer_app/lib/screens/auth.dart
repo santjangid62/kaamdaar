@@ -506,3 +506,38 @@ class _OtpScreenState extends State<OtpScreen> {
     );
   }
 }
+
+
+/// Entry point after location permission: restore the secure session without
+/// showing the legacy splash/onboarding flow.
+class LandingScreen extends StatefulWidget {
+  const LandingScreen({super.key});
+  @override
+  State<LandingScreen> createState() => _LandingScreenState();
+}
+
+class _LandingScreenState extends State<LandingScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  Future<void> _restore() async {
+    final user = await Api.restoreSession();
+    if (!mounted) return;
+    final Widget next = user == null
+        ? const LoginScreen()
+        : (user.firstName.trim().isEmpty
+            ? ProfileSetupScreen(user: user)
+            : const HomeScreen(homeTab: 0));
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => next),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+    body: Center(child: CircularProgressIndicator(color: Color(0xFFFF7A00))),
+  );
+}
