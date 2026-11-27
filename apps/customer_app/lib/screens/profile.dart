@@ -9,6 +9,7 @@ import '../core/models.dart';
 import '../core/theme.dart';
 import 'auth.dart';
 import 'bookings.dart';
+import 'notifications.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -148,10 +149,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
     final u = _user;
     final done = _bookings.where((b) => b.status == 'completed').length;
+    final displayName = (u?.name.trim().isNotEmpty ?? false) ? u!.name.trim() : 'Guest';
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: _load,
+        color: KColors.flame,
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
           children: [
             if (_loadError != null)
@@ -160,32 +164,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Profile / My Bookings could not be refreshed',
-                      style: TextStyle(fontWeight: FontWeight.w800, color: Colors.red),
-                    ),
+                    const Row(children: [
+                      Icon(Icons.cloud_off_outlined, color: KColors.red, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(child: Text('Could not refresh your profile',
+                          style: TextStyle(fontWeight: FontWeight.w800, color: KColors.red))),
+                    ]),
                     const SizedBox(height: 6),
                     Text(_loadError!, style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                    const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton.icon(
                         onPressed: _load,
                         icon: const Icon(Icons.refresh),
-                        label: const Text('Retry'),
+                        label: const Text('Try again'),
                       ),
                     ),
                   ],
                 ),
               ),
             Container(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                    colors: [KColors.navy, Color(0xFF173A6B)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight),
-                borderRadius: BorderRadius.circular(20),
+                  colors: [Color(0xFF0B2240), Color(0xFF1B4778), Color(0xFF24558A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(26),
+                boxShadow: [
+                  BoxShadow(color: KColors.navy.withOpacity(.18), blurRadius: 22, offset: const Offset(0, 10)),
+                ],
               ),
               child: Row(
                 children: [
@@ -193,99 +202,106 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onTap: _pickProfilePhoto,
                     child: Stack(
                       children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: Colors.white24,
-                          backgroundImage: _profileImage(u?.photo ?? ''),
-                          child: (u?.photo.isNotEmpty ?? false)
-                              ? null
-                              : Text(
-                                  (u?.name.isNotEmpty ?? false)
-                                      ? u!.name[0].toUpperCase()
-                                      : 'K',
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w900),
-                                ),
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white.withOpacity(.75), width: 2),
+                          ),
+                          child: CircleAvatar(
+                            radius: 34,
+                            backgroundColor: Colors.white.withOpacity(.16),
+                            backgroundImage: _profileImage(u?.photo ?? ''),
+                            child: (u?.photo.isNotEmpty ?? false)
+                                ? null
+                                : Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : 'K',
+                                    style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+                          ),
                         ),
                         Positioned(
                           right: 0,
-                          bottom: 0,
+                          bottom: 1,
                           child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: KColors.flame,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.camera_alt,
-                                color: Colors.white, size: 13),
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(color: KColors.flame, shape: BoxShape.circle),
+                            child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 15),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(u?.name ?? 'Guest',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w900)),
-                        const SizedBox(height: 3),
+                        Text(displayName, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: .1)),
+                        const SizedBox(height: 5),
                         Text('+91 ${u?.phone ?? ''}',
-                            style: TextStyle(
-                                color: Colors.white.withOpacity(.8), fontSize: 12.5)),
-                        const SizedBox(height: 6),
+                          style: TextStyle(color: Colors.white.withOpacity(.82), fontSize: 13, fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 10),
                         Container(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                              color: KColors.green.withOpacity(.22),
-                              borderRadius: BorderRadius.circular(999)),
-                          child: const Text('Verified account',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w700)),
+                            color: KColors.green.withOpacity(.20),
+                            border: Border.all(color: Colors.white.withOpacity(.18)),
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.verified_rounded, color: Color(0xFF86EFAC), size: 14),
+                            SizedBox(width: 5),
+                            Text('Verified account', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                          ]),
                         ),
                       ],
                     ),
                   ),
+                  IconButton(
+                    tooltip: 'Change profile photo',
+                    onPressed: _pickProfilePhoto,
+                    icon: const Icon(Icons.edit_outlined, color: Colors.white70, size: 19),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 22),
+            const Padding(
+              padding: EdgeInsets.only(left: 2, bottom: 11),
+              child: Text('YOUR ACTIVITY', style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.15)),
+            ),
             Row(
               children: [
-                _stat('Bookings', '${_bookings.length}', Icons.receipt_long),
+                _stat('Bookings', '${_bookings.length}', Icons.receipt_long_rounded, const Color(0xFFFF7A00)),
                 const SizedBox(width: 10),
-                _stat('Completed', '$done', Icons.check_circle),
+                _stat('Completed', '$done', Icons.check_circle_rounded, const Color(0xFF16A34A)),
                 const SizedBox(width: 10),
-                _stat('Rating', '4.8', Icons.star),
+                _stat('Rating', '4.8', Icons.star_rounded, const Color(0xFFF59E0B)),
               ],
             ),
-            const SizedBox(height: 18),
-            _tile(Icons.receipt_long, 'My Bookings', () {
-              Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const BookingsScreen()));
+            const SizedBox(height: 24),
+            const Padding(
+              padding: EdgeInsets.only(left: 2, bottom: 11),
+              child: Text('ACCOUNT & PREFERENCES', style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.15)),
+            ),
+            _tile(Icons.receipt_long_rounded, 'My Bookings', 'View and track your services', () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BookingsScreen()));
             }),
-            _tile(Icons.location_on_outlined, 'Saved Addresses', () async {
-              await Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AddressesScreen()));
+            _tile(Icons.location_on_outlined, 'Saved Addresses', 'Manage your service locations', () async {
+              await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddressesScreen()));
               _load();
             }),
-            _tile(Icons.notifications_none, 'Notifications', () {
-              _soon();
+            _tile(Icons.notifications_none_rounded, 'Notifications', 'Booking and complaint updates from Kaamdaar', () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
             }),
-            _tile(Icons.payment, 'Payment Methods', () {
-              _soon();
-            }),
-            _tile(Icons.devices, 'Pair Web Browser', _pairBrowser),
-            _tile(Icons.help_outline, 'Help & Support', () async {
+            _tile(Icons.credit_card_rounded, 'Payment Methods', 'Your preferred payment options', () { _soon(); }),
+            _tile(Icons.devices_rounded, 'Pair Web Browser', 'Connect your account to the web', _pairBrowser),
+            const SizedBox(height: 22),
+            const Padding(
+              padding: EdgeInsets.only(left: 2, bottom: 11),
+              child: Text('SUPPORT & LEGAL', style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.15)),
+            ),
+            _tile(Icons.support_agent_rounded, 'Help & Support', 'We are here if you need help', () async {
               await showDialog<void>(
                 context: context,
                 builder: (ctx) => AlertDialog(
@@ -300,22 +316,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       SizedBox(height: 6),
                       Text('• Cancellations are free before the Pro starts'),
                       SizedBox(height: 10),
-                      Text('support@kaamdaar.in',
-                          style: TextStyle(fontWeight: FontWeight.w700)),
+                      Text('support@kaamdaar.in', style: TextStyle(fontWeight: FontWeight.w700)),
                     ],
                   ),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-                  ],
+                  actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
                 ),
               );
             }),
-            _tile(Icons.description_outlined, 'Terms & Privacy', () {
-              _soon();
-            }),
+            _tile(Icons.description_outlined, 'Terms & Privacy', 'Read our policies', () { _soon(); }),
             const SizedBox(height: 8),
-            _tile(Icons.logout, 'Logout', _logout, danger: true),
+            _tile(Icons.logout_rounded, 'Logout', 'Sign out of your account', _logout, danger: true),
           ],
         ),
       ),
@@ -325,40 +335,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _soon() => ScaffoldMessenger.of(context)
       .showSnackBar(const SnackBar(content: Text('Coming soon')));
 
-  Widget _stat(String label, String value, IconData icon) {
+  Widget _stat(String label, String value, IconData icon, Color accent) {
     return Expanded(
-      child: CardBox(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 5),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(19),
+          border: Border.all(color: const Color(0xFFE7ECF2)),
+          boxShadow: [BoxShadow(color: KColors.navy.withOpacity(.045), blurRadius: 14, offset: const Offset(0, 5))],
+        ),
         child: Column(
           children: [
-            Icon(icon, size: 18, color: KColors.flame),
-            const SizedBox(height: 6),
-            Text(value,
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-            Text(label,
-                style: const TextStyle(fontSize: 11, color: Colors.black45)),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: accent.withOpacity(.12), borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, size: 19, color: accent),
+            ),
+            const SizedBox(height: 9),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 19, color: KColors.navy)),
+            const SizedBox(height: 2),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
           ],
         ),
       ),
     );
   }
 
-  Widget _tile(IconData icon, String label, VoidCallback onTap,
+  Widget _tile(IconData icon, String label, String subtitle, VoidCallback onTap,
       {bool danger = false}) {
+    final color = danger ? KColors.red : KColors.navy;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: CardBox(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        onTap: onTap,
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(icon, color: danger ? KColors.red : KColors.navy, size: 22),
-          title: Text(label,
-              style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: danger ? KColors.red : Colors.black87)),
-          trailing: const Icon(Icons.chevron_right, color: Colors.black38, size: 20),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE7ECF2)),
+              boxShadow: [BoxShadow(color: KColors.navy.withOpacity(.035), blurRadius: 12, offset: const Offset(0, 4))],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: danger ? KColors.red.withOpacity(.08) : KColors.flame.withOpacity(.10),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: color, size: 21),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: danger ? KColors.red : const Color(0xFF172033))),
+                      const SizedBox(height: 3),
+                      Text(subtitle, style: const TextStyle(fontSize: 11.5, color: Color(0xFF7B8797)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: Colors.blueGrey.shade300, size: 23),
+              ],
+            ),
+          ),
         ),
       ),
     );
