@@ -496,9 +496,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (typeof withdraw === "string" && withdraw && updated.status === "dispatched") {
     await advanceProviderDispatch(id);
   }
-  // The Pro becomes available immediately after tapping Work Completed
-  // (pending_confirm), not after the customer enters the completion OTP.
-  if (booking.providerId && ["pending_confirm", "completed", "cancelled"].includes(String(changes.status ?? ""))) {
+  // Keep the provider locked while the customer is reviewing completion.
+  // If the customer selects “No”, the job returns to in_progress and the same
+  // provider must finish it before becoming available for another booking.
+  if (booking.providerId && ["completed", "cancelled"].includes(String(changes.status ?? ""))) {
     await releaseProviderBooking(booking.providerId, id);
   }
   if (actorRole === "customer" && changes.status === "in_progress" && booking.status === "pending_confirm" && booking.providerId) {
