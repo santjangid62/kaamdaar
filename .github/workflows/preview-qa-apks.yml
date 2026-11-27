@@ -70,10 +70,10 @@ jobs:
         working-directory: ${{ matrix.directory }}
         run: flutter analyze
 
-      - name: Build Android QA APK against isolated Preview API
+      - name: Build Android QA APK against Preview API
         working-directory: ${{ matrix.directory }}
         env:
-          API_BASE: ${{ inputs.api_base }}
+          API_BASE: ${{ inputs.api_base || 'https://kaamdaar-git-integrate-nov27-consolidated-unique-it-team.vercel.app' }}
         run: flutter build apk --debug --dart-define=API_BASE="$API_BASE"
 
       - name: Rename APK
