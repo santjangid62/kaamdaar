@@ -494,7 +494,7 @@ class _HomeTabState extends State<_HomeTab> {
                       final category = all ? null : _categories[index - 1];
                       final active = _selectedCategory == category;
                       final label = all ? 'All' : category!;
-                      final count = all ? _services.length : _services.where((s) => s.category == category).length;
+                      final count = all ? _services.length : _services.where((service) => service.category == category).length;
                       return InkWell(
                         onTap: () => setState(() => _selectedCategory = category),
                         borderRadius: BorderRadius.circular(20),
@@ -503,7 +503,7 @@ class _HomeTabState extends State<_HomeTab> {
                           width: 91,
                           padding: const EdgeInsets.fromLTRB(8, 9, 8, 8),
                           decoration: BoxDecoration(
-                            gradient: active ? const LinearGradient(colors: [KColors.navy, Color(0xFF1B4778)], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
+                            gradient: active ? const LinearGradient(colors: [KColors.navy, Color(0xFF1B4778)]) : null,
                             color: active ? null : Colors.white,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: active ? KColors.navy : const Color(0xFFE4EAF1)),
@@ -586,74 +586,6 @@ class _HomeTabState extends State<_HomeTab> {
                     ])),
                   )),
                 ],
-                if (_recommended.isNotEmpty) ...[
-                  const Text('Recommended for You', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: KColors.navy)),
-                  const SizedBox(height: 4),
-                  const Text('Based on your service history', style: TextStyle(fontSize: 11.5, color: Colors.black54)),
-                  const SizedBox(height: 10),
-                  ..._recommended.map((s) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: CardBox(
-                      onTap: () => _open(s),
-                      child: Row(children: [
-                        Icon(iconFor(s.icon.isEmpty ? s.category : s.icon), color: KColors.flame, size: 24),
-                        const SizedBox(width: 10),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(s.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-                          Text(s.tagline.isEmpty ? s.category : s.tagline, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
-                        ])),
-                        Text(rupees(s.price), style: const TextStyle(fontWeight: FontWeight.w900, color: KColors.flame)),
-                      ]),
-                    ),
-                  )),
-                  const SizedBox(height: 12),
-                ],
-
-                /* popular services */
-                const Text('Popular Services',
-                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: KColors.navy)),
-                const SizedBox(height: 10),
-                ..._services.take(6).map((s) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: CardBox(
-                        onTap: () => _open(s),
-                        child: Row(
-                          children: [
-                            Container(
-                              height: 46,
-                              width: 46,
-                              decoration: BoxDecoration(
-                                color: KColors.navy.withOpacity(.08),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(iconFor(s.icon.isEmpty ? s.category : s.icon),
-                                  color: KColors.navy, size: 22),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(s.name,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w800, fontSize: 14.5)),
-                                  Text(s.tagline.isEmpty ? s.category : s.tagline,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(color: Colors.black54, fontSize: 12.5)),
-                                ],
-                              ),
-                            ),
-                            Text(rupees(s.price),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w900, color: KColors.flame, fontSize: 15)),
-                            const Icon(Icons.chevron_right, color: Colors.black38),
-                          ],
-                        ),
-                      ),
-                    )),
-              ],
-            ] else ...[
               /* search results */
               if (_filtered.isEmpty)
                 const Padding(
