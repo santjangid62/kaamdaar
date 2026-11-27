@@ -125,8 +125,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       changes.cancelledBy = "customer";
       changes.cancellationReason = String((body.patch as Record<string, unknown>)?.cancellationReason ?? "Cancelled by customer").slice(0, 300);
       changes.notifiedIds = [];
+    } else if (changes.status === "completed" && booking.status === "pending_confirm") {
+      // Customer explicitly confirms the Pro's completion request.
+      changes.completedAt = Date.now();
+      changes.completeOtp = undefined;
+    } else if (changes.status === "in_progress" && booking.status === "pending_confirm") {
+      // Customer says the work is not finished. Keep the original start time so
+      // the elapsed-work timer continues without resetting.
+      changes.completionRejectedAt = Date.now();
+      changes.completeOtp = undefined;
     } else if (changes.status !== undefined) {
-      return NextResponse.json({ error: "Customers can only cancel an active booking" }, { status: 403 });
+      return NextResponse.json({ error: "Customers can only cancel an active booking or confirm completion when requested" }, { status: 403 });
     }
   }
 
@@ -491,6 +500,34 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   // (pending_confirm), not after the customer enters the completion OTP.
   if (booking.providerId && ["pending_confirm", "completed", "cancelled"].includes(String(changes.status ?? ""))) {
     await releaseProviderBooking(booking.providerId, id);
+  }
+  if (actorRole === "customer" && changes.status === "in_progress" && booking.status === "pending_confirm" && booking.providerId) {
+    await insert("notifications", {
+      id: uid("ntf"),
+      type: "work_completion_rejected",
+      title: "Work is not completed yet",
+      message: "Customer ne bataya hai ki kaam abhi complete nahi hua hai. Kripya pending work complete karein, phir Work Completed dobara mark karein.",
+      providerId: booking.providerId,
+      userId: booking.userId,
+      bookingId: booking.id,
+      serviceName: booking.serviceName,
+      readAt: null,
+      createdAt: Date.now(),
+    });
+  }
+  if (actorRole === "customer" && changes.status === "completed" && booking.status === "pending_confirm" && booking.providerId) {
+    await insert("notifications", {
+      id: uid("ntf"),
+      type: "work_completion_confirmed",
+      title: "Customer confirmed work completion",
+      message: "Customer ne aapka kaam successfully completed confirm kar diya hai. Ab customer se Cash/UPI payment collect karein.",
+      providerId: booking.providerId,
+      userId: booking.userId,
+      bookingId: booking.id,
+      serviceName: booking.serviceName,
+      readAt: null,
+      createdAt: Date.now(),
+    });
   }
   if (changes.status === "cancelled" && actorRole === "customer") {
     await insert("notifications", {
