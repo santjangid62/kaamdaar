@@ -25,6 +25,8 @@ class _TrackScreenState extends State<TrackScreen> {
   BookingItem? _booking;
   SessionUser? _user;
   Timer? _poll;
+  Timer? _workClock;
+  bool _completionDialogOpen = false;
   bool _loading = true;
   bool _busy = false;
   String? _error;
@@ -47,6 +49,7 @@ class _TrackScreenState extends State<TrackScreen> {
   @override
   void dispose() {
     _poll?.cancel();
+    _workClock?.cancel();
     _reviewText.dispose();
     _complaintText.dispose();
     super.dispose();
@@ -60,6 +63,9 @@ class _TrackScreenState extends State<TrackScreen> {
     // poll while the booking is still live so the Pro's actions appear here
     _poll = Timer.periodic(const Duration(seconds: 4), (_) {
       if (_booking == null || _booking!.isLive) _refresh();
+    });
+    _workClock = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _booking?.startedAt != null) setState(() {});
     });
   }
 
@@ -97,18 +103,100 @@ class _TrackScreenState extends State<TrackScreen> {
                     : b?.status == 'arrived'
                         ? 'Professional aapke location par pahunch gaya hai.'
                         : b?.status == 'pending_confirm'
-                            ? 'Work completion OTP aa gaya hai. Provider ko OTP batayein.'
+                            ? 'Provider ne kaam complete mark kiya hai. Kripya confirm karein.'
                             : b?.status == 'completed'
-                                ? 'Completion OTP verify ho gaya. Work complete!'
+                                ? 'Aapne kaam complete confirm kar diya hai. Payment karein.'
                                 : null;
         if (message != null) ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(message)));
+      }
+      if (b?.status == 'pending_confirm') {
+        _promptWorkCompletion(b!);
+      } else {
+        _completionDialogOpen = false;
       }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _promptWorkCompletion(BookingItem booking) async {
+    if (_completionDialogOpen || !mounted) return;
+    _completionDialogOpen = true;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Kya aapka kaam successfully complete ho chuka hai?'),
+        content: const Text('Provider ne kaam complete mark kiya hai. Kripya kaam check karke Yes ya No select karein.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('No, abhi complete nahi hua'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: KColors.green),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Yes, Completed'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (confirmed == true) {
+      await _patch({'status': 'completed'});
+    } else if (confirmed == false) {
+      await _patch({'status': 'in_progress'});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Provider ko inform kar diya gaya hai. Kaam complete hone par woh dobara mark karega.'),
+        ));
+      }
+    }
+    _completionDialogOpen = false;
+  }
+
+  String _elapsedWork(int? startedAt, int? endedAt) {
+    if (startedAt == null) return 'Waiting for work to start';
+    final start = DateTime.fromMillisecondsSinceEpoch(startedAt);
+    final end = endedAt == null ? DateTime.now() : DateTime.fromMillisecondsSinceEpoch(endedAt);
+    final seconds = end.difference(start).inSeconds.clamp(0, 31536000);
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final secs = seconds % 60;
+    return hours > 0
+        ? '${hours}h ${minutes.toString().padLeft(2, '0')}m ${secs.toString().padLeft(2, '0')}s'
+        : '${minutes}m ${secs.toString().padLeft(2, '0')}s';
+  }
+
+  Widget _workTimerCard(BookingItem booking) {
+    final endedAt = booking.status == 'completed' ? booking.completedAt : null;
+    final running = booking.status == 'in_progress' || booking.status == 'pending_confirm';
+    final start = booking.startedAt == null
+        ? '—'
+        : TimeOfDay.fromDateTime(DateTime.fromMillisecondsSinceEpoch(booking.startedAt!)).format(context);
+    return CardBox(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(running ? Icons.timer_rounded : Icons.check_circle_rounded,
+              color: running ? KColors.flame : KColors.green, size: 22),
+          const SizedBox(width: 8),
+          Expanded(child: Text(running ? 'Service in progress' : 'Work duration',
+              style: const TextStyle(fontWeight: FontWeight.w900, color: KColors.navy))),
+          if (running) const _Pulse(),
+        ]),
+        const SizedBox(height: 10),
+        Text('Work started at $start', style: const TextStyle(color: Colors.black54, fontSize: 12)),
+        const SizedBox(height: 4),
+        Text(_elapsedWork(booking.startedAt, endedAt),
+            style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: KColors.navy)),
+        Text(running ? 'Timer is running until you confirm completion.' : 'Total time taken by the provider.',
+            style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
+      ]),
+    );
   }
 
   Future<void> _patch(Map<String, dynamic> patch) async {
@@ -208,9 +296,9 @@ class _TrackScreenState extends State<TrackScreen> {
                             const SizedBox(height: 14),
                             _startOtpCard(b),
                           ],
-                          if (b.status == 'pending_confirm') ...[
+                          if (['in_progress', 'pending_confirm', 'completed'].contains(b.status)) ...[
                             const SizedBox(height: 14),
-                            _otpCard(b),
+                            _workTimerCard(b),
                           ],
                           if (b.status == 'completed' && b.paidAt != null) ...[
                             const SizedBox(height: 14),
@@ -574,26 +662,6 @@ class _TrackScreenState extends State<TrackScreen> {
           const SizedBox(height: 12),
           Center(
             child: Text(b.startOtp ?? '------',
-              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: 8)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _otpCard(BookingItem b) {
-    return CardBox(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Your work completion OTP',
-              style: TextStyle(fontWeight: FontWeight.w800, color: KColors.navy)),
-          const SizedBox(height: 6),
-          const Text('Kaam poora hone ki tasdeek ke liye ye OTP Professional ko batayein.',
-              style: TextStyle(color: Colors.black54, fontSize: 12.5)),
-          const SizedBox(height: 12),
-          Center(
-            child: Text(b.completeOtp ?? '------',
               style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: 8)),
           ),
         ],
