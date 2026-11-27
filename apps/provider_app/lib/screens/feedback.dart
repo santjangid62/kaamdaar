@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
-import '../core/models.dart';
 
 class ProviderFeedbackScreen extends StatefulWidget {
   const ProviderFeedbackScreen({super.key});
