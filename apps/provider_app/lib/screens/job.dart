@@ -34,7 +34,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   bool _busy = false;
   String? _error;
   final _otp = TextEditingController();
-  final _completionOtp = TextEditingController();
   String? _otpError;
   int _customerRating = 0;
   bool _customerReviewSubmitted = false;
@@ -54,7 +53,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     _gpsTimer?.cancel();
     unawaited(WakelockPlus.disable());
     _otp.dispose();
-    _completionOtp.dispose();
     _customerReviewText.dispose();
     super.dispose();
   }
@@ -214,27 +212,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Customer ko completion confirmation bhej diya gaya hai. Yes/No response ka wait karein.')),
     );
-  }
-
-  Future<void> _verifyCompletionOtp() async {
-    final b = _booking;
-    final entered = _completionOtp.text.trim();
-    if (b == null || entered.length != 6) return;
-    setState(() => _busy = true);
-    try {
-      final updated = await Api.updateJob(b.id, {'status': 'completed'},
-          completionOtp: entered);
-      if (!mounted) return;
-      setState(() {
-        _booking = updated;
-        _completionOtp.clear();
-        _otpError = null;
-      });
-    } catch (e) {
-      if (mounted) setState(() => _otpError = e.toString());
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
   }
 
   Future<void> _cancelJob() async {
