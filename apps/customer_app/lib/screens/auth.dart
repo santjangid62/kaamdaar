@@ -345,7 +345,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-                    const Spacer(),
+                    // This Column is inside a SingleChildScrollView; Spacer
+                    // requires bounded height and can cause a blank screen.
                     const SizedBox(height: 28),
                     Text('By continuing, you agree to our Terms & Privacy Policy', textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withOpacity(.48), fontSize: 11)),
                     const SizedBox(height: 8),
