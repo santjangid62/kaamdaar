@@ -27,6 +27,7 @@ class _TrackScreenState extends State<TrackScreen> {
   Timer? _poll;
   Timer? _workClock;
   bool _completionDialogOpen = false;
+  int? _lastPromptedCompletionAt;
   bool _loading = true;
   bool _busy = false;
   String? _error;
@@ -111,9 +112,11 @@ class _TrackScreenState extends State<TrackScreen> {
             .showSnackBar(SnackBar(content: Text(message)));
       }
       if (b?.status == 'pending_confirm') {
-        _promptWorkCompletion(b!);
-      } else {
-        _completionDialogOpen = false;
+        final requestAt = b!.workMarkedCompleteAt ?? b.startedAt ?? b.createdAt;
+        if (_lastPromptedCompletionAt != requestAt) {
+          _lastPromptedCompletionAt = requestAt;
+          _promptWorkCompletion(b);
+        }
       }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
