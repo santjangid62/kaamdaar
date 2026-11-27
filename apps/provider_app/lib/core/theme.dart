@@ -180,7 +180,7 @@ const jobStatusLabels = <String, String>{
   'enroute': 'On the way',
   'arrived': 'Arrived — start OTP',
   'in_progress': 'Service in progress',
-  'pending_confirm': 'Waiting for customer OTP',
+  'pending_confirm': 'Waiting for customer confirmation',
   'completed': 'Completed',
   'cancelled': 'Cancelled',
   'missed': 'Missed — no response',

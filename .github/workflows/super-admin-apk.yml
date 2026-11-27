@@ -2,7 +2,7 @@ name: Build Kaamdaar Super Admin APK # Preview artifact
 
 on:
   push:
-    branches: [feat/phonepe-payment-gateway]
+    branches: [feat/phonepe-payment-gateway, 'fix/**']
     paths:
       - "apps/super_admin_app/**"
       - "apps/customer_app/**"
@@ -42,7 +42,7 @@ jobs:
       - name: Configure internet permission
         working-directory: apps/super_admin_app
         run: |
-          sed -i '/<application/i\\    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i\\    <uses-permission android:name="android.permission.INTERNET" />\\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
         working-directory: apps/super_admin_app
@@ -55,7 +55,7 @@ jobs:
         working-directory: apps/super_admin_app
         run: >-
           flutter build apk --debug
-          --dart-define=ADMIN_URL=https://kaamdaar-git-feat-phonepe-payment-gateway-unique-it-team.vercel.app
+          --dart-define=ADMIN_URL=https://kaamdaar-jh03tit3p-unique-it-team.vercel.app
 
       - name: Rename APK
         run: cp apps/super_admin_app/build/app/outputs/flutter-apk/app-debug.apk kaamdaar-super-admin-preview.apk

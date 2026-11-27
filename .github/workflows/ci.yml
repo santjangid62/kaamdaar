@@ -2,9 +2,9 @@ name: Kaamdaar CI
 
 on:
   pull_request:
-    branches: [main]
-  push:
     branches: [main, feat/phonepe-payment-gateway]
+  push:
+    branches: [main, feat/phonepe-payment-gateway, 'fix/**']
   workflow_dispatch:
 
 # Keep only the newest CI run for this branch; push and PR events share a key.
@@ -122,7 +122,7 @@ jobs:
         working-directory: apps/${{ matrix.app }}
         run: >-
           flutter build apk --debug
-          --dart-define=API_BASE=https://kaamdaar-git-feat-phonepe-payment-gateway-unique-it-team.vercel.app
+          --dart-define=API_BASE=https://kaamdaar-jh03tit3p-unique-it-team.vercel.app
       - name: Export QA APK signing fingerprints
         working-directory: apps/${{ matrix.app }}/android
         shell: bash

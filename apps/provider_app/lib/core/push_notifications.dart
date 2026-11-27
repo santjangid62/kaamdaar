@@ -126,6 +126,32 @@ Future<void> providerNotificationActionBackground(NotificationResponse response)
   }
 }
 
+Future<void> _showCompletionUpdate(RemoteMessage message) async {
+  final bookingId = message.data['bookingId']?.toString() ?? '';
+  if (bookingId.isEmpty) return;
+  await _prepareLocalNotifications();
+  await _localNotifications.show(
+    _notificationId(bookingId) + 2,
+    message.data['title']?.toString() ?? 'Booking update',
+    message.data['body']?.toString() ?? 'Customer ne aapki booking par response diya hai.',
+    const NotificationDetails(
+      android: AndroidNotificationDetails(
+        _jobChannelId,
+        _jobChannelName,
+        channelDescription: 'Kaamdaar booking updates',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        category: AndroidNotificationCategory.message,
+        visibility: NotificationVisibility.public,
+        autoCancel: true,
+      ),
+    ),
+    payload: bookingId,
+  );
+}
+
 Future<void> _showBackgroundOffer(RemoteMessage message) async {
   final bookingId = message.data['bookingId']?.toString() ?? '';
   if (bookingId.isEmpty) return;
@@ -177,6 +203,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
   final bookingId = message.data['bookingId']?.toString() ?? '';
   if (bookingId.isEmpty) return;
+  if (message.data['type'] == 'work_completion_confirmed' || message.data['type'] == 'work_completion_rejected') {
+    await _showCompletionUpdate(message);
+    return;
+  }
   if (message.data['type'] == 'job_offer_cancelled') {
     await _localNotifications.cancel(_notificationId(bookingId));
     return;
@@ -238,7 +268,9 @@ class ProviderPushNotifications {
     await _messageSubscription?.cancel();
     _messageSubscription = FirebaseMessaging.onMessage.listen((message) async {
       final bookingId = message.data['bookingId']?.toString() ?? '';
-      if (message.data['type'] == 'job_offer_cancelled') {
+      if (message.data['type'] == 'work_completion_confirmed' || message.data['type'] == 'work_completion_rejected') {
+        await _showCompletionUpdate(message);
+      } else if (message.data['type'] == 'job_offer_cancelled') {
         if (bookingId.isNotEmpty) {
           await _localNotifications.cancel(_notificationId(bookingId));
           await JobAlertCenter.instance.cancelOffer(bookingId);

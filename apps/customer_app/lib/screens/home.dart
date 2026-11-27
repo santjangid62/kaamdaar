@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'dart:convert';
 
 import '../core/api.dart';
@@ -131,6 +132,8 @@ class _HomeTab extends StatefulWidget {
 
 class _HomeTabState extends State<_HomeTab> {
   final _search = TextEditingController();
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _listening = false;
   List<ServiceItem> _services = [];
   List<String> _categories = [];
   List<BookingItem> _recent = [];
@@ -241,8 +244,11 @@ class _HomeTabState extends State<_HomeTab> {
       if (!mounted) return;
       setState(() {
         _user = user;
-        _services = services.where((s) => s.parent.isEmpty).toList();
-        _categories = services.where((s) => s.parent.isEmpty).map((s) => s.category).toSet().toList();
+        // Root catalogue records define the main categories; keep the full catalogue
+        // so selecting a main category shows every service beneath it.
+        _services = services;
+        _categories = services.where((s) => s.parent.isEmpty && s.category.trim().isNotEmpty)
+            .map((s) => s.category.trim()).toSet().toList()..sort();
         _recent = recent;
         _recommended = recommended;
         _error = null;
@@ -262,6 +268,49 @@ class _HomeTabState extends State<_HomeTab> {
           s.category.toLowerCase().contains(q) || s.tagline.toLowerCase().contains(q);
       return matchesCategory && matchesQuery;
     }).toList();
+  }
+
+  Future<void> _toggleVoiceSearch() async {
+    if (_listening) {
+      await _speech.stop();
+      if (mounted) setState(() => _listening = false);
+      return;
+    }
+    try {
+      final available = await _speech.initialize(
+        onStatus: (status) {
+          if (mounted && (status == 'done' || status == 'notListening')) {
+            setState(() => _listening = false);
+          }
+        },
+        onError: (_) {
+          if (mounted) setState(() => _listening = false);
+        },
+      );
+      if (!available || !mounted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Voice search is not available on this device')),
+          );
+        }
+        return;
+      }
+      setState(() => _listening = true);
+      await _speech.listen(
+        localeId: 'hi_IN',
+        listenFor: const Duration(seconds: 12),
+        pauseFor: const Duration(seconds: 3),
+        onResult: (result) {
+          if (!mounted) return;
+          setState(() {
+            _search.text = result.recognizedWords;
+            _search.selection = TextSelection.collapsed(offset: _search.text.length);
+          });
+        },
+      );
+    } catch (_) {
+      if (mounted) setState(() => _listening = false);
+    }
   }
 
   void _open(ServiceItem s) {
@@ -338,15 +387,24 @@ class _HomeTabState extends State<_HomeTab> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Container(
-                  height: 48,
-                  width: 48,
-                  decoration: BoxDecoration(
-                    color: KColors.flame,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [BoxShadow(color: KColors.flame.withOpacity(.22), blurRadius: 12, offset: const Offset(0, 5))],
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _toggleVoiceSearch,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    height: 50,
+                    width: 50,
+                    decoration: BoxDecoration(
+                      color: _listening ? KColors.navy : KColors.flame,
+                      borderRadius: BorderRadius.circular(17),
+                      boxShadow: [BoxShadow(color: (_listening ? KColors.navy : KColors.flame).withOpacity(.22), blurRadius: 13, offset: const Offset(0, 5))],
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: Icon(_listening ? Icons.graphic_eq_rounded : Icons.mic_rounded,
+                        key: ValueKey(_listening), color: Colors.white, size: 25),
+                    ),
                   ),
-                  child: const Icon(Icons.tune_rounded, color: Colors.white),
                 ),
               ],
             ),
@@ -416,127 +474,120 @@ class _HomeTabState extends State<_HomeTab> {
                   ),
                 ),
               ] else ...[
-                /* categories */
+                /* Main categories only */
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Categories',
-                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: KColors.navy)),
-                    Text('${_services.length} services',
-                        style: const TextStyle(color: Colors.black45, fontSize: 12)),
+                    const Text('Categories', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: KColors.navy)),
+                    Text('${_services.length} services', style: const TextStyle(color: Colors.black45, fontSize: 12)),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 13),
                 SizedBox(
-                  height: 92,
+                  height: 112,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: _categories.length + 1,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    separatorBuilder: (_, __) => const SizedBox(width: 11),
                     itemBuilder: (context, index) {
                       final all = index == 0;
                       final category = all ? null : _categories[index - 1];
                       final active = _selectedCategory == category;
                       final label = all ? 'All' : category!;
+                      final count = all ? _services.length : _services.where((service) => service.category == category).length;
                       return InkWell(
                         onTap: () => setState(() => _selectedCategory = category),
-                        borderRadius: BorderRadius.circular(16),
-                        child: SizedBox(width: 70, child: Column(children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 160),
-                            height: 54, width: 54,
-                            decoration: BoxDecoration(
-                              color: active ? KColors.navy : KColors.flame.withOpacity(.10),
-                              borderRadius: BorderRadius.circular(17),
-                              border: Border.all(color: active ? KColors.navy : KColors.flame.withOpacity(.12)),
-                            ),
-                            child: Icon(all ? Icons.apps_rounded : iconFor(category!), color: active ? Colors.white : KColors.flame, size: 25),
+                        borderRadius: BorderRadius.circular(20),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          width: 91,
+                          padding: const EdgeInsets.fromLTRB(8, 9, 8, 8),
+                          decoration: BoxDecoration(
+                            gradient: active ? const LinearGradient(colors: [KColors.navy, Color(0xFF1B4778)]) : null,
+                            color: active ? null : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: active ? KColors.navy : const Color(0xFFE4EAF1)),
+                            boxShadow: [BoxShadow(color: KColors.navy.withOpacity(active ? .13 : .045), blurRadius: 12, offset: const Offset(0, 4))],
                           ),
-                          const SizedBox(height: 6),
-                          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 10.5, fontWeight: active ? FontWeight.w900 : FontWeight.w600, color: active ? KColors.navy : Colors.black54)),
-                        ])),
+                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Container(
+                              width: 43, height: 43,
+                              decoration: BoxDecoration(
+                                color: active ? Colors.white.withOpacity(.13) : KColors.flame.withOpacity(.10),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Icon(all ? Icons.grid_view_rounded : iconFor(category!), color: active ? Colors.white : KColors.flame, size: 23),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: active ? Colors.white : KColors.navy)),
+                            Text('$count', style: TextStyle(fontSize: 9.5, color: active ? Colors.white70 : Colors.black45)),
+                          ]),
+                        ),
                       );
                     },
                   ),
                 ),
-                if (_selectedCategory != null) Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Row(children: [
-                    Expanded(child: Text('Showing $_selectedCategory services', style: const TextStyle(fontSize: 12, color: KColors.navy, fontWeight: FontWeight.w800))),
+                if (_selectedCategory != null) ...[
+                  const SizedBox(height: 19),
+                  Row(children: [
+                    Expanded(child: Text('All $_selectedCategory services', style: const TextStyle(fontSize: 16, color: KColors.navy, fontWeight: FontWeight.w900))),
                     TextButton(onPressed: () => setState(() => _selectedCategory = null), child: const Text('Clear')),
                   ]),
-                ),
-                const SizedBox(height: 20),
-
-                if (_recommended.isNotEmpty) ...[
-                  const Text('Recommended for You', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: KColors.navy)),
-                  const SizedBox(height: 4),
-                  const Text('Based on your service history', style: TextStyle(fontSize: 11.5, color: Colors.black54)),
-                  const SizedBox(height: 10),
-                  ..._recommended.map((s) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: CardBox(
-                      onTap: () => _open(s),
-                      child: Row(children: [
-                        Icon(iconFor(s.icon.isEmpty ? s.category : s.icon), color: KColors.flame, size: 24),
+                  const SizedBox(height: 5),
+                  if (_filtered.isEmpty)
+                    const Padding(padding: EdgeInsets.symmetric(vertical: 22), child: Text('No services available in this category yet.', style: TextStyle(color: Colors.black54)))
+                  else
+                    LayoutBuilder(builder: (context, constraints) {
+                      final width = (constraints.maxWidth - 10) / 2;
+                      return Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: _filtered.map((service) => SizedBox(
+                          width: width,
+                          child: _ServiceMiniCard(service: service, onTap: () => _open(service)),
+                        )).toList(),
+                      );
+                    }),
+                ] else ...[
+                  const SizedBox(height: 22),
+                  if (_recommended.isNotEmpty) ...[
+                    const Text('Recommended for You', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: KColors.navy)),
+                    const SizedBox(height: 4),
+                    const Text('Based on your service history', style: TextStyle(fontSize: 11.5, color: Colors.black54)),
+                    const SizedBox(height: 10),
+                    ..._recommended.map((service) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: CardBox(onTap: () => _open(service), child: Row(children: [
+                        Icon(iconFor(service.icon.isEmpty ? service.category : service.icon), color: KColors.flame, size: 24),
                         const SizedBox(width: 10),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(s.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-                          Text(s.tagline.isEmpty ? s.category : s.tagline, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
+                          Text(service.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                          Text(service.tagline.isEmpty ? service.category : service.tagline, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
                         ])),
-                        Text(rupees(s.price), style: const TextStyle(fontWeight: FontWeight.w900, color: KColors.flame)),
-                      ]),
-                    ),
-                  )),
-                  const SizedBox(height: 12),
-                ],
-
-                /* popular services */
-                const Text('Popular Services',
-                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: KColors.navy)),
-                const SizedBox(height: 10),
-                ..._services.take(6).map((s) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: CardBox(
-                        onTap: () => _open(s),
-                        child: Row(
-                          children: [
-                            Container(
-                              height: 46,
-                              width: 46,
-                              decoration: BoxDecoration(
-                                color: KColors.navy.withOpacity(.08),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(iconFor(s.icon.isEmpty ? s.category : s.icon),
-                                  color: KColors.navy, size: 22),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(s.name,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w800, fontSize: 14.5)),
-                                  Text(s.tagline.isEmpty ? s.category : s.tagline,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(color: Colors.black54, fontSize: 12.5)),
-                                ],
-                              ),
-                            ),
-                            Text(rupees(s.price),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w900, color: KColors.flame, fontSize: 15)),
-                            const Icon(Icons.chevron_right, color: Colors.black38),
-                          ],
-                        ),
-                      ),
+                        Text(rupees(service.price), style: const TextStyle(fontWeight: FontWeight.w900, color: KColors.flame)),
+                      ])),
                     )),
-              ],
-            ] else ...[
+                  ],
+                  const Text('Popular Services', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: KColors.navy)),
+                  const SizedBox(height: 10),
+                  ..._services.take(6).map((service) => Padding(
+                    padding: const EdgeInsets.only(bottom: 9),
+                    child: CardBox(onTap: () => _open(service), child: Row(children: [
+                      Container(height: 44, width: 44, decoration: BoxDecoration(color: KColors.navy.withOpacity(.07), borderRadius: BorderRadius.circular(13)),
+                        child: Icon(iconFor(service.icon.isEmpty ? service.category : service.icon), color: KColors.navy, size: 22)),
+                      const SizedBox(width: 11),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(service.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                        Text(service.tagline.isEmpty ? service.category : service.tagline, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.black54, fontSize: 11.5)),
+                      ])),
+                      Text(rupees(service.price), style: const TextStyle(fontWeight: FontWeight.w900, color: KColors.flame)),
+                      const Icon(Icons.chevron_right, color: Colors.black38),
+                    ])),
+                  )),
+                  ],
+                ],
+              ] else ...[
               /* search results */
               if (_filtered.isEmpty)
                 const Padding(
@@ -625,6 +676,46 @@ class _HomeTabState extends State<_HomeTab> {
                   )),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ServiceMiniCard extends StatelessWidget {
+  final ServiceItem service;
+  final VoidCallback onTap;
+  const _ServiceMiniCard({required this.service, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(17),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(17),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 128),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(color: const Color(0xFFE5EAF1)),
+            boxShadow: [BoxShadow(color: KColors.navy.withOpacity(.045), blurRadius: 11, offset: const Offset(0, 4))],
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(width: 37, height: 37, decoration: BoxDecoration(color: KColors.flame.withOpacity(.11), borderRadius: BorderRadius.circular(12)),
+              child: Icon(iconFor(service.icon.isEmpty ? service.category : service.icon), color: KColors.flame, size: 20)),
+            const SizedBox(height: 9),
+            Text(service.name, maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: KColors.navy, height: 1.2)),
+            const Spacer(),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(child: Text(rupees(service.price), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: KColors.flame))),
+              const Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.black38),
+            ]),
+          ]),
         ),
       ),
     );
