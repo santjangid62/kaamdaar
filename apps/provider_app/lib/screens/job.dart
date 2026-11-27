@@ -477,14 +477,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => _openCustomerMap(booking),
-              icon: const Icon(Icons.directions),
-              label: const Text('Open turn-by-turn directions'),
-            ),
-          ),
+          const Text('Your location updates automatically while this screen is open. The customer pin stays visible here.',
+              style: TextStyle(fontSize: 11, color: Colors.black54)),
         ],
       ),
     );
@@ -788,8 +782,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           onPressed: () async {
             await _patch({'navigationStarted': true, 'status': 'enroute'});
             if (_booking?.status == 'enroute') {
+              // Keep navigation inside the job screen. The embedded live map
+              // below follows the provider's GPS and shows the customer pin.
               _startLiveGps();
-              await _openCustomerMap(_booking!);
             }
           },
         );
