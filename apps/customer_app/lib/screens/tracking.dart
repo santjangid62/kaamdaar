@@ -945,3 +945,5 @@ class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
     );
   }
 }
+
+// Customer work-confirmation flow: elapsed timer and explicit Yes/No review.
