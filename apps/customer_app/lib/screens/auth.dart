@@ -340,7 +340,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-                    const Spacer(),
+                    // This column is inside a scroll view; Spacer requires
+                    // bounded height and can trigger an unbounded-flex layout
+                    // exception, which appeared as a blank screen after GPS.
                     const SizedBox(height: 28),
                     Text('By continuing, you agree to our Terms & Privacy Policy', textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withOpacity(.48), fontSize: 11)),
                     const SizedBox(height: 8),
