@@ -177,3 +177,34 @@ export async function sendProviderBookingCancelled(
     }
   }));
 }
+
+
+/** Notify the assigned Pro when the customer confirms or rejects completion. */
+export async function sendProviderCompletionUpdate(
+  tokens: string[],
+  booking: { id: string; serviceName?: string },
+  confirmed: boolean,
+): Promise<void> {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!raw || tokens.length === 0) return;
+  const account = JSON.parse(raw) as ServiceAccount;
+  const projectId = process.env.FIREBASE_PROJECT_ID || account.project_id;
+  if (!account.client_email || !account.private_key || !projectId) throw new Error("Firebase service account is missing required fields");
+  const bearer = await accessToken(account);
+  const title = confirmed ? "Customer confirmed work completion" : "Customer says work is not complete";
+  const body = confirmed
+    ? `\u001bCustomer confirmed ${booking.serviceName || "the service"}. Collect Cash/UPI payment now.`.replace("\u001b", "")
+    : `\u001bCustomer says ${booking.serviceName || "the service"} is not complete. Finish the remaining work and mark it complete again.`.replace("\u001b", "");
+  await Promise.all([...new Set(tokens)].map(async (token) => {
+    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${bearer}`, "content-type": "application/json" },
+      body: JSON.stringify({ message: {
+        token,
+        data: { type: confirmed ? "work_completion_confirmed" : "work_completion_rejected", bookingId: booking.id, title, body },
+        android: { priority: "HIGH", ttl: "60s", collapseKey: `kaamdaar_completion_${booking.id}` },
+      } }),
+    });
+    if (!response.ok) console.error("[fcm] completion update failed", response.status, (await response.text()).slice(0, 500));
+  }));
+}
