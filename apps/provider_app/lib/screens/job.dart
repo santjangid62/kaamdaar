@@ -34,7 +34,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   bool _busy = false;
   String? _error;
   final _otp = TextEditingController();
-  final _completionOtp = TextEditingController();
   String? _otpError;
   int _customerRating = 0;
   bool _customerReviewSubmitted = false;
@@ -54,7 +53,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     _gpsTimer?.cancel();
     unawaited(WakelockPlus.disable());
     _otp.dispose();
-    _completionOtp.dispose();
     _customerReviewText.dispose();
     super.dispose();
   }
@@ -80,10 +78,22 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       final jobs = await Api.inbox(me.id);
       final found = jobs.where((b) => b.id == widget.bookingId).toList();
       if (!mounted) return;
+      final previousStatus = _booking?.status;
       setState(() {
         _booking = found.isEmpty ? null : found.first;
         _error = found.isEmpty ? 'This job is no longer assigned to you.' : null;
       });
+      if (previousStatus == 'pending_confirm' && _booking?.status == 'in_progress' && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Customer ne bataya hai ki kaam abhi complete nahi hua. Pending work complete karke Work Completed dobara mark karein.'),
+          duration: Duration(seconds: 6),
+        ));
+      } else if (previousStatus == 'pending_confirm' && _booking?.status == 'completed' && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Customer ne work completion confirm kar diya hai. Ab Cash/UPI payment collect karein.'),
+          duration: Duration(seconds: 6),
+        ));
+      }
       if (_booking?.status == 'enroute') {
         await WakelockPlus.enable();
         _startLiveGps();
@@ -205,29 +215,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     await _patch({'status': 'pending_confirm'});
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Customer ko completion OTP bhej diya gaya hai. OTP lekar yahan verify karein.')),
+      const SnackBar(content: Text('Customer ko completion confirmation bhej diya gaya hai. Yes/No response ka wait karein.')),
     );
-  }
-
-  Future<void> _verifyCompletionOtp() async {
-    final b = _booking;
-    final entered = _completionOtp.text.trim();
-    if (b == null || entered.length != 6) return;
-    setState(() => _busy = true);
-    try {
-      final updated = await Api.updateJob(b.id, {'status': 'completed'},
-          completionOtp: entered);
-      if (!mounted) return;
-      setState(() {
-        _booking = updated;
-        _completionOtp.clear();
-        _otpError = null;
-      });
-    } catch (e) {
-      if (mounted) setState(() => _otpError = e.toString());
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
   }
 
   Future<void> _cancelJob() async {
@@ -477,14 +466,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => _openCustomerMap(booking),
-              icon: const Icon(Icons.directions),
-              label: const Text('Open turn-by-turn directions'),
-            ),
-          ),
+          const Text('Your location updates automatically while this screen is open. The customer pin stays visible here.',
+              style: TextStyle(fontSize: 11, color: Colors.black54)),
         ],
       ),
     );
@@ -648,25 +631,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Enter customer completion OTP',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-          const SizedBox(height: 6),
-          const Text('Customer ko app par mila OTP lein aur yahan enter karein.',
-              style: TextStyle(fontSize: 11.5, color: Colors.black54)),
+          const Row(children: [
+            Icon(Icons.hourglass_top_rounded, color: PColors.amber),
+            SizedBox(width: 8),
+            Expanded(child: Text('Waiting for customer confirmation',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5))),
+          ]),
+          const SizedBox(height: 7),
+          const Text('Customer ko app par Yes / No confirmation popup dikh raha hai. Customer Yes karega to job complete hogi. No karega to aapko kaam continue karna hoga.',
+              style: TextStyle(fontSize: 11.5, color: Colors.black54, height: 1.4)),
           const SizedBox(height: 10),
-          TextField(
-            controller: _completionOtp,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 8),
-            decoration: InputDecoration(counterText: '', errorText: _otpError),
-          ),
-          PrimaryBtn(
-            label: 'Verify & Close Job',
-            busy: _busy,
-            onPressed: _completionOtp.text.trim().length == 6 ? _verifyCompletionOtp : null,
-          ),
+          const LinearProgressIndicator(minHeight: 4, color: PColors.amber, backgroundColor: Color(0xFFFFF0D6)),
         ],
       ),
     );
@@ -788,8 +763,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           onPressed: () async {
             await _patch({'navigationStarted': true, 'status': 'enroute'});
             if (_booking?.status == 'enroute') {
+              // Keep navigation inside the job screen. The embedded live map
+              // below follows the provider's GPS and shows the customer pin.
               _startLiveGps();
-              await _openCustomerMap(_booking!);
             }
           },
         );
@@ -820,7 +796,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               onPressed: _completeWork,
             ),
             const SizedBox(height: 8),
-            const Text('Customer ko completion OTP dikhega — verify karte hi payment lega.',
+            const Text('Customer app par completion confirm karega. Confirm hone ke baad payment collect karein.',
                 style: TextStyle(fontSize: 11, color: Colors.black45)),
           ],
         );
