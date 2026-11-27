@@ -1,11 +1,19 @@
 name: Build Kaamdaar Preview QA APKs
 
 on:
+  push:
+    branches:
+      - integrate/nov27-consolidated
+    paths:
+      - "apps/customer_app/**"
+      - "apps/provider_app/**"
+      - ".github/workflows/preview-qa-apks.yml"
   workflow_dispatch:
     inputs:
       api_base:
-        description: "Successful Vercel Preview URL (for example https://kaamdaar-<deployment>.vercel.app)"
-        required: true
+        description: "Successful Vercel Preview URL"
+        required: false
+        default: "https://kaamdaar-git-integrate-nov27-consolidated-unique-it-team.vercel.app"
         type: string
 
 permissions:
@@ -29,7 +37,7 @@ jobs:
     steps:
       - name: Validate Preview API URL
         env:
-          API_BASE: ${{ inputs.api_base }}
+          API_BASE: ${{ inputs.api_base || 'https://kaamdaar-git-integrate-nov27-consolidated-unique-it-team.vercel.app' }}
         run: |
           case "$API_BASE" in
             https://*.vercel.app) ;;
