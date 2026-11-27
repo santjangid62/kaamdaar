@@ -720,3 +720,4 @@ class _ServiceMiniCard extends StatelessWidget {
       ),
     );
   }
+}
