@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 export const SUPER_ADMIN_COOKIE = "kaamdaar_super_admin_session";
 const email = (process.env.SUPER_ADMIN_EMAIL ?? "").trim().toLowerCase();
 const password = process.env.SUPER_ADMIN_PASSWORD ?? process.env.ADMIN_PASSWORD ?? "";
-const secret = process.env.SUPER_ADMIN_SESSION_SECRET ?? process.env.ADMIN_SESSION_SECRET ?? "";
+const secret = process.env.SUPER_ADMIN_SESSION_SECRET ?? "";
 
 export function isSuperAdminConfigured(): boolean {
   return Boolean(email && password && secret.length >= 32);

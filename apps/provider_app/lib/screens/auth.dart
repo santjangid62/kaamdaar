@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -46,7 +47,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _decide() async {
-    await Future.delayed(const Duration(milliseconds: 1400));
+    await Future.delayed(Duration.zero);
     if (!mounted) return;
     final seen = await Api.onboarded;
     final user = await Api.restoreSession();
@@ -339,103 +340,90 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
+    final otpMode = _otpSent;
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                      color: PColors.flame, shape: BoxShape.circle),
-                  child: const Icon(Icons.handyman, color: Colors.white, size: 36),
+      backgroundColor: const Color(0xFF081A33),
+      body: Stack(children: [
+        Positioned(top: -95, right: -75, child: _ProviderGlow(color: const Color(0xFFFF7A00).withOpacity(.38), size: 270)),
+        Positioned(bottom: 40, left: -100, child: _ProviderGlow(color: const Color(0xFF1D5A9D).withOpacity(.42), size: 280)),
+        SafeArea(child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(22, 26, 22, 30),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              Container(width: 48, height: 48, decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFFFFA12B), Color(0xFFFF6B00)]),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [BoxShadow(color: const Color(0xFFFF7A00).withOpacity(.35), blurRadius: 22, offset: const Offset(0, 8))],
+              ), child: const Icon(Icons.handyman_rounded, color: Color(0xFF0B2240), size: 27)),
+              const SizedBox(width: 12),
+              const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('KAAMDAAR', style: TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 1.6, fontWeight: FontWeight.w900)),
+                Text('PROFESSIONAL PARTNER', style: TextStyle(color: Color(0xFFFFC36A), fontSize: 9, letterSpacing: 1.6, fontWeight: FontWeight.w800)),
+              ]),
+              const Spacer(),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), decoration: BoxDecoration(color: Colors.white.withOpacity(.09), borderRadius: BorderRadius.circular(99), border: Border.all(color: Colors.white.withOpacity(.16))), child: const Row(children: [Icon(Icons.workspace_premium_outlined, color: Color(0xFFFFB14A), size: 14), SizedBox(width: 5), Text('PARTNER', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: .8))])),
+            ]),
+            const SizedBox(height: 50),
+            Text(otpMode ? 'One last step.\nYou’re almost in.' : 'Your skills.\nYour schedule.\nMore earnings.', style: const TextStyle(color: Colors.white, fontSize: 33, height: 1.08, fontWeight: FontWeight.w900, letterSpacing: -.7)),
+            const SizedBox(height: 12),
+            Text(otpMode ? 'Enter the verification code sent to +91 ${_phone.text}' : 'Get nearby service requests, manage every job and grow with Kaamdaar.', style: TextStyle(color: Colors.white.withOpacity(.72), fontSize: 13.5, height: 1.5)),
+            const SizedBox(height: 24),
+            Row(children: [
+              _ProviderPill(icon: Icons.near_me_rounded, label: 'Nearby jobs'),
+              const SizedBox(width: 8),
+              _ProviderPill(icon: Icons.account_balance_wallet_rounded, label: 'Clear earnings'),
+              const SizedBox(width: 8),
+              _ProviderPill(icon: Icons.route_rounded, label: 'Easy navigation'),
+            ]),
+            const SizedBox(height: 30),
+            ClipRRect(borderRadius: BorderRadius.circular(28), child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 23, 20, 22),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(.12),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: Colors.white.withOpacity(.24)),
+                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white.withOpacity(.19), Colors.white.withOpacity(.07)]),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Center(
-                child: Text('Kaamdaar Provider',
-                    style: TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w900, color: PColors.ink)),
-              ),
-              const SizedBox(height: 6),
-              Center(
-                child: Text(
-                  _otpSent ? 'Enter the OTP sent to +91 ${_phone.text}' : 'Login / Register to start earning',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.black54, fontSize: 13),
-                ),
-              ),
-              const SizedBox(height: 30),
-              if (!_otpSent) ...[
-                TextField(
-                  controller: _phone,
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(10),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text(otpMode ? 'Verify your number' : 'Partner login', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 5),
+                  Text(otpMode ? 'Secure OTP verification' : 'Login or register to start earning', style: TextStyle(color: Colors.white.withOpacity(.72), fontSize: 12.5)),
+                  const SizedBox(height: 22),
+                  if (!otpMode) ...[
+                    Container(decoration: BoxDecoration(color: Colors.white.withOpacity(.96), borderRadius: BorderRadius.circular(17), border: Border.all(color: _error == null ? Colors.white : const Color(0xFFFF6B6B))), child: Row(children: [
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 17), decoration: const BoxDecoration(border: Border(right: BorderSide(color: Color(0xFFE5E7EB)))), child: const Text('+91', style: TextStyle(color: Color(0xFF0B2240), fontWeight: FontWeight.w900, fontSize: 15))),
+                      Expanded(child: TextField(controller: _phone, keyboardType: TextInputType.phone, inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)], style: const TextStyle(color: Color(0xFF0B2240), fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: 1.2), decoration: const InputDecoration(border: InputBorder.none, hintText: '98765 43210', hintStyle: TextStyle(color: Color(0xFF9CA3AF)), fillColor: Colors.transparent, filled: true, contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 17)))),
+                    ])),
+                    const SizedBox(height: 8),
+                    Text('Only Indian mobile numbers are accepted.', style: TextStyle(color: Colors.white.withOpacity(.55), fontSize: 10.5)),
+                  ] else ...[
+                    Container(decoration: BoxDecoration(color: Colors.white.withOpacity(.96), borderRadius: BorderRadius.circular(17)), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4), child: TextField(controller: _otp, focusNode: _otpFocus, keyboardType: TextInputType.number, textAlign: TextAlign.center, maxLength: 6, onChanged: (v) { if (v.trim().length == 6 && !_busy) _verify(); }, style: const TextStyle(color: Color(0xFF0B2240), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 12), decoration: const InputDecoration(counterText: '', hintText: '••••••', border: InputBorder.none, fillColor: Colors.transparent, filled: true))),
+                    if (_hint != null) Padding(padding: const EdgeInsets.only(top: 10), child: Container(padding: const EdgeInsets.all(11), decoration: BoxDecoration(color: const Color(0xFFFFC36A).withOpacity(.16), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFFC36A).withOpacity(.25))), child: Text(_hint!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFFFD18B), fontSize: 12, fontWeight: FontWeight.w800)))),
                   ],
-                  decoration: const InputDecoration(
-                    labelText: 'Mobile number',
-                    prefixText: '+91  ',
-                    hintText: '98765 43210',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text('Only Indian mobile numbers are accepted.',
-                    style: TextStyle(fontSize: 11, color: Colors.black45)),
-                const SizedBox(height: 18),
-                PrimaryBtn(label: 'Continue', busy: _busy, onPressed: _sendOtp),
-              ] else ...[
-                TextField(
-                  controller: _otp,
-                  focusNode: _otpFocus,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  maxLength: 6,
-                  onChanged: (v) {
-                    // auto-verify as soon as the full code is typed
-                    if (v.trim().length == 6 && !_busy) _verify();
-                  },
-                  style: const TextStyle(
-                      fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 12),
-                  decoration: const InputDecoration(counterText: '', hintText: '••••••'),
-                ),
-                const SizedBox(height: 8),
-                if (_hint != null)
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                        color: PColors.amber.withValues(alpha: .18),
-                        borderRadius: BorderRadius.circular(10)),
-                    child: Text(_hint!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                  ),
-                const SizedBox(height: 14),
-                PrimaryBtn(label: 'Verify & Continue', busy: _busy, onPressed: _verify),
-                TextButton(
-                  onPressed: _busy ? null : () => setState(() { _otpSent = false; _otp.clear(); }),
-                  child: const Text('Change number'),
-                ),
-              ],
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(_error!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: PColors.red, fontSize: 13)),
-              ],
-              const SizedBox(height: 26),
-              const Text('By continuing you agree to our Terms & Privacy Policy.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: Colors.black38)),
-            ],
-          ),
-        ),
-      ),
+                  if (_error != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_error!, style: const TextStyle(color: Color(0xFFFFB4B4), fontSize: 12))),
+                  const SizedBox(height: 18),
+                  SizedBox(height: 56, child: ElevatedButton(
+                    onPressed: _busy ? null : (otpMode ? _verify : _sendOtp),
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF8A00), foregroundColor: const Color(0xFF0B2240), elevation: 8, shadowColor: const Color(0xFFFF7A00).withOpacity(.35), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)), textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+                    child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF0B2240))) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text(otpMode ? 'Verify & continue' : 'Continue securely'), const SizedBox(width: 9), const Icon(Icons.arrow_forward_rounded, size: 19)]),
+                  )),
+                  if (otpMode) TextButton(onPressed: _busy ? null : () => setState(() { _otpSent = false; _otp.clear(); _error = null; }), child: const Text('Change mobile number', style: TextStyle(color: Color(0xFFFFC36A), fontWeight: FontWeight.w700))),
+                  const SizedBox(height: 8),
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.lock_outline, color: Colors.white.withOpacity(.65), size: 13), const SizedBox(width: 6), Text('Your account is protected with OTP verification', style: TextStyle(color: Colors.white.withOpacity(.68), fontSize: 10))]),
+                ]),
+              ),
+            )),
+            const SizedBox(height: 23),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.support_agent, color: Colors.white.withOpacity(.65), size: 16), const SizedBox(width: 6), Text('Partner support whenever you need it', style: TextStyle(color: Colors.white.withOpacity(.7), fontSize: 11))]),
+            const SizedBox(height: 20),
+            Text('By continuing, you agree to Kaamdaar Partner Terms & Privacy Policy', textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withOpacity(.48), fontSize: 10)),
+          ]),
+        )),
+      ]),
     );
   }
 }
@@ -642,4 +630,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
     );
   }
+}
+
+class _ProviderGlow extends StatelessWidget {
+ final Color color; final double size;
+ const _ProviderGlow({required this.color, required this.size});
+ @override Widget build(BuildContext context) => Container(width:size,height:size,decoration:BoxDecoration(shape:BoxShape.circle,boxShadow:[BoxShadow(color:color,blurRadius:90,spreadRadius:35)]));
+}
+class _ProviderPill extends StatelessWidget {
+ final IconData icon; final String label;
+ const _ProviderPill({required this.icon,required this.label});
+ @override Widget build(BuildContext context) => Expanded(child:Container(
+  padding:const EdgeInsets.symmetric(horizontal:7,vertical:10),
+  decoration:BoxDecoration(color:Colors.white.withOpacity(.09),borderRadius:BorderRadius.circular(13),border:Border.all(color:Colors.white.withOpacity(.14))),
+  child:Row(mainAxisAlignment:MainAxisAlignment.center,children:[Icon(icon,color:const Color(0xFFFFB14A),size:14),const SizedBox(width:5),Flexible(child:Text(label,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontSize:9,fontWeight:FontWeight.w700)))]),
+ ));
 }

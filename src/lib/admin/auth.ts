@@ -9,6 +9,7 @@
  */
 import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
+import { all, ready } from "../../server/db";
 
 export const ADMIN_COOKIE = "kaamdaar_admin_session";
 const DEV_SECRET = "kaamdaar-dev-admin-secret-change-me";
@@ -50,10 +51,10 @@ export function checkCredentials(email: string, password: string): boolean {
 }
 
 /** Create a signed session token valid for 12 hours. */
-export function createSessionToken(): string {
+export function createSessionToken(email = ADMIN_EMAIL): string {
   if (!isAdminAuthConfigured()) throw new Error("Admin auth is not configured for production");
   const exp = Date.now() + SESSION_TTL_MS;
-  const payload = Buffer.from(JSON.stringify({ exp })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ exp, email: email.trim().toLowerCase() })).toString("base64url");
   return `${payload}.${hmac(payload)}`;
 }
 
@@ -77,5 +78,17 @@ export function verifySessionToken(token: string | undefined): boolean {
 /** Read and verify the session cookie (server components & API routes). */
 export async function isAuthed(): Promise<boolean> {
   const store = await cookies();
-  return verifySessionToken(store.get(ADMIN_COOKIE)?.value);
+  const token = store.get(ADMIN_COOKIE)?.value;
+  if (!verifySessionToken(token)) return false;
+  try {
+    const payload = token!.split(".")[0];
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString()) as { email?: string };
+    if (!data.email) return true;
+    await ready();
+    const admins = await all<{ id: string; email?: string; status?: string }>("adminUsers");
+    const account = admins.find((row) => row.email?.trim().toLowerCase() === data.email);
+    return !account || account.status !== "blocked";
+  } catch {
+    return false;
+  }
 }

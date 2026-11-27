@@ -1,0 +1,134 @@
+import 'package:flutter/material.dart';
+import '../services/admin_api.dart';
+
+class LoginScreen extends StatefulWidget {
+  final VoidCallback onLogin;
+  const LoginScreen({super.key, required this.onLogin});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final email = TextEditingController();
+  final password = TextEditingController();
+  bool busy = false;
+  bool hide = true;
+  String error = '';
+
+  Future<void> submit() async {
+    if (email.text.trim().isEmpty || password.text.isEmpty) {
+      setState(() => error = 'Email and password are required.');
+      return;
+    }
+    setState(() {
+      busy = true;
+      error = '';
+    });
+    try {
+      await AdminApi.login(email.text.trim(), password.text);
+      if (mounted) widget.onLogin();
+    } catch (e) {
+      if (mounted) {
+        setState(() => error = e.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0B2240), Color(0xFF163B67)],
+          ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Icon(Icons.admin_panel_settings_rounded,
+                          size: 58, color: Color(0xFFFF7A00)),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Kaamdaar Super Admin',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 23,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0B2240),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text('Private owner access only',
+                          textAlign: TextAlign.center),
+                      const SizedBox(height: 24),
+                      TextField(
+                        controller: email,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          labelText: 'Owner email',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: password,
+                        obscureText: hide,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            onPressed: () => setState(() => hide = !hide),
+                            icon: Icon(hide
+                                ? Icons.visibility
+                                : Icons.visibility_off),
+                          ),
+                        ),
+                      ),
+                      if (error.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Text(error,
+                              style: const TextStyle(color: Colors.red)),
+                        ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        height: 52,
+                        child: FilledButton(
+                          onPressed: busy ? null : submit,
+                          child: busy
+                              ? const CircularProgressIndicator()
+                              : const Text('SECURE LOGIN'),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text(
+                        'No public registration · Owner account only',
+                        textAlign: TextAlign.center,
+                        style:
+                            TextStyle(fontSize: 11, color: Colors.black45),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -143,6 +143,11 @@ export async function validateDeviceSession(token: string): Promise<{
     if (!session || session.revokedAt || session.expiresAt <= Date.now() ||
         session.sessionId !== payload.sessionId || session.accountId !== payload.accountId ||
         session.role !== payload.role || session.phone !== payload.phone) return null;
+    const account = await get<{ id: string; status?: string }>(
+      payload.role === "provider" ? "providers" : "users",
+      payload.accountId,
+    );
+    if (!account || account.status === "blocked" || account.status === "deleted") return null;
     return {
       phone: session.phone,
       uid: session.uid,

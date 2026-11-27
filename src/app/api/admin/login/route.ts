@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { recordAudit } from "../../../../server/audit";
+import { all, ready } from "../../../../server/db";
 import {
   ADMIN_COOKIE,
   checkCredentials,
@@ -43,6 +44,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
   }
 
+  await ready();
+  const adminRows = await all<{ id: string; email?: string; status?: string }>("adminUsers");
+  const adminAccount = adminRows.find((row) => row.email?.trim().toLowerCase() === email.trim().toLowerCase());
+  if (adminAccount?.status === "blocked") {
+    return NextResponse.json({ error: "This Admin account is blocked. Contact the Super Admin." }, { status: 403 });
+  }
+
   const userAgent = req.headers.get("user-agent") ?? "unknown";
   const platform = /android|iphone|ipad|mobile/i.test(userAgent) ? "mobile" : "web";
   const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim().slice(0, 64);
@@ -51,7 +59,7 @@ export async function POST(req: Request) {
   } catch (error) { console.error("[audit] admin login success log could not be saved", error); }
 
   const res = NextResponse.json({ ok: true, email: email.trim().toLowerCase() });
-  res.cookies.set(ADMIN_COOKIE, createSessionToken(), {
+  res.cookies.set(ADMIN_COOKIE, createSessionToken(email), {
     httpOnly: true,
     sameSite: "lax",
     path: "/",

@@ -60,6 +60,7 @@ export async function GET(req: Request) {
   // A Pro without the required wallet balance must not be shown as notifiable.
   const providers = providerRows
     .filter((provider) => isInsideJaipur(provider))
+    .filter((provider) => (provider as Provider & { status?: string }).status !== "blocked")
     .filter((provider) => provider.verified === true && provider.availabilityStatus === "available")
     .filter((provider) => !provider.activeBookingId && !busyIds.has(provider.id))
     .filter((provider) =>

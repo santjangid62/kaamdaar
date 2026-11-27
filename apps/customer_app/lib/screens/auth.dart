@@ -1,5 +1,6 @@
 /// Splash → Onboarding → Login → OTP (mirrors the web flow).
 library;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../core/api.dart';
@@ -22,7 +23,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _decide() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
+    await Future.delayed(Duration.zero);
     if (!mounted) return;
     final seen = await Api.onboarded;
     final user = await Api.restoreSession();
@@ -252,141 +253,126 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 30),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                    color: const Color(0xFF0B2240),
-                    borderRadius: BorderRadius.circular(20)),
-                child: const Icon(Icons.home_repair_service,
-                    color: Color(0xFFFF7A00), size: 44),
-                alignment: Alignment.center,
-              ),
-              const SizedBox(height: 24),
-              const Text('Welcome Back!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 6),
-              const Text('Enter your mobile number to continue',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.black54)),
-              const SizedBox(height: 28),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: _error == null
-                          ? const Color(0xFFE2E8F0)
-                          : const Color(0xFFDC2626)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 16),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF4F6F9),
-                        border: Border(
-                            right: BorderSide(color: Color(0xFFE2E8F0))),
-                      ),
-                      child: const Text('+91',
-                          style: TextStyle(fontWeight: FontWeight.w700)),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _phone,
-                        keyboardType: TextInputType.phone,
-                        maxLength: 10,
-                        autofocus: true,
-                        onChanged: (_) => setState(() => _error = null),
-                        style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.2),
-                        decoration: const InputDecoration(
-                          counterText: '',
-                          hintText: '98765 43210',
-                          border: InputBorder.none,
-                          fillColor: Colors.transparent,
-                          filled: true,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(_error!,
-                      style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13)),
-                ),
-              const SizedBox(height: 20),
-              PrimaryBtn(
-                label: 'Continue',
-                busy: _busy,
-                onPressed: _busy ? null : _sendOtp,
-              ),
-              const SizedBox(height: 18),
-              const Row(children: [
-                Expanded(child: Divider()),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Text('or continue with',
-                      style: TextStyle(color: Colors.grey, fontSize: 12)),
-                ),
-                Expanded(child: Divider()),
-              ]),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _SocialButton(label: 'G', onTap: () {}),
-                  const SizedBox(width: 16),
-                  _SocialButton(label: '', onTap: () {}),
-                ],
-              ),
-              const SizedBox(height: 24),
-              const Text('By continuing, you agree to our Terms & Privacy Policy',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey, fontSize: 12)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SocialButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  const _SocialButton({required this.label, required this.onTap});
-
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 56,
-        height: 48,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Text(label,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+    return Scaffold(
+      backgroundColor: const Color(0xFF081A33),
+      body: Stack(
+        children: [
+          Positioned(top: -90, right: -70, child: _GlowOrb(color: const Color(0xFFFF7A00).withOpacity(.38), size: 260)),
+          Positioned(bottom: 80, left: -100, child: _GlowOrb(color: const Color(0xFF1E5AA8).withOpacity(.45), size: 280)),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 28, 22, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(children: [
+                    Container(
+                      width: 48, height: 48,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFFFFA12B), Color(0xFFFF6B00)]),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [BoxShadow(color: const Color(0xFFFF7A00).withOpacity(.35), blurRadius: 22, offset: const Offset(0, 8))],
+                      ),
+                      child: const Icon(Icons.home_repair_service_rounded, color: Color(0xFF0B2240), size: 27),
+                    ),
+                    const SizedBox(width: 12),
+                    const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('KAAMDAAR', style: TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 1.6, fontWeight: FontWeight.w900)),
+                      Text('HAR KAAM TURANT', style: TextStyle(color: Color(0xFFFFC36A), fontSize: 9, letterSpacing: 2.1, fontWeight: FontWeight.w800)),
+                    ]),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                      decoration: BoxDecoration(color: Colors.white.withOpacity(.09), borderRadius: BorderRadius.circular(99), border: Border.all(color: Colors.white.withOpacity(.16))),
+                      child: const Row(children: [Icon(Icons.verified_user_outlined, color: Color(0xFFFFB14A), size: 14), SizedBox(width: 5), Text('SECURE', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1))]),
+                    ),
+                  ]),
+                  const SizedBox(height: 54),
+                  const Text('Your city.\nYour services.\nOne tap away.', style: TextStyle(color: Colors.white, fontSize: 34, height: 1.08, fontWeight: FontWeight.w900, letterSpacing: -.7)),
+                  const SizedBox(height: 12),
+                  Text('Trusted professionals at your doorstep — book, track and relax.', style: TextStyle(color: Colors.white.withOpacity(.72), fontSize: 14, height: 1.5)),
+                  const SizedBox(height: 26),
+                  Row(children: [
+                    _FeaturePill(icon: Icons.bolt_rounded, label: 'Quick booking'),
+                    const SizedBox(width: 8),
+                    _FeaturePill(icon: Icons.location_on_rounded, label: 'Live tracking'),
+                    const SizedBox(width: 8),
+                    _FeaturePill(icon: Icons.verified_rounded, label: 'Verified pros'),
+                  ]),
+                  const SizedBox(height: 34),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(.12),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(color: Colors.white.withOpacity(.24)),
+                          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white.withOpacity(.19), Colors.white.withOpacity(.07)]),
+                        ),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                          const Text('Welcome back 👋', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                          const SizedBox(height: 5),
+                          Text('Enter your mobile number to get started', style: TextStyle(color: Colors.white.withOpacity(.72), fontSize: 12.5)),
+                          const SizedBox(height: 22),
+                          Container(
+                            decoration: BoxDecoration(color: Colors.white.withOpacity(.96), borderRadius: BorderRadius.circular(17), border: Border.all(color: _error == null ? Colors.white : const Color(0xFFFF6B6B), width: 1.2)),
+                            child: Row(children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 17),
+                                decoration: const BoxDecoration(border: Border(right: BorderSide(color: Color(0xFFE5E7EB)))),
+                                child: const Text('+91', style: TextStyle(color: Color(0xFF0B2240), fontWeight: FontWeight.w900, fontSize: 15)),
+                              ),
+                              Expanded(child: TextField(
+                                controller: _phone,
+                                keyboardType: TextInputType.phone,
+                                maxLength: 10,
+                                autofocus: true,
+                                onChanged: (_) => setState(() => _error = null),
+                                style: const TextStyle(color: Color(0xFF0B2240), fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: 1.2),
+                                decoration: const InputDecoration(counterText: '', hintText: '98765 43210', hintStyle: TextStyle(color: Color(0xFF9CA3AF)), border: InputBorder.none, fillColor: Colors.transparent, filled: true, contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 17)),
+                              )),
+                            ]),
+                          ),
+                          if (_error != null) Padding(padding: const EdgeInsets.only(top: 9), child: Text(_error!, style: const TextStyle(color: Color(0xFFFFB4B4), fontSize: 12))),
+                          const SizedBox(height: 18),
+                          SizedBox(height: 56, child: ElevatedButton(
+                            onPressed: _busy ? null : _sendOtp,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF8A00), foregroundColor: const Color(0xFF0B2240), elevation: 8,
+                              shadowColor: const Color(0xFFFF7A00).withOpacity(.35),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
+                              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                            ),
+                            child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF0B2240))) : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text('Continue securely'), SizedBox(width: 9), Icon(Icons.arrow_forward_rounded, size: 19)]),
+                          )),
+                          const SizedBox(height: 15),
+                          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Icon(Icons.lock_outline, color: Colors.white.withOpacity(.65), size: 13),
+                            const SizedBox(width: 6),
+                            Text('OTP verification keeps your account safe', style: TextStyle(color: Colors.white.withOpacity(.68), fontSize: 10.5)),
+                          ]),
+                        ]),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.support_agent, color: Colors.white.withOpacity(.65), size: 16),
+                    const SizedBox(width: 6),
+                    Text('Need help? Kaamdaar Support is here', style: TextStyle(color: Colors.white.withOpacity(.7), fontSize: 11)),
+                  ]),
+                  const SizedBox(height: 22),
+                  Text('By continuing, you agree to our Terms & Privacy Policy', textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withOpacity(.48), fontSize: 10)),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -505,4 +491,23 @@ class _OtpScreenState extends State<OtpScreen> {
       ),
     );
   }
+}
+
+class _GlowOrb extends StatelessWidget {
+  final Color color;
+  final double size;
+  const _GlowOrb({required this.color, required this.size});
+  @override
+  Widget build(BuildContext context) => Container(width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: [BoxShadow(color: color, blurRadius: 90, spreadRadius: 35)]));
+}
+class _FeaturePill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _FeaturePill({required this.icon, required this.label});
+  @override
+  Widget build(BuildContext context) => Expanded(child: Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+    decoration: BoxDecoration(color: Colors.white.withOpacity(.09), borderRadius: BorderRadius.circular(13), border: Border.all(color: Colors.white.withOpacity(.14))),
+    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: const Color(0xFFFFB14A), size: 14), const SizedBox(width: 5), Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)))]),
+  ));
 }
