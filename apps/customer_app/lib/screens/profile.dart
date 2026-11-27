@@ -9,6 +9,7 @@ import '../core/models.dart';
 import '../core/theme.dart';
 import 'auth.dart';
 import 'bookings.dart';
+import 'notifications.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -290,7 +291,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddressesScreen()));
               _load();
             }),
-            _tile(Icons.notifications_none_rounded, 'Notifications', 'Updates about your bookings', () { _soon(); }),
+            _tile(Icons.notifications_none_rounded, 'Notifications', 'Booking and complaint updates from Kaamdaar', () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+            }),
             _tile(Icons.credit_card_rounded, 'Payment Methods', 'Your preferred payment options', () { _soon(); }),
             _tile(Icons.devices_rounded, 'Pair Web Browser', 'Connect your account to the web', _pairBrowser),
             const SizedBox(height: 22),
