@@ -55,6 +55,7 @@ class _LocationGateState extends State<LocationGate>
   Future<void> _verify({required bool requestPermission}) async {
     if (_busy || !mounted || _ready) return;
     _busy = true;
+    final loadingStartedAt = DateTime.now();
     setState(() {
       _checking = true;
       _serviceOff = false;
@@ -121,6 +122,10 @@ class _LocationGateState extends State<LocationGate>
         );
       }
 
+      final loadingElapsed = DateTime.now().difference(loadingStartedAt);
+      if (loadingElapsed < const Duration(milliseconds: 1800)) {
+        await Future.delayed(const Duration(milliseconds: 1800) - loadingElapsed);
+      }
       if (!mounted) return;
       setState(() {
         _accuracy = fix.accuracy;
