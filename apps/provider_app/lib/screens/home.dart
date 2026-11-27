@@ -15,6 +15,7 @@ import '../core/models.dart';
 import '../core/theme.dart';
 import 'auth.dart';
 import 'job.dart';
+import 'feedback.dart';
 
 class ProviderShell extends StatefulWidget {
   const ProviderShell({super.key});
@@ -76,6 +77,30 @@ class _ProviderShellState extends State<ProviderShell> with WidgetsBindingObserv
     }
   }
 
+  Widget _providerNavItem(int index, IconData icon, String label) {
+    final active = _tab == index;
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => setState(() => _tab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
+          decoration: BoxDecoration(
+            color: active ? PColors.ink : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, color: active ? Colors.white : Colors.black45, size: 20),
+            const SizedBox(height: 3),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: active ? Colors.white : Colors.black45, fontSize: 9.5, fontWeight: FontWeight.w800)),
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -89,27 +114,27 @@ class _ProviderShellState extends State<ProviderShell> with WidgetsBindingObserv
           ProfileTab(),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _tab,
-        onTap: (i) => setState(() => _tab = i),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: PColors.flame,
-        unselectedItemColor: Colors.black45,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5),
-        items: const [
-          BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.work_outline), activeIcon: Icon(Icons.work), label: 'Jobs'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.event_busy_outlined), activeIcon: Icon(Icons.event_busy), label: 'Missed'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              activeIcon: Icon(Icons.account_balance_wallet),
-              label: 'Wallet'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
-        ],
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE8EDF4)),
+              boxShadow: [BoxShadow(color: PColors.ink.withValues(alpha: .12), blurRadius: 22, offset: const Offset(0, 8))],
+            ),
+            child: Row(children: [
+              _providerNavItem(0, Icons.home_rounded, 'Home'),
+              _providerNavItem(1, Icons.work_rounded, 'Jobs'),
+              _providerNavItem(2, Icons.event_busy_rounded, 'Cancelled'),
+              _providerNavItem(3, Icons.account_balance_wallet_rounded, 'Wallet'),
+              _providerNavItem(4, Icons.person_rounded, 'Profile'),
+            ]),
+          ),
+        ),
       ),
     );
   }
@@ -130,7 +155,7 @@ class DashboardTab extends StatefulWidget {
   State<DashboardTab> createState() => _DashboardTabState();
 }
 
-class _DashboardTabState extends State<DashboardTab> {
+class _DashboardTabState extends State<DashboardTab> with WidgetsBindingObserver {
   ProviderItem? _me;
   SessionUser? _user;
   List<BookingItem> _offers = [];
@@ -148,6 +173,7 @@ class _DashboardTabState extends State<DashboardTab> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
     _detectProviderLocation();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -162,7 +188,18 @@ class _DashboardTabState extends State<DashboardTab> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Android may briefly lose DNS/network after screen unlock. Refresh silently
+    // when the app resumes; keep the last good dashboard visible meanwhile.
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_load(silent: true));
+      unawaited(_detectProviderLocation(reverseGeocode: false));
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _poll?.cancel();
     _locationPoll?.cancel();
@@ -190,15 +227,19 @@ class _DashboardTabState extends State<DashboardTab> {
         } catch (_) {}
       }
       final locationIsPrecise = position.accuracy <= 100;
+      final savedCity = _me?.city.trim() ?? '';
       var label = locationIsPrecise
-          ? 'Current location'
+          ? (savedCity.isNotEmpty ? savedCity : 'Location detected')
           : 'GPS accuracy low (±${position.accuracy.round()} m) — move outdoors and tap to retry';
       if (locationIsPrecise && reverseGeocode) try {
         final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
           'format': 'jsonv2', 'lat': '${position.latitude}', 'lon': '${position.longitude}',
           'zoom': '18', 'addressdetails': '1', 'accept-language': 'en',
         });
-        final response = await http.get(uri, headers: {'User-Agent': 'Kaamdaar/1.0 (location lookup)'});
+        final response = await http.get(uri, headers: {
+          'User-Agent': 'Kaamdaar/1.0 (location lookup)',
+          'Accept-Language': 'en-IN,en;q=0.9',
+        }).timeout(const Duration(seconds: 6));
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body) as Map<String, dynamic>;
           final a = (data['address'] as Map?)?.cast<String, dynamic>() ?? {};
@@ -207,9 +248,19 @@ class _DashboardTabState extends State<DashboardTab> {
           final city = a['city'] ?? a['town'] ?? a['village'] ?? a['state_district'] ?? '';
           final pin = a['postcode'] ?? '';
           label = [street, locality, city, pin].where((v) => '$v'.isNotEmpty).toSet().join(', ');
-          if (label.isEmpty) label = (data['display_name'] ?? 'Current location').toString();
+          if (label.isEmpty) {
+            label = (data['display_name'] ?? '').toString();
+          }
         }
       } catch (_) {}
+      // Never leave the header saying only “Current location” when reverse
+      // geocoding is temporarily unavailable. Use the provider's saved city;
+      // GPS coordinates are still synced independently below.
+      if (locationIsPrecise &&
+          (label.isEmpty || label == 'Current location' || label == 'Location detected') &&
+          savedCity.isNotEmpty) {
+        label = savedCity;
+      }
       if (mounted) setState(() => _locationLabel = label);
       if (locationIsPrecise) {
         try {
@@ -269,7 +320,12 @@ class _DashboardTabState extends State<DashboardTab> {
         _error = null;
       });
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      // A transient DNS/socket failure must not replace a previously loaded
+      // dashboard with a full-screen error. The 5-second poll and resume hook
+      // retry automatically; only show the retry state before first data load.
+      if (mounted && _me == null) {
+        setState(() => _error = e.toString());
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -373,72 +429,57 @@ class _DashboardTabState extends State<DashboardTab> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 26),
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Good Morning, ${_user?.firstName.isNotEmpty == true ? _user!.firstName : me.name.split(' ').first}!',
-                          style: const TextStyle(
-                              fontSize: 17, fontWeight: FontWeight.w900, color: PColors.ink)),
-                      const SizedBox(height: 2),
-                      InkWell(
-                        onTap: _detectProviderLocation,
-                        child: Text(_locationLabel == 'Detecting your location…' && me.city.isNotEmpty ? me.city : _locationLabel,
-                          maxLines: 2, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, color: Colors.black45)),
-                      ),
-                    ],
-                  ),
+            /* Partner dashboard hero — availability logic remains unchanged */
+            Container(
+              padding: const EdgeInsets.fromLTRB(18, 18, 16, 16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0B2240), Color(0xFF123D55), Color(0xFF0E7468)],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [BoxShadow(color: PColors.greenDark.withValues(alpha: .18), blurRadius: 20, offset: const Offset(0, 9))],
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Good Morning, ${_user?.firstName.isNotEmpty == true ? _user!.firstName : me.name.split(' ').first}!',
+                      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white)),
+                    const SizedBox(height: 5),
+                    InkWell(onTap: _detectProviderLocation, child: Row(children: [
+                      const Icon(Icons.location_on_outlined, color: Color(0xFF69D5B0), size: 15),
+                      const SizedBox(width: 4),
+                      Expanded(child: Text(_locationLabel == 'Detecting your location…' && me.city.isNotEmpty ? me.city : _locationLabel,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: .70)))),
+                    ])),
+                  ])),
+                  Container(width: 46, height: 46, decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .12), borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.white.withValues(alpha: .18))),
+                    child: const Icon(Icons.handyman_rounded, color: Color(0xFFFFB15C), size: 25)),
+                ]),
+                const SizedBox(height: 18),
                 Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                      color: PColors.green.withValues(alpha: .12),
-                      shape: BoxShape.circle),
-                  child: const Icon(Icons.handyman, color: PColors.flame),
+                  padding: const EdgeInsets.fromLTRB(13, 10, 8, 10),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: .10), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withValues(alpha: .14))),
+                  child: Row(children: [
+                    Container(width: 9, height: 9, decoration: BoxDecoration(
+                      color: _available ? const Color(0xFF4ADE80) : Colors.white54, shape: BoxShape.circle)),
+                    const SizedBox(width: 9),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(_available ? 'You are Online' : 'You are Offline',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
+                      Text(_available ? 'New service requests are enabled' : 'Turn on to receive nearby jobs',
+                        style: TextStyle(color: Colors.white.withValues(alpha: .65), fontSize: 10.5)),
+                    ])),
+                    Switch(value: _available, activeThumbColor: const Color(0xFF4ADE80),
+                      onChanged: _setAvailability),
+                  ]),
                 ),
-              ],
+              ]),
             ),
             const SizedBox(height: 14),
-
-            /* availability */
-            CardBox(
-              child: Row(
-                children: [
-                  Container(
-                    height: 38,
-                    width: 38,
-                    decoration: BoxDecoration(
-                      color: (_available ? PColors.green : Colors.grey).withValues(alpha: .12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(Icons.power_settings_new,
-                        size: 20, color: _available ? PColors.green : Colors.grey),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_available ? 'Online — receiving requests' : 'Offline',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w800, fontSize: 13.5)),
-                        const Text('Naye requests lene ke liye online rahein',
-                            style: TextStyle(fontSize: 11.5, color: Colors.black45)),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    value: _available,
-                    activeThumbColor: PColors.green,
-                    onChanged: _setAvailability,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
 
             /* today stats */
             CardBox(
@@ -668,16 +709,30 @@ class _DashboardTabState extends State<DashboardTab> {
       color: const Color(0xFFEDF2F0));
 
   Widget _stat(String label, String value, String sub) {
+    final icon = switch (label) {
+      'Today' => Icons.work_history_rounded,
+      'Earnings' => Icons.currency_rupee_rounded,
+      'Rating' => Icons.star_rounded,
+      _ => Icons.account_balance_wallet_rounded,
+    };
+    final accent = label == 'Earnings' ? PColors.green : label == 'Rating' ? const Color(0xFFF59E0B) : PColors.flame;
     return Expanded(
       child: Column(
         children: [
-          Text(label,
-              style: const TextStyle(fontSize: 10.5, color: Colors.black45)),
+          Container(
+            width: 31,
+            height: 31,
+            decoration: BoxDecoration(color: accent.withValues(alpha: .11), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 16, color: accent),
+          ),
+          const SizedBox(height: 6),
+          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: PColors.ink)),
           const SizedBox(height: 2),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w900, color: PColors.ink)),
-          Text(sub, style: const TextStyle(fontSize: 10, color: Colors.black38)),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10, color: Colors.black54, fontWeight: FontWeight.w700)),
+          Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 9, color: Colors.black38)),
         ],
       ),
     );
@@ -1116,9 +1171,9 @@ class _MissedBookingsTabState extends State<MissedBookingsTab> {
                     const SizedBox(height: 12), GhostBtn(label: 'Retry', onPressed: _load, color: PColors.flame),
                   ])
                 : ListView(padding: const EdgeInsets.all(16), children: [
-                    const Text('Cancelled by Provider & Missed', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: PColors.ink)),
+                    const Text('Cancelled Bookings & Missed', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: PColors.ink)),
                     const SizedBox(height: 4),
-                    const Text('40-second ring timeouts and offers you cancelled or declined', style: TextStyle(fontSize: 12, color: Colors.black45)),
+                    const Text('Offers you cancelled or declined, plus requests you missed', style: TextStyle(fontSize: 12, color: Colors.black45)),
                     const SizedBox(height: 14),
                     Row(children: [
                       Expanded(child: _missedStat('Today', '$today')),
@@ -1575,6 +1630,9 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
           ),
           const SizedBox(height: 14),
+          _tile(Icons.support_agent_rounded, 'Complaints & Reviews', () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProviderFeedbackScreen()));
+          }),
           _tile(Icons.devices, 'Pair Web Browser', _pairBrowser),
           _tile(Icons.help_outline, 'Help & Support', () {
             showDialog<void>(
