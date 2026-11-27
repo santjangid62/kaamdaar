@@ -55,7 +55,7 @@ jobs:
         working-directory: apps/super_admin_app
         run: >-
           flutter build apk --debug
-          --dart-define=ADMIN_URL=https://kaamdaar-git-feat-phonepe-payment-gateway-unique-it-team.vercel.app
+          --dart-define=ADMIN_URL=https://kaamdaar-jh03tit3p-unique-it-team.vercel.app
 
       - name: Rename APK
         run: cp apps/super_admin_app/build/app/outputs/flutter-apk/app-debug.apk kaamdaar-super-admin-preview.apk
