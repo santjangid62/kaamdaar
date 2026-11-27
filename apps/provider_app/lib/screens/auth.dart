@@ -643,3 +643,36 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 }
+
+
+/// Entry point after location permission: restore the secure provider session
+/// directly, without the legacy splash/onboarding flow.
+class LandingScreen extends StatefulWidget {
+  const LandingScreen({super.key});
+  @override
+  State<LandingScreen> createState() => _LandingScreenState();
+}
+
+class _LandingScreenState extends State<LandingScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  Future<void> _restore() async {
+    final user = await Api.restoreSession();
+    if (!mounted) return;
+    final Widget next = user == null
+        ? const LoginScreen()
+        : const ProviderShell();
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => next),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+    body: Center(child: CircularProgressIndicator(color: PColors.green)),
+  );
+}
