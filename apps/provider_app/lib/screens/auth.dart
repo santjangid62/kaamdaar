@@ -308,8 +308,375 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _verify() async {
     final code = _otp.text.trim();
-    if (code.length < 4) {
-      setState(() => _error = 'Enter the OTP sent to your mobile');
+    if (!RegExp(r'^\\d{6}
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final user = await Api.verifyOtp(tenDigits(_phone.text), code);
+      final provider = await Api.me(user.phone);
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => provider == null
+              ? RegistrationScreen(user: user)
+              : const ProviderShell(),
+        ),
+        (route) => false,
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _busy = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(
+                      color: PColors.flame, shape: BoxShape.circle),
+                  child: const Icon(Icons.handyman, color: Colors.white, size: 36),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Center(
+                child: Text('Kaamdaar Provider',
+                    style: TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.w900, color: PColors.ink)),
+              ),
+              const SizedBox(height: 6),
+              Center(
+                child: Text(
+                  _otpSent ? 'Enter the OTP sent to +91 ${_phone.text}' : 'Login / Register to start earning',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.black54, fontSize: 13),
+                ),
+              ),
+              const SizedBox(height: 30),
+              if (!_otpSent) ...[
+                TextField(
+                  controller: _phone,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile number',
+                    prefixText: '+91  ',
+                    hintText: '98765 43210',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text('Only Indian mobile numbers are accepted.',
+                    style: TextStyle(fontSize: 11, color: Colors.black45)),
+                const SizedBox(height: 18),
+                PrimaryBtn(label: 'Continue', busy: _busy, onPressed: _sendOtp),
+              ] else ...[
+                TextField(
+                  controller: _otp,
+                  focusNode: _otpFocus,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  maxLength: 6,
+                  onChanged: (v) {
+                    // auto-verify as soon as the full code is typed
+                    if (v.trim().length == 6 && !_busy) _verify();
+                  },
+                  style: const TextStyle(
+                      fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 12),
+                  decoration: const InputDecoration(counterText: '', hintText: '••••••'),
+                ),
+                const SizedBox(height: 8),
+                if (_hint != null)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                        color: PColors.amber.withValues(alpha: .18),
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Text(_hint!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  ),
+                const SizedBox(height: 14),
+                PrimaryBtn(label: 'Verify & Continue', busy: _busy, onPressed: _verify),
+                TextButton(
+                  onPressed: _busy ? null : () => setState(() { _otpSent = false; _otp.clear(); }),
+                  child: const Text('Change number'),
+                ),
+              ],
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: PColors.red, fontSize: 13)),
+              ],
+              const SizedBox(height: 26),
+              const Text('By continuing you agree to our Terms & Privacy Policy.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: Colors.black38)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/* ---------------------------- registration ---------------------------- */
+
+class RegistrationScreen extends StatefulWidget {
+  final SessionUser? user;
+  const RegistrationScreen({super.key, this.user});
+
+  @override
+  State<RegistrationScreen> createState() => _RegistrationScreenState();
+}
+
+class _RegistrationScreenState extends State<RegistrationScreen> {
+  final _form = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _city = TextEditingController(text: 'Jaipur');
+  final _area = TextEditingController();
+  final _experience = ValueNotifier<String>('1-3 years');
+  final Set<String> _services = {};
+  List<ServiceItem> _catalog = [];
+  bool _loading = true;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _city.dispose();
+    _area.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final list = await Api.catalog();
+      if (!mounted) return;
+      setState(() => _catalog = list);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _submit() async {
+    if (!(_form.currentState?.validate() ?? false)) return;
+    if (_services.isEmpty) {
+      setState(() => _error = 'Select at least one service you can provide');
+      return;
+    }
+    final user = widget.user ?? await Api.restoreSession();
+    if (user == null) {
+      setState(() => _error = 'Session expired, please log in again.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        throw Exception('Provider registration ke liye location permission zaroori hai.');
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw Exception('GPS on karein, phir registration complete karein.');
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 12),
+        ),
+      );
+      await Api.register({
+        'phone': user.phone,
+        'name': _name.text.trim(),
+        'services': _services.toList(),
+        'city': '${_area.text.trim()}, ${_city.text.trim()}',
+        'lat': position.latitude,
+        'lng': position.longitude,
+        'experience': int.tryParse(_experience.value.split('-').first) ?? 1,
+      });
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const ProviderShell()), (route) => false);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Create Your Profile')),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: PColors.green))
+          : Form(
+              key: _form,
+              child: ListView(
+                padding: const EdgeInsets.all(18),
+                children: [
+                  const Text('Basic details to get started',
+                      style: TextStyle(color: Colors.black54, fontSize: 12.5)),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _name,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(labelText: 'Full name'),
+                    validator: (v) =>
+                        (v ?? '').trim().length < 3 ? 'Enter your full name' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  ValueListenableBuilder<String>(
+                    valueListenable: _experience,
+                    builder: (context, value, _) => DropdownButtonFormField<String>(
+                      initialValue: value,
+                      decoration: const InputDecoration(labelText: 'Experience'),
+                      items: const ['0-1 years', '1-3 years', '3-5 years', '5+ years']
+                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                          .toList(),
+                      onChanged: (v) => _experience.value = v ?? value,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _area,
+                          decoration: const InputDecoration(labelText: 'Area / locality'),
+                          validator: (v) =>
+                              (v ?? '').trim().isEmpty ? 'Area is required' : null,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _city,
+                          decoration: const InputDecoration(labelText: 'City'),
+                          validator: (v) =>
+                              (v ?? '').trim().isEmpty ? 'City is required' : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                      'Jaipur mein pehle 3 km aur zaroorat par 5 km tak ke customer requests milenge.',
+                      style: TextStyle(fontSize: 11, color: Colors.black45)),
+                  const SizedBox(height: 18),
+                  const Text('Select service categories',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  if (_catalog.isEmpty)
+                    const CardBox(
+                        child: Text('No services in the catalogue yet. Ask the admin to add services.',
+                            style: TextStyle(color: Colors.black54, fontSize: 12.5)))
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _catalog.take(24).map((s) {
+                        final picked = _services.contains(s.id);
+                        return FilterChip(
+                          label: Text(s.name, style: const TextStyle(fontSize: 12)),
+                          selected: picked,
+                          selectedColor: PColors.flame.withValues(alpha: .18),
+                          checkmarkColor: PColors.flame,
+                          onSelected: (on) => setState(() {
+                            if (on) {
+                              _services.add(s.id);
+                            } else {
+                              _services.remove(s.id);
+                            }
+                          }),
+                        );
+                      }).toList(),
+                    ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
+                    Text(_error!, style: const TextStyle(color: PColors.red, fontSize: 13)),
+                  ],
+                  const SizedBox(height: 20),
+                  PrimaryBtn(label: 'Continue to KYC', busy: _busy, onPressed: _submit),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Documents (Aadhaar / PAN / photo) admin dashboard se verify hote hain — approval ke baad aapko live requests milna shuru ho jayenge.',
+                    style: TextStyle(fontSize: 11, color: Colors.black45),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+
+/// Entry point after location permission: restore the secure provider session
+/// directly, without the legacy splash/onboarding flow.
+class LandingScreen extends StatefulWidget {
+  const LandingScreen({super.key});
+  @override
+  State<LandingScreen> createState() => _LandingScreenState();
+}
+
+class _LandingScreenState extends State<LandingScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  Future<void> _restore() async {
+    final user = await Api.restoreSession();
+    if (!mounted) return;
+    final Widget next = user == null
+        ? const LoginScreen()
+        : const ProviderShell();
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => next),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+    body: Center(child: CircularProgressIndicator(color: PColors.green)),
+  );
+}
+).hasMatch(code)) {
+      setState(() => _error = 'Enter the 6-digit OTP sent to your mobile');
       return;
     }
     setState(() {
