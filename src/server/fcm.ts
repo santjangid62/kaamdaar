@@ -193,8 +193,8 @@ export async function sendProviderCompletionUpdate(
   const bearer = await accessToken(account);
   const title = confirmed ? "Customer confirmed work completion" : "Customer says work is not complete";
   const body = confirmed
-    ? `\u001bCustomer confirmed ${booking.serviceName || "the service"}. Collect Cash/UPI payment now.`.replace("\u001b", "")
-    : `\u001bCustomer says ${booking.serviceName || "the service"} is not complete. Finish the remaining work and mark it complete again.`.replace("\u001b", "");
+    ? `Customer confirmed ${booking.serviceName || "the service"}. Collect Cash/UPI payment now.`
+    : `Customer says ${booking.serviceName || "the service"} is not complete. Finish the remaining work and mark it complete again.`;
   await Promise.all([...new Set(tokens)].map(async (token) => {
     const response = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
       method: "POST",
