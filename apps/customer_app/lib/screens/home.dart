@@ -585,7 +585,7 @@ class _HomeTabState extends State<_HomeTab> {
                       const Icon(Icons.chevron_right, color: Colors.black38),
                     ])),
                   )),
-                ],
+                ] else ...[
               /* search results */
               if (_filtered.isEmpty)
                 const Padding(
