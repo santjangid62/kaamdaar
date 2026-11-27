@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { all, get, insert, ready, uid } from "../../../server/db";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
-import type { Booking, User } from "../../../lib/types";
+import type { Booking, Provider, User } from "../../../lib/types";
 
 type EvidenceInput = { name?: string; dataUrl?: string };
 
@@ -9,15 +9,25 @@ export async function GET(req: Request) {
   await ready();
   const identity = await firebaseIdentityFromRequest(req);
   if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
-  const users = await all<User>("users");
+  const [users, providers] = await Promise.all([all<User>("users"), all<Provider>("providers")]);
+  const provider = providers.find((p) => normalizeIndianPhone(p.phone ?? "") === identity.phone);
   const customer = users.find((u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
+  const rows = await all<Record<string, unknown> & { customerId?: string; providerId?: string; attachments?: Array<{ name: string; mimeType: string; size: number }> }>("complaints");
+  // Provider identity takes precedence when the signed-in phone belongs to a
+  // provider; expose only complaints attached to that provider's bookings.
+  if (provider) {
+    const complaints = rows.filter((row) => row.providerId === provider.id).map((row) => ({
+      ...row,
+      attachments: (row.attachments ?? []).map(({ name, mimeType, size }) => ({ name, mimeType, size })),
+    }));
+    return NextResponse.json({ complaints, role: "provider" });
+  }
   if (!customer) return NextResponse.json({ error: "Customer account not found" }, { status: 404 });
-  const rows = await all<Record<string, unknown> & { customerId?: string; attachments?: Array<{ name: string; mimeType: string; size: number }> }>("complaints");
   const complaints = rows.filter((row) => row.customerId === customer.id).map((row) => ({
     ...row,
     attachments: (row.attachments ?? []).map(({ name, mimeType, size }) => ({ name, mimeType, size })),
   }));
-  return NextResponse.json({ complaints });
+  return NextResponse.json({ complaints, role: "customer" });
 }
 
 export async function POST(req: Request) {
