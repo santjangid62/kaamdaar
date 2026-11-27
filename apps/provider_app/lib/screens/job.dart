@@ -446,7 +446,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           Text('Work duration', style: TextStyle(fontWeight: FontWeight.w800, color: PColors.ink)),
           Text('Timer starts from server-recorded work start time', style: TextStyle(fontSize: 10.5, color: Colors.black54)),
         ])),
-        Text('$hours:$minutes:$seconds', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: PColors.green, fontFeatures: [FontFeature.tabularFigures()])),
+        Text('$hours:$minutes:$seconds', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: PColors.green)),
       ]),
     );
   }
