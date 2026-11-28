@@ -159,6 +159,35 @@ export async function listBookings(userId: string): Promise<Booking[]> {
   }
 }
 
+export interface BookingReview {
+  id: string; bookingId: string; reviewerRole: "customer" | "provider";
+  providerRating?: number; serviceRating?: number; customerRating?: number;
+  rating?: number; text?: string; editCount?: number; createdAt?: number; editedAt?: number;
+}
+
+export async function listMyReviews(): Promise<BookingReview[]> {
+  const data = await api<{ reviews: BookingReview[] }>("/api/reviews");
+  return data.reviews ?? [];
+}
+
+export async function submitMyReview(input: {
+  bookingId: string; providerRating: number; serviceRating: number; text: string;
+}): Promise<BookingReview> {
+  const data = await api<{ review: BookingReview }>("/api/reviews", {
+    method: "POST", body: JSON.stringify(input),
+  });
+  return data.review;
+}
+
+export async function editMyReview(input: {
+  bookingId: string; providerRating: number; serviceRating: number; text: string;
+}): Promise<BookingReview> {
+  const data = await api<{ review: BookingReview }>("/api/reviews", {
+    method: "PATCH", body: JSON.stringify({ ...input, actorRole: "customer" }),
+  });
+  return data.review;
+}
+
 /** Patch a booking through the dispatch lifecycle (server-validated). */
 export async function updateBooking(
   userId: string,
