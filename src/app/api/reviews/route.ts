@@ -127,7 +127,7 @@ export async function POST(req: Request) {
       id: "review_" + bookingId + "_customer", bookingId, reviewerRole: "customer", userId: user.id, providerId: provider.id,
       serviceId: booking.serviceId, service: booking.serviceName,
       author, name: author, providerRating: rating, serviceRating, rating,
-      text, createdAt: Date.now(),
+      text, editCount: 0, createdAt: Date.now(),
     });
     if (!review) return NextResponse.json({ error: "You have already rated this booking" }, { status: 409 });
     const providerReviews = [...(provider.reviews ?? []), { author, rating, text }];
