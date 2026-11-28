@@ -76,8 +76,16 @@ jobs:
           API_BASE: ${{ inputs.api_base || 'https://kaamdaar-git-integrate-nov27-consolidated-unique-it-team.vercel.app' }}
         run: flutter build apk --debug --dart-define=API_BASE="$API_BASE"
 
-      - name: Rename APK
-        run: cp "${{ matrix.directory }}/build/app/outputs/flutter-apk/app-debug.apk" "${{ matrix.apk }}"
+      - name: Verify APK and record QA build target
+        env:
+          API_BASE: ${{ inputs.api_base || 'https://kaamdaar-git-integrate-nov27-consolidated-unique-it-team.vercel.app' }}
+        run: |
+          APK_PATH="${{ matrix.directory }}/build/app/outputs/flutter-apk/app-debug.apk"
+          test -s "$APK_PATH"
+          mkdir -p qa-metadata
+          printf 'app=${{ matrix.app }}\\napi_base=%s\\ncommit=%s\\n' "$API_BASE" "${GITHUB_SHA}" > qa-metadata/build-info.txt
+          sha256sum "$APK_PATH" > qa-metadata/apk-sha256.txt
+          cp "$APK_PATH" "${{ matrix.apk }}"
 
       - name: Upload QA APK
         uses: actions/upload-artifact@v4
