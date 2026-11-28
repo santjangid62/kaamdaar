@@ -373,6 +373,21 @@ class Api {
 
   /* -------------------------- addresses ------------------------- */
 
+  /// Live count of eligible, online providers for every catalogue service.
+  static Future<Map<String, int>> providerCounts(
+      List<String> serviceIds, double lat, double lng) async {
+    if (serviceIds.isEmpty) return <String, int>{};
+    final query = Uri(queryParameters: {
+      'serviceIds': serviceIds.join(','),
+      'lat': '$lat',
+      'lng': '$lng',
+    }).query;
+    final data = await get('/api/providers?$query');
+    final raw = data['serviceCounts'] as Map? ?? const {};
+    return raw.map((key, value) => MapEntry(
+        key.toString(), value is num ? value.toInt() : int.tryParse('$value') ?? 0));
+  }
+
   static Future<List<AddressItem>> addresses(String userId) async {
     final data = await get('/api/users/${Uri.encodeComponent(userId)}/addresses');
     final list = (data['addresses'] as List?) ?? (data as List? ?? []);

@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'dart:convert';
+import 'dart:async';
 
 import '../core/api.dart';
 import '../core/models.dart';
@@ -14,6 +15,7 @@ import 'bookings.dart';
 import 'notifications.dart';
 import 'profile.dart';
 import 'service.dart';
+import 'service_discovery.dart';
 import 'tracking.dart';
 import '../widgets/kaamdaar_bot.dart';
 
@@ -141,6 +143,11 @@ class _HomeTabState extends State<_HomeTab> {
   final ScrollController _categoryScrollController = ScrollController();
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _listening = false;
+  int _searchHintIndex = 0;
+  Timer? _searchHintTimer;
+  Timer? _providerCountTimer;
+  bool _refreshingProviderCounts = false;
+  Map<String, int> _providerCounts = {};
   List<ServiceItem> _services = [];
   List<String> _categories = [];
   List<BookingItem> _recent = [];
@@ -155,7 +162,40 @@ class _HomeTabState extends State<_HomeTab> {
   @override
   void initState() {
     super.initState();
+    _searchHintTimer = Timer.periodic(const Duration(milliseconds: 2600), (_) {
+      if (mounted && _search.text.isEmpty) {
+        setState(() => _searchHintIndex = (_searchHintIndex + 1) % _searchHints.length);
+      }
+    });
+    _providerCountTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _refreshProviderCounts();
+    });
     _detectLocation();
+  }
+
+  static const List<String> _fallbackSearchHints = [
+    'Search AC repair', 'Search plumbing', 'Search home cleaning',
+    'Search electrician', 'Search appliance repair',
+  ];
+
+  List<String> get _searchHints => _categories.isEmpty
+      ? _fallbackSearchHints
+      : _categories.map((category) => 'Search $category').toList();
+
+  Future<void> _refreshProviderCounts() async {
+    if (_refreshingProviderCounts || _latitude == null || _longitude == null || _services.isEmpty) return;
+    _refreshingProviderCounts = true;
+    try {
+      final counts = await Api.providerCounts(
+        _services.map((service) => service.id).where((id) => id.isNotEmpty).toList(),
+        _latitude!, _longitude!,
+      );
+      if (mounted) setState(() => _providerCounts = counts);
+    } catch (_) {
+      // Keep the last successful snapshot if the network is intermittent.
+    } finally {
+      _refreshingProviderCounts = false;
+    }
   }
 
   Future<void> _detectLocation() async {
@@ -234,23 +274,23 @@ class _HomeTabState extends State<_HomeTab> {
       final servicesFuture = Api.catalog(lat: _latitude, lng: _longitude);
       final user = await userFuture;
       final services = await servicesFuture;
+      Map<String, int> providerCounts = {};
+      if (_latitude != null && _longitude != null) {
+        try {
+          providerCounts = await Api.providerCounts(
+            services.map((service) => service.id).where((id) => id.isNotEmpty).toList(),
+            _latitude!, _longitude!,
+          );
+        } catch (_) {
+          // Catalogue remains usable if availability is temporarily unreachable.
+        }
+      }
       List<BookingItem> recent = [];
-      List<ServiceItem> recommended = [];
       if (user != null) {
         final bookingsFuture = Api.userBookings(user.id);
-        final recommendationsFuture = Api.get('/api/recommendations');
         final all = await bookingsFuture;
         recent = all.where((b) => b.isLive).toList()
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        try {
-          final data = await recommendationsFuture;
-          recommended = (data['recommendations'] as List? ?? [])
-              .whereType<Map<String, dynamic>>()
-              .map(ServiceItem.fromJson)
-              .toList();
-        } catch (_) {
-          // Recommendations are optional; catalogue browsing remains available.
-        }
       }
       if (!mounted) return;
       setState(() {
@@ -258,6 +298,7 @@ class _HomeTabState extends State<_HomeTab> {
         // Root catalogue records define the main categories; keep the full catalogue
         // so selecting a main category shows every service beneath it.
         _services = services;
+        _providerCounts = providerCounts;
         _categories = services.where((s) => s.parent.isEmpty && s.category.trim().isNotEmpty)
             .map((s) => s.category.trim()).toSet().toList()..sort();
         _recent = recent;
@@ -342,33 +383,29 @@ class _HomeTabState extends State<_HomeTab> {
 
   @override
   void dispose() {
+    _searchHintTimer?.cancel();
+    _providerCountTimer?.cancel();
     _search.dispose();
     _categoryScrollController.dispose();
     _speech.stop();
     super.dispose();
   }
 
-  void _selectCategory(String? category, int index) {
-    if (_selectedCategory == category) return;
-    setState(() => _selectedCategory = category);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_categoryScrollController.hasClients) return;
-      final position = _categoryScrollController.position;
-      const itemExtent = 102.0;
-      const itemWidth = 91.0;
-      final target = (index * itemExtent -
-              (position.viewportDimension - itemWidth) / 2)
-          .clamp(0.0, position.maxScrollExtent)
-          .toDouble();
-      _categoryScrollController.animateTo(
-        target,
-        duration: const Duration(milliseconds: 480),
-        curve: Curves.easeInOutCubicEmphasized,
-      );
-    });
-  }
-
   void _open(ServiceItem s) {
+    if (_providerCounts.containsKey(s.id) && (_providerCounts[s.id] ?? 0) == 0) {
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          icon: const Icon(Icons.info_outline_rounded, color: KColors.flame, size: 34),
+          title: const Text('Sorry!'),
+          content: const Text('Sorry No Provider is Available right now.\nTry after some time.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('OK')),
+          ],
+        ),
+      );
+      return;
+    }
     Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => ServiceDetailScreen(service: s)))
         .then((_) => _load());
@@ -425,25 +462,45 @@ class _HomeTabState extends State<_HomeTab> {
             Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _search,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      hintText: 'Search AC repair, plumbing, cleaning...',
-                      hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
-                      prefixIcon: const Icon(Icons.search, color: Colors.black45),
-                      suffixIcon: _search.text.isEmpty
-                          ? const Icon(Icons.mic_none, color: KColors.flame)
-                          : IconButton(
-                              icon: const Icon(Icons.close, color: Colors.black45),
-                              onPressed: () {
-                                _search.clear();
-                                setState(() {});
-                              },
+                  child: Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      TextField(
+                        controller: _search,
+                        onChanged: (_) => setState(() {}),
+                        decoration: InputDecoration(
+                          hintText: '',
+                          prefixIcon: const Icon(Icons.search_rounded, color: KColors.navy),
+                          suffixIcon: _search.text.isEmpty ? null : IconButton(
+                            icon: const Icon(Icons.close, color: Colors.black45),
+                            onPressed: () { _search.clear(); setState(() {}); },
+                          ),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                          filled: true, fillColor: const Color(0xFFF7F8FA),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(color: Color(0xFFE7EAF0))),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(color: Color(0xFFE7EAF0))),
+                        ),
+                      ),
+                      if (_search.text.isEmpty)
+                        Positioned(left: 52, right: 8, child: IgnorePointer(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 420),
+                            transitionBuilder: (child, animation) => FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(begin: const Offset(0, .35), end: Offset.zero).animate(animation),
+                                child: child,
+                              ),
                             ),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
+                            child: Text(_searchHints[_searchHintIndex], key: ValueKey(_searchHintIndex),
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.black45, fontSize: 13.5)),
+                          ),
+                        )),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -471,201 +528,43 @@ class _HomeTabState extends State<_HomeTab> {
             const SizedBox(height: 16),
 
             if (!filtering) ...[
-              /* Service discovery starts immediately below search. */
-              const SizedBox(height: 8),
               if (_loading)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(child: CircularProgressIndicator(color: KColors.flame)),
-                )
-              else if (_error != null) ...[
-                CardBox(
-                  child: Column(
-                    children: [
-                      Text('Could not load services: $_error',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.black54, fontSize: 13)),
-                      const SizedBox(height: 10),
-                      GhostBtn(label: 'Retry', onPressed: _load, color: KColors.flame),
-                    ],
-                  ),
-                ),
-              ] else ...[
-                /* Main categories only */
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Categories', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: KColors.navy)),
-                    Text('${_services.length} services', style: const TextStyle(color: Colors.black45, fontSize: 12)),
-                  ],
-                ),
-                const SizedBox(height: 13),
-                SizedBox(
-                  height: 112,
-                  child: ListView.separated(
-                    controller: _categoryScrollController,
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _categories.length + 1,
-                    separatorBuilder: (_, __) => const SizedBox(width: 11),
-                    itemBuilder: (context, index) {
-                      final all = index == 0;
-                      final category = all ? null : _categories[index - 1];
-                      final active = _selectedCategory == category;
-                      final label = all ? 'All' : category!;
-                      final count = all ? _services.length : _services.where((service) => service.category == category).length;
-                      return InkWell(
-                        onTap: () => _selectCategory(category, index),
-                        borderRadius: BorderRadius.circular(20),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 220),
-                          width: 91,
-                          padding: const EdgeInsets.fromLTRB(8, 9, 8, 8),
-                          decoration: BoxDecoration(
-                            gradient: active ? const LinearGradient(colors: [KColors.navy, Color(0xFF1B4778)]) : null,
-                            color: active ? null : Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: active ? KColors.navy : const Color(0xFFE4EAF1)),
-                            boxShadow: [BoxShadow(color: KColors.navy.withOpacity(active ? .13 : .045), blurRadius: 12, offset: const Offset(0, 4))],
-                          ),
-                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Container(
-                              width: 43, height: 43,
-                              decoration: BoxDecoration(
-                                color: active ? Colors.white.withOpacity(.13) : KColors.flame.withOpacity(.10),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Icon(all ? Icons.grid_view_rounded : iconFor(category!), color: active ? Colors.white : KColors.flame, size: 23),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: active ? Colors.white : KColors.navy)),
-                            Text('$count', style: TextStyle(fontSize: 9.5, color: active ? Colors.white70 : Colors.black45)),
-                          ]),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 12),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 380),
-                  reverseDuration: const Duration(milliseconds: 300),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) {
-                    final slide = Tween<Offset>(
-                      begin: const Offset(.12, 0),
-                      end: Offset.zero,
-                    ).animate(animation);
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(position: slide, child: child),
-                    );
-                  },
-                  child: KeyedSubtree(
-                    key: ValueKey<String>(_selectedCategory ?? '__all_services__'),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _selectedCategory == null
-                                    ? 'Explore all services'
-                                    : '$_selectedCategory services',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: KColors.navy,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                            if (_selectedCategory != null)
-                              TextButton(
-                                onPressed: () => _selectCategory(null, 0),
-                                child: const Text('View all'),
-                              )
-                            else
-                              Text(
-                                '${_services.length} available',
-                                style: const TextStyle(fontSize: 11, color: Colors.black45),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        if (_filtered.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 22),
-                            child: Text(
-                              'No services available in this category yet.',
-                              style: TextStyle(color: Colors.black54),
-                            ),
-                          )
-                        else
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final width = (constraints.maxWidth - 10) / 2;
-                              return Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children: _filtered.map((service) => SizedBox(
-                                  width: width,
-                                  child: _ServiceMiniCard(
-                                    service: service,
-                                    onTap: () => _open(service),
-                                  ),
-                                )).toList(),
-                              );
-                            },
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              ],
-            ] else ...[
-              /* search results */
-              if (_filtered.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(
-                      child: Text('No services match your search',
-                          style: TextStyle(color: Colors.black45))),
-                )
+                const Padding(padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: CircularProgressIndicator(color: KColors.flame)))
+              else if (_error != null)
+                CardBox(child: Column(children: [
+                  Text('Could not load services: $_error', textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.black54, fontSize: 13)),
+                  const SizedBox(height: 10),
+                  GhostBtn(label: 'Retry', onPressed: _load, color: KColors.flame),
+                ]))
               else
-                ..._filtered.map((s) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: CardBox(
-                      onTap: () => _open(s),
-                      child: Row(
-                        children: [
-                          Icon(iconFor(s.icon.isEmpty ? s.category : s.icon),
-                              color: KColors.flame),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(s.name,
-                                    style:
-                                        const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-                                Text(s.tagline.isEmpty ? s.category : s.tagline,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: Colors.black54, fontSize: 12.5)),
-                              ],
-                            ),
-                          ),
-                          Text(rupees(s.price),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w900, color: KColors.flame)),
-                          const Icon(Icons.chevron_right, color: Colors.black38),
-                        ],
-                      ),
-                      ),
-                    )),
+                BlinkitStyleServiceCatalog(
+                  services: _services, categories: _categories,
+                  providerCounts: _providerCounts, onServiceTap: _open,
+                ),
+            ] else ...[
+              if (_filtered.isEmpty)
+                const Padding(padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: Text('No services match your search', style: TextStyle(color: Colors.black45))))
+              else
+                ..._filtered.map((service) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: CardBox(onTap: () => _open(service), child: Row(children: [
+                    Icon(iconFor(service.icon.isEmpty ? service.category : service.icon), color: KColors.flame),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(service.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+                      Text(service.tagline.isEmpty ? service.category : service.tagline,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                      const SizedBox(height: 4),
+                      ProviderCountLabel(count: _providerCounts[service.id]),
+                    ])),
+                    Text(rupees(service.price), style: const TextStyle(fontWeight: FontWeight.w900, color: KColors.flame)),
+                    const Icon(Icons.chevron_right, color: Colors.black38),
+                  ])),
+                )),
             ],
 
             /* recent / live bookings */
@@ -720,42 +619,3 @@ class _HomeTabState extends State<_HomeTab> {
   }
 }
 
-class _ServiceMiniCard extends StatelessWidget {
-  final ServiceItem service;
-  final VoidCallback onTap;
-  const _ServiceMiniCard({required this.service, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(17),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(17),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 128),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(17),
-            border: Border.all(color: const Color(0xFFE5EAF1)),
-            boxShadow: [BoxShadow(color: KColors.navy.withOpacity(.045), blurRadius: 11, offset: const Offset(0, 4))],
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(width: 37, height: 37, decoration: BoxDecoration(color: KColors.flame.withOpacity(.11), borderRadius: BorderRadius.circular(12)),
-              child: Icon(iconFor(service.icon.isEmpty ? service.category : service.icon), color: KColors.flame, size: 20)),
-            const SizedBox(height: 9),
-            Text(service.name, maxLines: 2, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: KColors.navy, height: 1.2)),
-            const Spacer(),
-            const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: Text(rupees(service.price), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: KColors.flame))),
-              const Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.black38),
-            ]),
-          ]),
-        ),
-      ),
-    );
-  }
-}
