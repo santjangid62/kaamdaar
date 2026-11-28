@@ -25,7 +25,7 @@ class JobDetailScreen extends StatefulWidget {
   State<JobDetailScreen> createState() => _JobDetailScreenState();
 }
 
-class _JobDetailScreenState extends State<JobDetailScreen> {
+class _JobDetailScreenState extends State<JobDetailScreen> with WidgetsBindingObserver {
   BookingItem? _booking;
   ProviderItem? _me;
   Timer? _poll;
