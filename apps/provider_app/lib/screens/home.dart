@@ -164,6 +164,7 @@ class _DashboardTabState extends State<DashboardTab> with WidgetsBindingObserver
   WalletInfo? _wallet;
   bool _available = true;
   bool _loading = true;
+  bool _refreshing = false;
   String? _error;
   String _locationLabel = 'Detecting your location…';
   Timer? _ticker;
@@ -280,6 +281,10 @@ class _DashboardTabState extends State<DashboardTab> with WidgetsBindingObserver
   }
 
   Future<void> _load({bool silent = false}) async {
+    // The periodic poll must never start a second inbox refresh while the
+    // previous network round-trip is still running.
+    if (_refreshing) return;
+    _refreshing = true;
     if (!silent) setState(() => _loading = true);
     try {
       final user = await Api.restoreSession();
@@ -299,10 +304,12 @@ class _DashboardTabState extends State<DashboardTab> with WidgetsBindingObserver
             (route) => false);
         return;
       }
-      final jobs = await Api.inbox(me.id);
+      final jobsFuture = Api.inbox(me.id);
+      final walletFuture = Api.wallet(me.id);
+      final jobs = await jobsFuture;
       WalletInfo? wallet;
       try {
-        wallet = await Api.wallet(me.id);
+        wallet = await walletFuture;
       } catch (_) {}
       if (!mounted) return;
       ProviderState.provider = me;
@@ -327,6 +334,7 @@ class _DashboardTabState extends State<DashboardTab> with WidgetsBindingObserver
         setState(() => _error = e.toString());
       }
     } finally {
+      _refreshing = false;
       if (mounted) setState(() => _loading = false);
     }
   }
