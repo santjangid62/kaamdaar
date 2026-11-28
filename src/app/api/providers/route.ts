@@ -15,7 +15,7 @@ import { NextResponse } from "next/server";
 import { all, ready } from "../../../server/db";
 import { minWallet } from "../../../server/settings";
 import { haversineKm } from "../../../lib/geo";
-import { matchProviders, NEAR_RING_KM, WIDE_RING_KM } from "../../../lib/match";
+import { matchProviders, matchProvidersInRings, NEAR_RING_KM, WIDE_RING_KM } from "../../../lib/match";
 import { isInsideJaipur } from "../../../lib/areas";
 import type { Provider } from "../../../lib/types";
 
@@ -26,6 +26,8 @@ export async function GET(req: Request) {
   await ready();
   const url = new URL(req.url);
   const serviceId = url.searchParams.get("serviceId") ?? "";
+  const serviceIds = (url.searchParams.get("serviceIds") ?? "")
+    .split(",").map((id) => id.trim()).filter(Boolean).slice(0, 150);
   const latRaw = url.searchParams.get("lat");
   const lngRaw = url.searchParams.get("lng");
   const lat = Number(latRaw);
@@ -63,9 +65,18 @@ export async function GET(req: Request) {
     .filter((provider) => provider.verified === true && provider.availabilityStatus === "available")
     .filter((provider) => !provider.activeBookingId && !busyIds.has(provider.id))
     .filter((provider) =>
-      !serviceId || !hasPoint ||
+      (!serviceId && serviceIds.length === 0) || !hasPoint ||
       (walletRows.find((wallet) => wallet.providerId === provider.id)?.balance ?? 0) >= minimumWallet
     );
+
+  // Batch availability snapshot for the customer app's service catalogue.
+  if (serviceIds.length > 0 && hasPoint) {
+    const serviceCounts = Object.fromEntries(serviceIds.map((id) => [
+      id,
+      matchProvidersInRings(providers, id, { lat, lng }).length,
+    ]));
+    return NextResponse.json({ serviceCounts, radiusKm: WIDE_RING_KM, serviceCity: "Jaipur" });
+  }
 
   if (hasPoint && !isInsideJaipur({ lat, lng })) {
     return NextResponse.json({
