@@ -1,8 +1,25 @@
+IconData _catalogIconFor(String key) {
+  final value = key.toLowerCase();
+  if (value.contains('ac') || value.contains('air')) return Icons.ac_unit;
+  if (value.contains('plumb') || value.contains('pipe') || value.contains('tap')) return Icons.plumbing;
+  if (value.contains('electric') || value.contains('wiring')) return Icons.bolt;
+  if (value.contains('clean') || value.contains('sweep')) return Icons.cleaning_services;
+  if (value.contains('paint')) return Icons.format_paint;
+  if (value.contains('carp') || value.contains('wood')) return Icons.chair;
+  if (value.contains('appliance') || value.contains('washer')) return Icons.local_laundry_service;
+  if (value.contains('pest')) return Icons.bug_report;
+  if (value.contains('beaut') || value.contains('salon')) return Icons.content_cut;
+  if (value.contains('mason') || value.contains('wall')) return Icons.foundation;
+  if (value.contains('garden') || value.contains('lawn')) return Icons.grass;
+  if (value.contains('water') || value.contains('tank')) return Icons.water_drop;
+  if (value.contains('install')) return Icons.build;
+  return Icons.home_repair_service;
+}
+
 import 'package:flutter/material.dart';
 
 import '../core/models.dart';
 import '../core/theme.dart';
-import 'home.dart' show iconFor;
 
 /// Fast, category-led discovery with Kaamdaar's own brand identity.
 class BlinkitStyleServiceCatalog extends StatefulWidget {
@@ -118,7 +135,7 @@ class _BlinkitStyleServiceCatalogState extends State<BlinkitStyleServiceCatalog>
                       border: Border.all(color: const Color(0xFFE9EDF2)),
                     ),
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Expanded(child: Icon(iconFor(bundle.icon.isEmpty ? bundle.name : bundle.icon),
+                      Expanded(child: Icon(_catalogIconFor(bundle.icon.isEmpty ? bundle.name : bundle.icon),
                         size: 35, color: KColors.flame)),
                       const SizedBox(height: 4),
                       Text(bundle.name, maxLines: 2, textAlign: TextAlign.center,
@@ -202,7 +219,7 @@ class _CategoryBrowseScreenState extends State<_CategoryBrowseScreen> {
                     border: Border(left: BorderSide(color: active ? KColors.flame : Colors.transparent, width: 4)),
                   ),
                   child: Column(children: [
-                    Icon(iconFor(item.icon.isEmpty ? item.name : item.icon),
+                    Icon(_catalogIconFor(item.icon.isEmpty ? item.name : item.icon),
                       color: active ? KColors.flame : Colors.black54, size: 24),
                     const SizedBox(height: 7),
                     Text(item.name, textAlign: TextAlign.center, maxLines: 3,
@@ -230,7 +247,7 @@ class _CategoryBrowseScreenState extends State<_CategoryBrowseScreen> {
                     Row(children: [
                       Container(width: 54, height: 54,
                         decoration: BoxDecoration(color: KColors.flame.withOpacity(.09), borderRadius: BorderRadius.circular(13)),
-                        child: Icon(iconFor(service.icon.isEmpty ? service.category : service.icon), color: KColors.flame, size: 27)),
+                        child: Icon(_catalogIconFor(service.icon.isEmpty ? service.category : service.icon), color: KColors.flame, size: 27)),
                       const SizedBox(width: 9),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(service.name, maxLines: 2, overflow: TextOverflow.ellipsis,
