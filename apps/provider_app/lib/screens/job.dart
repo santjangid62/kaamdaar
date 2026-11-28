@@ -25,7 +25,7 @@ class JobDetailScreen extends StatefulWidget {
   State<JobDetailScreen> createState() => _JobDetailScreenState();
 }
 
-class _JobDetailScreenState extends State<JobDetailScreen> {
+class _JobDetailScreenState extends State<JobDetailScreen> with WidgetsBindingObserver {
   BookingItem? _booking;
   ProviderItem? _me;
   Timer? _poll;
@@ -45,6 +45,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _me = widget.provider;
     _init();
     _workClock = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -54,6 +55,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _poll?.cancel();
     _gpsTimer?.cancel();
     _workClock?.cancel();
@@ -62,6 +64,15 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     _completionOtp.dispose();
     _customerReviewText.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Refresh the authoritative job state immediately after Android resumes.
+      unawaited(_refresh());
+      if (_booking?.status == 'enroute') _startLiveGps();
+    }
   }
 
   Future<void> _init() async {
