@@ -575,7 +575,7 @@ class _HomeTabState extends State<_HomeTab> {
                         maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: const TextStyle(color: Colors.black54, fontSize: 12)),
                       const SizedBox(height: 4),
-                      _ProviderCountLabel(count: _providerCounts[service.id]),
+                      ProviderCountLabel(count: _providerCounts[service.id]),
                     ])),
                     Text(rupees(service.price), style: const TextStyle(fontWeight: FontWeight.w900, color: KColors.flame)),
                     const Icon(Icons.chevron_right, color: Colors.black38),
