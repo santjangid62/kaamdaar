@@ -1,4 +1,4 @@
-name: Build Kaamdaar Preview QA APKs
+name: Build Kaamdaar Production APKs
 
 on:
   push:
@@ -9,19 +9,13 @@ on:
       - "apps/provider_app/**"
       - ".github/workflows/preview-qa-apks.yml"
   workflow_dispatch:
-    inputs:
-      api_base:
-        description: "Successful Vercel Preview URL"
-        required: false
-        default: "https://kaamdaar-git-integrate-nov27-consolidated-unique-it-team.vercel.app"
-        type: string
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build ${{ matrix.app }} QA APK
+    name: Build ${{ matrix.app }} Production APK
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -29,21 +23,12 @@ jobs:
         include:
           - app: customer
             directory: apps/customer_app
-            apk: app-customer-preview-qa.apk
+            apk: kaamdaar-customer-production.apk
           - app: provider
             directory: apps/provider_app
-            apk: app-provider-preview-qa.apk
+            apk: kaamdaar-provider-production.apk
 
     steps:
-      - name: Validate Preview API URL
-        env:
-          API_BASE: ${{ inputs.api_base || 'https://kaamdaar-git-integrate-nov27-consolidated-unique-it-team.vercel.app' }}
-        run: |
-          case "$API_BASE" in
-            https://*.vercel.app) ;;
-            *) echo "API_BASE must be an HTTPS Vercel Preview URL"; exit 1 ;;
-          esac
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -70,27 +55,23 @@ jobs:
         working-directory: ${{ matrix.directory }}
         run: flutter analyze --no-fatal-infos
 
-      - name: Build Android QA APK against Preview API
+      - name: Build Android APK against Production API
         working-directory: ${{ matrix.directory }}
-        env:
-          API_BASE: ${{ inputs.api_base || 'https://kaamdaar-git-integrate-nov27-consolidated-unique-it-team.vercel.app' }}
-        run: flutter build apk --debug --dart-define=API_BASE="$API_BASE"
+        run: flutter build apk --debug --dart-define=API_BASE=https://kaamdaar-seven.vercel.app
 
-      - name: Verify APK and record QA build target
-        env:
-          API_BASE: ${{ inputs.api_base || 'https://kaamdaar-git-integrate-nov27-consolidated-unique-it-team.vercel.app' }}
+      - name: Verify APK target and checksum
+        working-directory: ${{ matrix.directory }}
         run: |
-          APK_PATH="${{ matrix.directory }}/build/app/outputs/flutter-apk/app-debug.apk"
+          APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
           test -s "$APK_PATH"
-          mkdir -p qa-metadata
-          printf 'app=${{ matrix.app }}\\napi_base=%s\\ncommit=%s\\n' "$API_BASE" "${GITHUB_SHA}" > qa-metadata/build-info.txt
-          sha256sum "$APK_PATH" > qa-metadata/apk-sha256.txt
-          cp "$APK_PATH" "${{ matrix.apk }}"
+          echo "API_BASE=https://kaamdaar-seven.vercel.app"
+          sha256sum "$APK_PATH"
+          cp "$APK_PATH" "../../${{ matrix.apk }}"
 
-      - name: Upload QA APK
+      - name: Upload direct APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: kaamdaar-${{ matrix.app }}-preview-qa-apk
+          name: kaamdaar-${{ matrix.app }}-production-apk
           path: ${{ matrix.apk }}
           if-no-files-found: error
           retention-days: 14
