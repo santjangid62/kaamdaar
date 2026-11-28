@@ -135,11 +135,12 @@ class Api {
         if (error.status == null || error.status! < 500 || attempt == delays.length - 1) {
           rethrow;
         }
-      } on SocketException catch (error) {
-      } on TimeoutException catch (error) {
-        lastError = error;
-      } on http.ClientException catch (error) {
-        lastError = error;
+      } on SocketException {
+        // Retry after transient DNS/connectivity loss.
+      } on TimeoutException {
+        // Retry a timed-out safe GET request.
+      } on http.ClientException {
+        // Retry transient HTTP transport failures.
       }
     }
     throw ApiException(
