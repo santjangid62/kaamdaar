@@ -541,7 +541,9 @@ class _HomeTabState extends State<_HomeTab> {
               else
                 BlinkitStyleServiceCatalog(
                   services: _services, categories: _categories,
-                  providerCounts: _providerCounts, onServiceTap: _open,
+                  providerCounts: _providerCounts,
+                  latitude: _latitude, longitude: _longitude,
+                  onServiceTap: _open,
                 ),
             ] else ...[
               if (_filtered.isEmpty)
