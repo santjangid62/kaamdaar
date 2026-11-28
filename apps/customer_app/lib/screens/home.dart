@@ -94,7 +94,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [const _HomeTab(), const BookingsScreen(), const ProfileScreen()];
+    final pages = [
+      _HomeTab(onOpenProfile: () => setState(() => _tab = 2)),
+      const BookingsScreen(),
+      const ProfileScreen(),
+    ];
     return Scaffold(
       body: Stack(children: [
         IndexedStack(index: _tab, children: pages),
@@ -125,7 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _HomeTab extends StatefulWidget {
-  const _HomeTab();
+  final VoidCallback onOpenProfile;
+  const _HomeTab({required this.onOpenProfile});
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -133,6 +138,7 @@ class _HomeTab extends StatefulWidget {
 
 class _HomeTabState extends State<_HomeTab> {
   final _search = TextEditingController();
+  final ScrollController _categoryScrollController = ScrollController();
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _listening = false;
   List<ServiceItem> _services = [];
@@ -332,6 +338,30 @@ class _HomeTabState extends State<_HomeTab> {
     }
   }
 
+  @override
+  void dispose() {
+    _search.dispose();
+    _categoryScrollController.dispose();
+    _speech.stop();
+    super.dispose();
+  }
+
+  void _selectCategory(String? category, int index) {
+    setState(() => _selectedCategory = category);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_categoryScrollController.hasClients) return;
+      final target = (index * 102.0).clamp(
+        0.0,
+        _categoryScrollController.position.maxScrollExtent,
+      );
+      _categoryScrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
   void _open(ServiceItem s) {
     Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => ServiceDetailScreen(service: s)))
@@ -375,7 +405,7 @@ class _HomeTabState extends State<_HomeTab> {
               ),
               InkWell(
                 customBorder: const CircleBorder(),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
+                onTap: widget.onOpenProfile,
                 child: CircleAvatar(radius: 22, backgroundColor: const Color(0xFFEAF0F7),
                   backgroundImage: _homeProfileImage(_user?.photo ?? ''),
                   child: (_user?.photo.isNotEmpty ?? false) ? null : const Icon(Icons.person_rounded, color: KColors.navy, size: 25)),
@@ -510,6 +540,7 @@ class _HomeTabState extends State<_HomeTab> {
                 SizedBox(
                   height: 112,
                   child: ListView.separated(
+                    controller: _categoryScrollController,
                     scrollDirection: Axis.horizontal,
                     itemCount: _categories.length + 1,
                     separatorBuilder: (_, __) => const SizedBox(width: 11),
@@ -520,7 +551,7 @@ class _HomeTabState extends State<_HomeTab> {
                       final label = all ? 'All' : category!;
                       final count = all ? _services.length : _services.where((service) => service.category == category).length;
                       return InkWell(
-                        onTap: () => setState(() => _selectedCategory = category),
+                        onTap: () => _selectCategory(category, index),
                         borderRadius: BorderRadius.circular(20),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 220),
