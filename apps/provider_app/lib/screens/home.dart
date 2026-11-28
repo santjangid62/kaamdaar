@@ -1261,7 +1261,7 @@ class WalletTab extends StatefulWidget {
 }
 
 class _WalletTabState extends State<WalletTab> {
-  ProviderItem? _me;
+
   WalletInfo? _wallet;
   List<WalletTxn> _txns = [];
   bool _loading = true;
@@ -1283,7 +1283,7 @@ class _WalletTabState extends State<WalletTab> {
       final txns = await Api.walletTxns(me.id);
       if (!mounted) return;
       setState(() {
-        _me = me;
+
         _wallet = wallet;
         _txns = txns;
       });
