@@ -626,7 +626,8 @@ class _HomeTabState extends State<_HomeTab> {
                   ),
                 ),
 
-              ] else ...[
+              ],
+            ] else ...[
               /* search results */
               if (_filtered.isEmpty)
                 const Padding(
