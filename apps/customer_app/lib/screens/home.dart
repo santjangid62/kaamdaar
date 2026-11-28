@@ -626,43 +626,6 @@ class _HomeTabState extends State<_HomeTab> {
                   ),
                 ),
 
-                  const SizedBox(height: 22),
-                  if (_recommended.isNotEmpty) ...[
-                    const Text('Recommended for You', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: KColors.navy)),
-                    const SizedBox(height: 4),
-                    const Text('Based on your service history', style: TextStyle(fontSize: 11.5, color: Colors.black54)),
-                    const SizedBox(height: 10),
-                    ..._recommended.map((service) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: CardBox(onTap: () => _open(service), child: Row(children: [
-                        Icon(iconFor(service.icon.isEmpty ? service.category : service.icon), color: KColors.flame, size: 24),
-                        const SizedBox(width: 10),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(service.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-                          Text(service.tagline.isEmpty ? service.category : service.tagline, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
-                        ])),
-                        Text(rupees(service.price), style: const TextStyle(fontWeight: FontWeight.w900, color: KColors.flame)),
-                      ])),
-                    )),
-                  ],
-                  const Text('Popular Services', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: KColors.navy)),
-                  const SizedBox(height: 10),
-                  ..._services.take(6).map((service) => Padding(
-                    padding: const EdgeInsets.only(bottom: 9),
-                    child: CardBox(onTap: () => _open(service), child: Row(children: [
-                      Container(height: 44, width: 44, decoration: BoxDecoration(color: KColors.navy.withOpacity(.07), borderRadius: BorderRadius.circular(13)),
-                        child: Icon(iconFor(service.icon.isEmpty ? service.category : service.icon), color: KColors.navy, size: 22)),
-                      const SizedBox(width: 11),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(service.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                        Text(service.tagline.isEmpty ? service.category : service.tagline, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.black54, fontSize: 11.5)),
-                      ])),
-                      Text(rupees(service.price), style: const TextStyle(fontWeight: FontWeight.w900, color: KColors.flame)),
-                      const Icon(Icons.chevron_right, color: Colors.black38),
-                    ])),
-                  )),
-                  ],
-                ],
               ] else ...[
               /* search results */
               if (_filtered.isEmpty)
