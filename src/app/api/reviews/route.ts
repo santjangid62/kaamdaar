@@ -1,6 +1,6 @@
 /** POST /api/reviews — one review from each party per completed booking. */
 import { NextResponse } from "next/server";
-import { all, get, insert, patch, ready } from "../../../server/db";
+import { all, claimReviewEdit, get, insert, patch, ready } from "../../../server/db";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
 import type { Booking, Provider, User } from "../../../lib/types";
 
@@ -27,7 +27,13 @@ export async function GET(req: Request) {
   const provider = providers.find((p) => normalizeIndianPhone(p.phone ?? "") === identity.phone);
   if (provider) return NextResponse.json({
     reviews: reviews.filter((r) => r.reviewerRole === "customer" && r.providerId === provider.id),
-    authoredReviews: reviews.filter((r) => r.reviewerRole === "provider" && r.providerId === provider.id),
+    authoredReviews: reviews.filter((r) => r.reviewerRole === "provider" && r.providerId === provider.id).map((r) => {
+      const customer = users.find((u) => u.id === r.userId);
+      const customerName = customer
+        ? [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim()
+        : "";
+      return { ...r, customerName: customerName || "Customer" };
+    }),
   });
   if (user) return NextResponse.json({ reviews: reviews.filter((r) => r.reviewerRole === "customer" && r.userId === user.id) });
   return NextResponse.json({ error: "Account not found" }, { status: 404 });
@@ -64,10 +70,11 @@ export async function PATCH(req: Request) {
     const provider = providers.find((p) => p.id === booking.providerId && normalizeIndianPhone(p.phone ?? "") === identity.phone);
     if (!provider || review.providerId !== provider.id) return NextResponse.json({ error: "Not your review" }, { status: 403 });
   }
-  const updated = await patch("reviews", "review_" + bookingId + "_" + actorRole, {
+  const updated = await claimReviewEdit("review_" + bookingId + "_" + actorRole, {
     ...(actorRole === "customer" ? { providerRating: rating, rating, serviceRating } : { customerRating: rating, rating }),
-    text, editCount: 1, editedAt: Date.now(),
+    text, editedAt: Date.now(),
   });
+  if (!updated) return NextResponse.json({ error: "This review has already used its one allowed edit" }, { status: 409 });
   if (actorRole === "customer") {
     const provider = providers.find((p) => p.id === booking.providerId);
     if (provider) {
@@ -78,6 +85,23 @@ export async function PATCH(req: Request) {
         reviews: own.slice(-100).map((r) => ({ author: r.author ?? "Customer", rating: Number(r.rating ?? 0), text: r.text ?? "" })),
         rating: Math.round(average * 10) / 10, reviewCount: own.length,
       });
+    }
+    const service = (await all<Record<string, unknown> & { id: string }>("services"))
+      .find((row) => row.id === booking.serviceId);
+    if (service) {
+      const rows = await all<Record<string, unknown> & { serviceId?: string; reviewerRole?: string; serviceRating?: number }>("reviews");
+      const own = rows.filter((row) => row.serviceId === booking.serviceId && row.reviewerRole === "customer" && Number(row.serviceRating) >= 1);
+      const serviceAverage = own.length ? own.reduce((sum, row) => sum + Number(row.serviceRating ?? 0), 0) / own.length : 0;
+      await patch("services", service.id, { rating: Math.round(serviceAverage * 10) / 10, reviewCount: own.length });
+    }
+  } else {
+    const customer = users.find((u) => u.id === booking.userId);
+    if (customer) {
+      const customerReviews = (customer as User & { customerReviews?: Array<Record<string, unknown> & { bookingId?: string }> }).customerReviews ?? [];
+      const synced = customerReviews.map((row) => row.bookingId === bookingId
+        ? { ...row, rating, text, editedAt: Date.now(), editCount: 1 }
+        : row);
+      await patch("users", customer.id, { customerReviews: synced });
     }
   }
   return NextResponse.json({ review: updated });
@@ -137,6 +161,14 @@ export async function POST(req: Request) {
       rating: Math.round(average * 10) / 10,
       reviewCount: providerReviews.length,
     });
+    const service = (await all<Record<string, unknown> & { id: string }>("services"))
+      .find((row) => row.id === booking.serviceId);
+    if (service) {
+      const serviceReviews = await all<Record<string, unknown> & { serviceId?: string; reviewerRole?: string; serviceRating?: number }>("reviews");
+      const own = serviceReviews.filter((row) => row.serviceId === booking.serviceId && row.reviewerRole === "customer" && Number(row.serviceRating) >= 1);
+      const serviceAverage = own.length ? own.reduce((sum, row) => sum + Number(row.serviceRating ?? 0), 0) / own.length : 0;
+      await patch("services", service.id, { rating: Math.round(serviceAverage * 10) / 10, reviewCount: own.length });
+    }
     return NextResponse.json({ review }, { status: 201 });
   }
 

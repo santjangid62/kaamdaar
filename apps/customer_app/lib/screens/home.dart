@@ -144,7 +144,6 @@ class _HomeTabState extends State<_HomeTab> {
   List<ServiceItem> _services = [];
   List<String> _categories = [];
   List<BookingItem> _recent = [];
-  List<ServiceItem> _recommended = [];
   SessionUser? _user;
   bool _loading = true;
   String? _error;
@@ -262,7 +261,6 @@ class _HomeTabState extends State<_HomeTab> {
         _categories = services.where((s) => s.parent.isEmpty && s.category.trim().isNotEmpty)
             .map((s) => s.category.trim()).toSet().toList()..sort();
         _recent = recent;
-        _recommended = recommended;
         _error = null;
       });
     } catch (e) {

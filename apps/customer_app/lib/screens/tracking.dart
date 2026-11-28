@@ -32,7 +32,7 @@ class _TrackScreenState extends State<TrackScreen> with WidgetsBindingObserver {
   int _rating = 0;
   int _serviceRating = 0;
   final _reviewText = TextEditingController();
-  bool _reviewSubmitted = false;
+  Map<String, dynamic>? _savedReview;
   DateTime? _startedAt;
   final _complaintText = TextEditingController();
   final List<XFile> _complaintEvidence = [];
@@ -90,12 +90,22 @@ class _TrackScreenState extends State<TrackScreen> with WidgetsBindingObserver {
     }
     try {
       final b = await Api.booking(user.id, widget.bookingId);
+      Map<String, dynamic>? savedReview;
+      if (b != null && b.status == 'completed' && b.paidAt != null) {
+        try { savedReview = await Api.getReview(widget.bookingId); } catch (_) { /* allow booking details to remain visible */ }
+      }
       if (!mounted) return;
       final previousStatus = _booking?.status;
       final previouslyFailed = _booking?.dispatchFailedAt != null;
       setState(() {
         _booking = b;
         _error = b == null ? 'Booking not found.' : null;
+        if (savedReview != null) {
+          _savedReview = savedReview;
+          _rating = ((savedReview['providerRating'] ?? savedReview['rating'] ?? 0) as num).toInt();
+          _serviceRating = ((savedReview['serviceRating'] ?? 0) as num).toInt();
+          _reviewText.text = (savedReview['text'] ?? '').toString();
+        }
         if (b?.startedAt != null && _startedAt == null) {
           _startedAt = DateTime.fromMillisecondsSinceEpoch(b!.startedAt!);
         }
@@ -807,53 +817,63 @@ class _TrackScreenState extends State<TrackScreen> with WidgetsBindingObserver {
   Widget _reviewCard() {
     final b = _booking;
     if (b == null) return const SizedBox.shrink();
-    if (_reviewSubmitted) {
-      return const CardBox(
-        child: Text('Thank you! Your provider and service review has been submitted.',
-            style: TextStyle(fontWeight: FontWeight.w700, color: KColors.green)),
-      );
+    final review = _savedReview;
+    final editCount = ((review?['editCount'] ?? 0) as num).toInt();
+    final canEdit = review != null && editCount < 1;
+    if (review != null && !canEdit) {
+      final providerRating = ((review['providerRating'] ?? review['rating'] ?? 0) as num).toInt();
+      final serviceRating = ((review['serviceRating'] ?? 0) as num).toInt();
+      return CardBox(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Your Review', style: TextStyle(fontWeight: FontWeight.w900, color: KColors.navy)),
+        const SizedBox(height: 8),
+        Text('Professional: $providerRating/5  •  Service: $serviceRating/5', style: const TextStyle(fontWeight: FontWeight.w700)),
+        if ((review['text'] ?? '').toString().trim().isNotEmpty) ...[
+          const SizedBox(height: 6), Text(review['text'].toString()),
+        ],
+        const SizedBox(height: 6),
+        const Text('You have used your one allowed edit. This review is now locked.', style: TextStyle(fontSize: 11.5, color: KColors.green, fontWeight: FontWeight.w700)),
+      ]));
     }
     Widget stars(int value, ValueChanged<int> onChanged) => Row(
       children: List.generate(5, (i) => IconButton(
         onPressed: () => onChanged(i + 1),
-        icon: Icon(i < value ? Icons.star : Icons.star_border,
-            color: KColors.amber, size: 28),
+        icon: Icon(i < value ? Icons.star : Icons.star_border, color: KColors.amber, size: 28),
       )),
     );
     return CardBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Rate Your Experience',
-              style: TextStyle(fontWeight: FontWeight.w800, color: KColors.navy)),
+          Text(review == null ? 'Rate Your Experience' : 'Edit Your Review',
+              style: const TextStyle(fontWeight: FontWeight.w800, color: KColors.navy)),
+          const SizedBox(height: 5),
+          Text(review == null ? 'Share feedback for your professional and the service.' : 'One edit remaining. After saving, this review will be locked.',
+              style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
           const SizedBox(height: 8),
           const Text('Professional rating', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
           stars(_rating, (v) => setState(() => _rating = v)),
           const Text('Service rating', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
           stars(_serviceRating, (v) => setState(() => _serviceRating = v)),
           TextField(
-            controller: _reviewText,
-            maxLines: 3,
-            maxLength: 1000,
-            decoration: const InputDecoration(
-              hintText: 'Share your experience (optional)',
-              border: OutlineInputBorder(),
-            ),
+            controller: _reviewText, maxLines: 3, maxLength: 1000,
+            decoration: const InputDecoration(hintText: 'Share your experience (optional)', border: OutlineInputBorder()),
           ),
           PrimaryBtn(
-            label: 'Submit Review',
-            onPressed: _rating == 0 || _serviceRating == 0 ? null : () async {
+            label: _busy ? 'Saving…' : (review == null ? 'Submit Review' : 'Save One-Time Edit'),
+            onPressed: _busy || _rating == 0 || _serviceRating == 0 ? null : () async {
+              setState(() => _busy = true);
               try {
-                await Api.submitReview(
-                  bookingId: b.id,
-                  providerRating: _rating,
-                  serviceRating: _serviceRating,
-                  text: _reviewText.text.trim(),
-                );
-                if (mounted) setState(() => _reviewSubmitted = true);
+                if (review == null) {
+                  await Api.submitReview(bookingId: b.id, providerRating: _rating, serviceRating: _serviceRating, text: _reviewText.text.trim());
+                } else {
+                  await Api.editReview(bookingId: b.id, providerRating: _rating, serviceRating: _serviceRating, text: _reviewText.text.trim());
+                }
+                final saved = await Api.getReview(b.id);
+                if (mounted) setState(() { _savedReview = saved; });
               } catch (e) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(e.toString())));
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+              } finally {
+                if (mounted) setState(() => _busy = false);
               }
             },
           ),
