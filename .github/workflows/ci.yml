@@ -40,7 +40,6 @@ jobs:
           'src/app/services/[slug]/providers/page.tsx'
           src/components/BookingBox.tsx
           src/components/BookingReviewPanel.tsx
-          src/components/MyBookings.tsx
           src/components/ProviderPanel.tsx
           src/lib/store.ts
           src/app/api/providers/device-token/route.ts
