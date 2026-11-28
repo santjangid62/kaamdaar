@@ -32,7 +32,6 @@ class _TrackScreenState extends State<TrackScreen> with WidgetsBindingObserver {
   int _rating = 0;
   int _serviceRating = 0;
   final _reviewText = TextEditingController();
-  bool _reviewSubmitted = false;
   Map<String, dynamic>? _savedReview;
   DateTime? _startedAt;
   final _complaintText = TextEditingController();
@@ -103,7 +102,6 @@ class _TrackScreenState extends State<TrackScreen> with WidgetsBindingObserver {
         _error = b == null ? 'Booking not found.' : null;
         if (savedReview != null) {
           _savedReview = savedReview;
-          _reviewSubmitted = true;
           _rating = ((savedReview['providerRating'] ?? savedReview['rating'] ?? 0) as num).toInt();
           _serviceRating = ((savedReview['serviceRating'] ?? 0) as num).toInt();
           _reviewText.text = (savedReview['text'] ?? '').toString();
@@ -871,7 +869,7 @@ class _TrackScreenState extends State<TrackScreen> with WidgetsBindingObserver {
                   await Api.editReview(bookingId: b.id, providerRating: _rating, serviceRating: _serviceRating, text: _reviewText.text.trim());
                 }
                 final saved = await Api.getReview(b.id);
-                if (mounted) setState(() { _savedReview = saved; _reviewSubmitted = saved != null; });
+                if (mounted) setState(() { _savedReview = saved; });
               } catch (e) {
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
               } finally {
