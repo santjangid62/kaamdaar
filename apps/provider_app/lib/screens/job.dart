@@ -82,6 +82,24 @@ class _JobDetailScreenState extends State<JobDetailScreen> with WidgetsBindingOb
       return;
     }
     _me ??= await Api.me(user.phone);
+    try {
+      final reviewData = await Api.get('/api/reviews');
+      final authored = (reviewData['authoredReviews'] as List? ?? [])
+          .whereType<Map<String, dynamic>>();
+      Map<String, dynamic>? existing;
+      for (final row in authored) {
+        if (row['bookingId']?.toString() == widget.bookingId) { existing = row; break; }
+      }
+      if (existing != null && mounted) {
+        setState(() {
+          _customerReviewSubmitted = true;
+          _customerRating = ((existing!['customerRating'] ?? existing['rating'] ?? 0) as num).toInt();
+          _customerReviewText.text = (existing['text'] ?? '').toString();
+        });
+      }
+    } catch (_) {
+      // The review management screen can retry loading history independently.
+    }
     await _refresh();
     _poll = Timer.periodic(const Duration(seconds: 4), (_) {
       final b = _booking;
