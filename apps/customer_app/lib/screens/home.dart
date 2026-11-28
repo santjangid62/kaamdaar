@@ -351,17 +351,21 @@ class _HomeTabState extends State<_HomeTab> {
   }
 
   void _selectCategory(String? category, int index) {
+    if (_selectedCategory == category) return;
     setState(() => _selectedCategory = category);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_categoryScrollController.hasClients) return;
-      final target = (index * 102.0).clamp(
-        0.0,
-        _categoryScrollController.position.maxScrollExtent,
-      );
+      final position = _categoryScrollController.position;
+      const itemExtent = 102.0;
+      const itemWidth = 91.0;
+      final target = (index * itemExtent -
+              (position.viewportDimension - itemWidth) / 2)
+          .clamp(0.0, position.maxScrollExtent)
+          .toDouble();
       _categoryScrollController.animateTo(
         target,
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
+        duration: const Duration(milliseconds: 480),
+        curve: Curves.easeInOutCubicEmphasized,
       );
     });
   }
@@ -469,51 +473,8 @@ class _HomeTabState extends State<_HomeTab> {
             const SizedBox(height: 16),
 
             if (!filtering) ...[
-              /* banner */
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                      colors: [KColors.navy, Color(0xFF173A6B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Har Kaam Turant',
-                              style: TextStyle(
-                                  color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
-                          const SizedBox(height: 4),
-                          Text('Verified professionals at your doorstep',
-                              style: TextStyle(color: Colors.white.withOpacity(.75), fontSize: 12.5)),
-                          const SizedBox(height: 12),
-                          FilledButton(
-                            onPressed: () => _search.text = 'ac',
-                            style: FilledButton.styleFrom(
-                                backgroundColor: KColors.flame,
-                                foregroundColor: KColors.navy,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
-                            child: const Text('Book Now →',
-                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                          color: KColors.flame.withOpacity(.2), shape: BoxShape.circle),
-                      child: const Icon(Icons.home_repair_service, color: KColors.flame, size: 40),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
+              /* Service discovery starts immediately below search. */
+              const SizedBox(height: 8),
               if (_loading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
@@ -587,28 +548,84 @@ class _HomeTabState extends State<_HomeTab> {
                     },
                   ),
                 ),
-                if (_selectedCategory != null) ...[
-                  const SizedBox(height: 19),
-                  Row(children: [
-                    Expanded(child: Text('All $_selectedCategory services', style: const TextStyle(fontSize: 16, color: KColors.navy, fontWeight: FontWeight.w900))),
-                    TextButton(onPressed: () => setState(() => _selectedCategory = null), child: const Text('Clear')),
-                  ]),
-                  const SizedBox(height: 5),
-                  if (_filtered.isEmpty)
-                    const Padding(padding: EdgeInsets.symmetric(vertical: 22), child: Text('No services available in this category yet.', style: TextStyle(color: Colors.black54)))
-                  else
-                    LayoutBuilder(builder: (context, constraints) {
-                      final width = (constraints.maxWidth - 10) / 2;
-                      return Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: _filtered.map((service) => SizedBox(
-                          width: width,
-                          child: _ServiceMiniCard(service: service, onTap: () => _open(service)),
-                        )).toList(),
-                      );
-                    }),
-                ] else ...[
+                const SizedBox(height: 12),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 380),
+                  reverseDuration: const Duration(milliseconds: 300),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) {
+                    final slide = Tween<Offset>(
+                      begin: const Offset(.12, 0),
+                      end: Offset.zero,
+                    ).animate(animation);
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(position: slide, child: child),
+                    );
+                  },
+                  child: KeyedSubtree(
+                    key: ValueKey<String>(_selectedCategory ?? '__all_services__'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _selectedCategory == null
+                                    ? 'Explore all services'
+                                    : '$_selectedCategory services',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: KColors.navy,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            if (_selectedCategory != null)
+                              TextButton(
+                                onPressed: () => _selectCategory(null, 0),
+                                child: const Text('View all'),
+                              )
+                            else
+                              Text(
+                                '${_services.length} available',
+                                style: const TextStyle(fontSize: 11, color: Colors.black45),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (_filtered.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 22),
+                            child: Text(
+                              'No services available in this category yet.',
+                              style: TextStyle(color: Colors.black54),
+                            ),
+                          )
+                        else
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final width = (constraints.maxWidth - 10) / 2;
+                              return Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: _filtered.map((service) => SizedBox(
+                                  width: width,
+                                  child: _ServiceMiniCard(
+                                    service: service,
+                                    onTap: () => _open(service),
+                                  ),
+                                )).toList(),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+
                   const SizedBox(height: 22),
                   if (_recommended.isNotEmpty) ...[
                     const Text('Recommended for You', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: KColors.navy)),
