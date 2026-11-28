@@ -24,6 +24,8 @@ export default function BookingReviewPanel({ bookingId, serviceName }: { booking
         setServiceRating(Number(found.serviceRating ?? 0));
         setText(found.text ?? "");
         setEditing(Number(found.editCount ?? 0) < 1);
+      } else {
+        setEditing(true);
       }
     }).catch((e) => { if (active) setError(e instanceof Error ? e.message : "Could not load your review."); })
       .finally(() => { if (active) setLoading(false); });
