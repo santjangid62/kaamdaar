@@ -90,11 +90,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> with WidgetsBindingOb
       for (final row in authored) {
         if (row['bookingId']?.toString() == widget.bookingId) { existing = row; break; }
       }
-      if (existing != null && mounted) {
+      final savedReview = existing;
+      if (savedReview != null && mounted) {
         setState(() {
           _customerReviewSubmitted = true;
-          _customerRating = ((existing!['customerRating'] ?? existing['rating'] ?? 0) as num).toInt();
-          _customerReviewText.text = (existing['text'] ?? '').toString();
+          _customerRating = ((savedReview['customerRating'] ?? savedReview['rating'] ?? 0) as num).toInt();
+          _customerReviewText.text = (savedReview['text'] ?? '').toString();
         });
       }
     } catch (_) {
