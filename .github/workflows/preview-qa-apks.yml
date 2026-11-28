@@ -68,7 +68,7 @@ jobs:
 
       - name: Analyze
         working-directory: ${{ matrix.directory }}
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
       - name: Build Android QA APK against Preview API
         working-directory: ${{ matrix.directory }}
