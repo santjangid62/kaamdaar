@@ -39,20 +39,20 @@ export async function PATCH(req: Request) {
   if (body.action === "dispute" && !String(body.note ?? "").trim()) {
     return NextResponse.json({ error: "A dispute note is required" }, { status: 422 });
   }
+  // Apply the idempotent commission ledger before closing the report. If the
+  // booking update transiently fails, Admin can retry without a second debit.
+  if (body.action === "verify" && booking.providerId) {
+    const commission = Math.max(0, Number(booking.commission ?? 0));
+    if (commission > 0) {
+      await debitCommission(booking.providerId, commission, `Commission for ${booking.serviceName} · ${booking.id}`,
+        { bookingId: booking.id, service: booking.serviceName, serviceCharge: booking.amount, commission });
+    }
+  }
   const now = Date.now();
   const events = appendEvents(booking.events, [newEvent("admin", body.action === "verify" ? "paid" : "payment_disputed",
     body.action === "verify" ? `Admin verified ${booking.paymentMethod?.toUpperCase()} payment` : `Admin disputed provider payment: ${String(body.note ?? "Needs review").slice(0,180)}`)]);
   const updated = await patch<Booking>("bookings", booking.id, body.action === "verify"
     ? { paymentStatus: "verified", paidAt: now, paymentVerifiedAt: now, paymentVerifiedBy: "admin", events }
     : { paymentStatus: "disputed", paymentDisputeNote: String(body.note ?? "Needs review").slice(0,300), events });
-  if (body.action === "verify" && booking.providerId) {
-    const txns = await all<WalletTxn>("walletTxns");
-    const exists = txns.some((t) => t.bookingId === booking.id && t.kind === "commission");
-    const commission = Math.max(0, Number(booking.commission ?? 0));
-    if (!exists && commission > 0) {
-      await debitCommission(booking.providerId, commission, `Commission for ${booking.serviceName} · ${booking.id}`,
-        { bookingId: booking.id, service: booking.serviceName, serviceCharge: booking.amount, commission });
-    }
-  }
   return NextResponse.json({ booking: updated });
 }
