@@ -86,10 +86,32 @@ export async function debitCommission(
   note: string,
   extra: Partial<WalletTxn> = {},
 ): Promise<WalletRow> {
+  if (!Number.isFinite(amount) || amount <= 0) return getWallet(providerId);
   const wallet = await getWallet(providerId);
   const balance = Math.max(0, wallet.balance - amount);
+  const bookingId = typeof extra.bookingId === "string" ? extra.bookingId : "";
+  // A booking has exactly one commission ledger entry. Mongo's unique _id
+  // makes concurrent Admin verification retries compete for this single claim.
+  const txnId = bookingId ? `commission_${bookingId}` : uid("tx");
+  try {
+    await insert("walletTxns", {
+      ...extra,
+      id: txnId,
+      providerId,
+      balanceAfter: balance,
+      kind: "commission",
+      amount: -amount,
+      note,
+      createdAt: Date.now(),
+    });
+  } catch (error) {
+    const message = String(error);
+    if ((error as { code?: number }).code === 11000 || message.includes("duplicate id")) {
+      return getWallet(providerId);
+    }
+    throw error;
+  }
   await upsert("wallets", providerId, { providerId, balance, updatedAt: Date.now() });
-  await addTxn({ providerId, balanceAfter: balance, kind: "commission", amount: -amount, note, ...extra });
   if (wallet.balance > MIN_WALLET_BALANCE && balance <= MIN_WALLET_BALANCE) {
     await insert("notifications", {
       id: uid("ntf"),
