@@ -23,7 +23,7 @@ export default function BookingReviewPanel({ bookingId, serviceName }: { booking
         setProviderRating(Number(found.providerRating ?? found.rating ?? 0));
         setServiceRating(Number(found.serviceRating ?? 0));
         setText(found.text ?? "");
-        setEditing(Number(found.editCount ?? 0) < 1);
+        setEditing(false);
       } else {
         setEditing(true);
       }
