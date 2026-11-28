@@ -1,3 +1,8 @@
+import 'package:flutter/material.dart';
+
+import '../core/models.dart';
+import '../core/theme.dart';
+
 IconData _catalogIconFor(String key) {
   final value = key.toLowerCase();
   if (value.contains('ac') || value.contains('air')) return Icons.ac_unit;
@@ -15,11 +20,6 @@ IconData _catalogIconFor(String key) {
   if (value.contains('install')) return Icons.build;
   return Icons.home_repair_service;
 }
-
-import 'package:flutter/material.dart';
-
-import '../core/models.dart';
-import '../core/theme.dart';
 
 /// Fast, category-led discovery with Kaamdaar's own brand identity.
 class BlinkitStyleServiceCatalog extends StatefulWidget {
