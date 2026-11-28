@@ -27,7 +27,13 @@ export async function GET(req: Request) {
   const provider = providers.find((p) => normalizeIndianPhone(p.phone ?? "") === identity.phone);
   if (provider) return NextResponse.json({
     reviews: reviews.filter((r) => r.reviewerRole === "customer" && r.providerId === provider.id),
-    authoredReviews: reviews.filter((r) => r.reviewerRole === "provider" && r.providerId === provider.id),
+    authoredReviews: reviews.filter((r) => r.reviewerRole === "provider" && r.providerId === provider.id).map((r) => {
+      const customer = users.find((u) => u.id === r.userId);
+      const customerName = customer
+        ? [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim()
+        : "";
+      return { ...r, customerName: customerName || "Customer" };
+    }),
   });
   if (user) return NextResponse.json({ reviews: reviews.filter((r) => r.reviewerRole === "customer" && r.userId === user.id) });
   return NextResponse.json({ error: "Account not found" }, { status: 404 });
