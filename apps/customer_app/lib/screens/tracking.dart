@@ -21,12 +21,13 @@ class TrackScreen extends StatefulWidget {
   State<TrackScreen> createState() => _TrackScreenState();
 }
 
-class _TrackScreenState extends State<TrackScreen> {
+class _TrackScreenState extends State<TrackScreen> with WidgetsBindingObserver {
   BookingItem? _booking;
   SessionUser? _user;
   Timer? _poll;
   bool _loading = true;
   bool _busy = false;
+  bool _refreshing = false;
   String? _error;
   int _rating = 0;
   int _serviceRating = 0;
@@ -41,11 +42,21 @@ class _TrackScreenState extends State<TrackScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _init();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Re-fetch after unlock/app switching; keep the last good booking visible.
+      unawaited(_refresh());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _poll?.cancel();
     _reviewText.dispose();
     _complaintText.dispose();
@@ -64,6 +75,8 @@ class _TrackScreenState extends State<TrackScreen> {
   }
 
   Future<void> _refresh() async {
+    if (_refreshing) return;
+    _refreshing = true;
     final user = _user;
     if (user == null) {
       if (mounted) {
@@ -72,6 +85,7 @@ class _TrackScreenState extends State<TrackScreen> {
           _error = 'Please log in again.';
         });
       }
+      _refreshing = false;
       return;
     }
     try {
@@ -105,8 +119,11 @@ class _TrackScreenState extends State<TrackScreen> {
             .showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      // A temporary DNS/network drop must not replace a valid tracking screen
+      // with a full-page error. The next poll/resume will retry automatically.
+      if (mounted && _booking == null) setState(() => _error = e.toString());
     } finally {
+      _refreshing = false;
       if (mounted) setState(() => _loading = false);
     }
   }
