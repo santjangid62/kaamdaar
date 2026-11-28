@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../core/api.dart';
 
 import '../core/models.dart';
 import '../core/theme.dart';
@@ -26,11 +30,14 @@ class BlinkitStyleServiceCatalog extends StatefulWidget {
   final List<ServiceItem> services;
   final List<String> categories;
   final Map<String, int> providerCounts;
+  final double? latitude;
+  final double? longitude;
   final ValueChanged<ServiceItem> onServiceTap;
 
   const BlinkitStyleServiceCatalog({
     super.key, required this.services, required this.categories,
-    required this.providerCounts, required this.onServiceTap,
+    required this.providerCounts, this.latitude, this.longitude,
+    required this.onServiceTap,
   });
 
   @override
@@ -39,6 +46,45 @@ class BlinkitStyleServiceCatalog extends StatefulWidget {
 
 class _BlinkitStyleServiceCatalogState extends State<BlinkitStyleServiceCatalog> {
   String? _selectedCategory;
+  late Map<String, int> _counts = Map<String, int>.from(widget.providerCounts);
+  Timer? _countTimer;
+  bool _refreshingCounts = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.latitude != null && widget.longitude != null) {
+      _countTimer = Timer.periodic(const Duration(seconds: 30), (_) => _refreshCounts());
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant BlinkitStyleServiceCatalog oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _counts = Map<String, int>.from(widget.providerCounts);
+  }
+
+  Future<void> _refreshCounts() async {
+    if (_refreshingCounts || widget.latitude == null || widget.longitude == null) return;
+    _refreshingCounts = true;
+    try {
+      final counts = await Api.providerCounts(
+        widget.services.map((service) => service.id).where((id) => id.isNotEmpty).toList(),
+        widget.latitude!, widget.longitude!,
+      );
+      if (mounted) setState(() => _counts = counts);
+    } catch (_) {
+      // Retain the last successful provider-count snapshot.
+    } finally {
+      _refreshingCounts = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _countTimer?.cancel();
+    super.dispose();
+  }
 
   List<ServiceItem> _children(String parentId) =>
       widget.services.where((s) => s.parent == parentId).toList()
@@ -119,13 +165,14 @@ class _BlinkitStyleServiceCatalogState extends State<BlinkitStyleServiceCatalog>
               itemBuilder: (context, index) {
                 final bundle = bundles[index];
                 final leaves = _leaves(bundle);
-                final count = leaves.fold<int>(0, (sum, item) => sum + (widget.providerCounts[item.id] ?? 0));
+                final count = leaves.fold<int>(0, (sum, item) => sum + (_counts[item.id] ?? 0));
                 return InkWell(
                   borderRadius: BorderRadius.circular(16),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => _CategoryBrowseScreen(
                       title: bundle.name, services: widget.services, bundle: bundle,
-                      providerCounts: widget.providerCounts, onServiceTap: widget.onServiceTap,
+                      providerCounts: _counts, latitude: widget.latitude, longitude: widget.longitude,
+                      onServiceTap: widget.onServiceTap,
                     ),
                   )),
                   child: Container(
@@ -162,11 +209,14 @@ class _CategoryBrowseScreen extends StatefulWidget {
   final List<ServiceItem> services;
   final ServiceItem bundle;
   final Map<String, int> providerCounts;
+  final double? latitude;
+  final double? longitude;
   final ValueChanged<ServiceItem> onServiceTap;
 
   const _CategoryBrowseScreen({
     required this.title, required this.services, required this.bundle,
-    required this.providerCounts, required this.onServiceTap,
+    required this.providerCounts, this.latitude, this.longitude,
+    required this.onServiceTap,
   });
 
   @override
@@ -175,6 +225,45 @@ class _CategoryBrowseScreen extends StatefulWidget {
 
 class _CategoryBrowseScreenState extends State<_CategoryBrowseScreen> {
   String? _selectedId;
+  late Map<String, int> _counts = Map<String, int>.from(widget.providerCounts);
+  Timer? _countTimer;
+  bool _refreshingCounts = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.latitude != null && widget.longitude != null) {
+      _countTimer = Timer.periodic(const Duration(seconds: 30), (_) => _refreshCounts());
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _CategoryBrowseScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _counts = Map<String, int>.from(widget.providerCounts);
+  }
+
+  Future<void> _refreshCounts() async {
+    if (_refreshingCounts || widget.latitude == null || widget.longitude == null) return;
+    _refreshingCounts = true;
+    try {
+      final counts = await Api.providerCounts(
+        widget.services.map((service) => service.id).where((id) => id.isNotEmpty).toList(),
+        widget.latitude!, widget.longitude!,
+      );
+      if (mounted) setState(() => _counts = counts);
+    } catch (_) {
+      // Retain the last successful provider-count snapshot.
+    } finally {
+      _refreshingCounts = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _countTimer?.cancel();
+    super.dispose();
+  }
 
   List<ServiceItem> _children(String id) =>
       widget.services.where((service) => service.parent == id).toList()
@@ -259,7 +348,7 @@ class _CategoryBrowseScreenState extends State<_CategoryBrowseScreen> {
                       const Icon(Icons.chevron_right, color: Colors.black38),
                     ]),
                     const SizedBox(height: 7),
-                    ProviderCountLabel(count: widget.providerCounts[service.id]),
+                    ProviderCountLabel(count: _counts[service.id]),
                   ]),
                 );
               },
