@@ -391,26 +391,6 @@ class _HomeTabState extends State<_HomeTab> {
     super.dispose();
   }
 
-  void _selectCategory(String? category, int index) {
-    if (_selectedCategory == category) return;
-    setState(() => _selectedCategory = category);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_categoryScrollController.hasClients) return;
-      final position = _categoryScrollController.position;
-      const itemExtent = 102.0;
-      const itemWidth = 91.0;
-      final target = (index * itemExtent -
-              (position.viewportDimension - itemWidth) / 2)
-          .clamp(0.0, position.maxScrollExtent)
-          .toDouble();
-      _categoryScrollController.animateTo(
-        target,
-        duration: const Duration(milliseconds: 480),
-        curve: Curves.easeInOutCubicEmphasized,
-      );
-    });
-  }
-
   void _open(ServiceItem s) {
     if (_providerCounts.containsKey(s.id) && (_providerCounts[s.id] ?? 0) == 0) {
       showDialog<void>(
@@ -639,42 +619,3 @@ class _HomeTabState extends State<_HomeTab> {
   }
 }
 
-class _ServiceMiniCard extends StatelessWidget {
-  final ServiceItem service;
-  final VoidCallback onTap;
-  const _ServiceMiniCard({required this.service, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(17),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(17),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 128),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(17),
-            border: Border.all(color: const Color(0xFFE5EAF1)),
-            boxShadow: [BoxShadow(color: KColors.navy.withOpacity(.045), blurRadius: 11, offset: const Offset(0, 4))],
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(width: 37, height: 37, decoration: BoxDecoration(color: KColors.flame.withOpacity(.11), borderRadius: BorderRadius.circular(12)),
-              child: Icon(iconFor(service.icon.isEmpty ? service.category : service.icon), color: KColors.flame, size: 20)),
-            const SizedBox(height: 9),
-            Text(service.name, maxLines: 2, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: KColors.navy, height: 1.2)),
-            const Spacer(),
-            const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: Text(rupees(service.price), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: KColors.flame))),
-              const Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.black38),
-            ]),
-          ]),
-        ),
-      ),
-    );
-  }
-}
