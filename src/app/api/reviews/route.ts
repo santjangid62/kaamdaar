@@ -86,6 +86,14 @@ export async function PATCH(req: Request) {
         rating: Math.round(average * 10) / 10, reviewCount: own.length,
       });
     }
+    const service = (await all<Record<string, unknown> & { id: string }>("services"))
+      .find((row) => row.id === booking.serviceId);
+    if (service) {
+      const rows = await all<Record<string, unknown> & { serviceId?: string; reviewerRole?: string; serviceRating?: number }>("reviews");
+      const own = rows.filter((row) => row.serviceId === booking.serviceId && row.reviewerRole === "customer" && Number(row.serviceRating) >= 1);
+      const serviceAverage = own.length ? own.reduce((sum, row) => sum + Number(row.serviceRating ?? 0), 0) / own.length : 0;
+      await patch("services", service.id, { rating: Math.round(serviceAverage * 10) / 10, reviewCount: own.length });
+    }
   } else {
     const customer = users.find((u) => u.id === booking.userId);
     if (customer) {
@@ -153,6 +161,14 @@ export async function POST(req: Request) {
       rating: Math.round(average * 10) / 10,
       reviewCount: providerReviews.length,
     });
+    const service = (await all<Record<string, unknown> & { id: string }>("services"))
+      .find((row) => row.id === booking.serviceId);
+    if (service) {
+      const serviceReviews = await all<Record<string, unknown> & { serviceId?: string; reviewerRole?: string; serviceRating?: number }>("reviews");
+      const own = serviceReviews.filter((row) => row.serviceId === booking.serviceId && row.reviewerRole === "customer" && Number(row.serviceRating) >= 1);
+      const serviceAverage = own.length ? own.reduce((sum, row) => sum + Number(row.serviceRating ?? 0), 0) / own.length : 0;
+      await patch("services", service.id, { rating: Math.round(serviceAverage * 10) / 10, reviewCount: own.length });
+    }
     return NextResponse.json({ review }, { status: 201 });
   }
 
