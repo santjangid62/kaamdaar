@@ -1,8 +1,18 @@
 /** POST /api/reviews — one review from each party per completed booking. */
 import { NextResponse } from "next/server";
-import { all, get, insert, patch, ready, uid } from "../../../server/db";
+import { all, get, insert, patch, ready } from "../../../server/db";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
 import type { Booking, Provider, User } from "../../../lib/types";
+
+async function insertReviewOnce(doc: Record<string, unknown>) {
+  try {
+    return await insert("reviews", doc);
+  } catch (error) {
+    const code = (error as { code?: number }).code;
+    if (code === 11000 || String(error).includes("duplicate id")) return null;
+    throw error;
+  }
+}
 
 export async function POST(req: Request) {
   await ready();
@@ -43,12 +53,14 @@ export async function POST(req: Request) {
     const provider = providers.find((p) => p.id === booking.providerId);
     if (!provider) return NextResponse.json({ error: "Provider not found" }, { status: 404 });
     const author = [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || "Customer";
-    const review = await insert("reviews", {
-      id: uid("rev"), bookingId, reviewerRole: "customer", userId: user.id, providerId: provider.id,
+    const review = await insertReviewOnce({
+      // A deterministic document id makes simultaneous retries idempotent in MongoDB.
+      id: "review_" + bookingId + "_customer", bookingId, reviewerRole: "customer", userId: user.id, providerId: provider.id,
       serviceId: booking.serviceId, service: booking.serviceName,
       author, name: author, providerRating: rating, serviceRating, rating,
       text, createdAt: Date.now(),
     });
+    if (!review) return NextResponse.json({ error: "You have already rated this booking" }, { status: 409 });
     const providerReviews = [...(provider.reviews ?? []), { author, rating, text }];
     const average = providerReviews.reduce((sum, row) => sum + row.rating, 0) / providerReviews.length;
     await patch<Provider>("providers", provider.id, {
@@ -66,12 +78,14 @@ export async function POST(req: Request) {
   const customer = users.find((u) => u.id === booking.userId);
   if (!customer) return NextResponse.json({ error: "Customer not found" }, { status: 404 });
   const customerReviews = (customer as User & { customerReviews?: Array<{ bookingId: string; rating: number; text: string; service: string; providerName: string; createdAt: number }> }).customerReviews ?? [];
-  const review = await insert("reviews", {
-    id: uid("rev"), bookingId, reviewerRole: "provider", userId: customer.id, providerId: provider.id,
+  const review = await insertReviewOnce({
+    // Keep the provider's review independently idempotent from the customer's.
+    id: "review_" + bookingId + "_provider", bookingId, reviewerRole: "provider", userId: customer.id, providerId: provider.id,
     serviceId: booking.serviceId, service: booking.serviceName,
     author: provider.name, name: provider.name, customerRating: rating, rating,
     text, createdAt: Date.now(),
   });
+  if (!review) return NextResponse.json({ error: "You have already rated this booking" }, { status: 409 });
   const nextCustomerReviews = [...customerReviews, {
     bookingId, rating, text, service: booking.serviceName, providerName: provider.name, createdAt: Date.now(),
   }];
