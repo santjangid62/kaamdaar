@@ -173,10 +173,14 @@ class _HomeTabState extends State<_HomeTab> {
     _detectLocation();
   }
 
-  static const List<String> _searchHints = [
+  static const List<String> _fallbackSearchHints = [
     'Search AC repair', 'Search plumbing', 'Search home cleaning',
     'Search electrician', 'Search appliance repair',
   ];
+
+  List<String> get _searchHints => _categories.isEmpty
+      ? _fallbackSearchHints
+      : _categories.map((category) => 'Search $category').toList();
 
   Future<void> _refreshProviderCounts() async {
     if (_refreshingProviderCounts || _latitude == null || _longitude == null || _services.isEmpty) return;
