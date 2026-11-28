@@ -6,6 +6,7 @@ import { Bell, CalendarDays, Clock, IndianRupee, MapPin, Repeat, Zap, X } from "
 import { useApp } from "./AppProvider";
 import { fill, useLang } from "../lib/i18n";
 import { refreshBookings } from "../lib/store";
+import BookingReviewPanel from "./BookingReviewPanel";
 import type { Booking, BookingTab } from "../lib/types";
 
 type CustomerBookingTab = BookingTab | "cancelled";
@@ -252,6 +253,9 @@ export default function MyBookings({ initialTab }: { initialTab?: BookingTab }) 
               <p className="mt-3 flex items-center justify-end gap-1.5 text-xs font-semibold text-blue-700">
                 <MapPin className="h-3.5 w-3.5" /> {d.liveTrack}
               </p>
+            )}
+            {b.status === "completed" && Boolean(b.paidAt) && Boolean(b.providerId) && (
+              <BookingReviewPanel bookingId={b.id} serviceName={b.serviceName} />
             )}
             </div>
           );
