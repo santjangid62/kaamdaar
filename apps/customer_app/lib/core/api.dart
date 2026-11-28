@@ -439,6 +439,27 @@ class Api {
     });
   }
 
+  static Future<Map<String, dynamic>?> getReview(String bookingId) async {
+    final data = await get('/api/reviews');
+    final rows = (data['reviews'] as List? ?? []).whereType<Map<String, dynamic>>();
+    for (final row in rows) {
+      if (row['bookingId']?.toString() == bookingId) return row;
+    }
+    return null;
+  }
+
+  static Future<void> editReview({
+    required String bookingId,
+    required int providerRating,
+    required int serviceRating,
+    String text = '',
+  }) async {
+    await patch('/api/reviews', {
+      'bookingId': bookingId, 'actorRole': 'customer',
+      'providerRating': providerRating, 'serviceRating': serviceRating, 'text': text,
+    });
+  }
+
   static Future<BookingItem> updateBooking(
       String userId, String id, Map<String, dynamic> changes,
       {String? completionOtp}) async {
