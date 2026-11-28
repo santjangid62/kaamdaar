@@ -59,8 +59,11 @@ export async function GET(req: Request) {
 
   // Polling is the lightweight scheduler for sequential dispatch. The customer
   // tracking page and provider inbox both poll this endpoint every few seconds.
-  const dispatchRows = await all<Booking>("bookings");
-  const relevantDispatches = dispatchRows.filter((b) =>
+  // Read the bookings collection once per poll. Both the dispatch scheduler
+  // and the inbox response derive from this same snapshot; the previous code
+  // performed two full collection scans on every 5-second mobile poll.
+  const bookingSnapshot = await all<Booking>("bookings");
+  const relevantDispatches = bookingSnapshot.filter((b) =>
     b.status === "dispatched" && !b.dispatchFailedAt &&
     (providerId
       ? (b.notifiedIds ?? []).includes(providerId)
@@ -70,7 +73,7 @@ export async function GET(req: Request) {
 
   // Customers see their own bookings. Pros see assigned, current, missed and
   // explicitly rejected offers so their history remains available.
-  const rows = (await all<Booking>("bookings"))
+  const rows = bookingSnapshot
     .filter((b) =>
       providerId
         ? b.providerId === providerId ||
