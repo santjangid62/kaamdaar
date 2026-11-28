@@ -451,6 +451,45 @@ export async function patch<T = Doc>(
   return engine.patch<T>(col, id, changes);
 }
 
+/** Atomically consume the single permitted edit for a review. */
+export async function claimReviewEdit(
+  id: string,
+  changes: Record<string, unknown>,
+): Promise<Record<string, unknown> | null> {
+  if (MONGODB_URI) {
+    const collection = (await mongoDb()).collection<Document>("reviews");
+    const filter = {
+      $and: [
+        { $or: [{ _id: id }, { id }] },
+        { $or: [{ editCount: { $lt: 1 } }, { editCount: { $exists: false } }] },
+      ],
+    } as Document;
+    const updated = await collection.findOneAndUpdate(
+      filter,
+      { $set: { ...changes, editCount: 1, updatedAt: Date.now() } },
+      { returnDocument: "after", includeResultMetadata: false },
+    );
+    return stripId<Record<string, unknown>>(updated as Document | null);
+  }
+  let result: Record<string, unknown> | null = null;
+  const run = async () => {
+    const store = await readStore();
+    const current = store.reviews?.[id];
+    if (!current || Number(current.editCount ?? 0) >= 1) return;
+    const next = { ...current, ...changes, editCount: 1, updatedAt: Date.now() } as Doc;
+    store.reviews ??= {};
+    store.reviews[id] = next;
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    const tmp = `${DB_FILE}.${process.pid}.review-edit.tmp`;
+    await fs.writeFile(tmp, JSON.stringify(store, null, 2), "utf8");
+    await replaceFile(tmp, DB_FILE);
+    result = next;
+  };
+  queue = queue.then(run, run);
+  await queue;
+  return result;
+}
+
 /** Atomically advance one provider offer only if the observed offer window is still current. */
 export async function claimDispatchAdvance(
   id: string,
