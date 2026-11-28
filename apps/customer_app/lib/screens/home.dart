@@ -151,7 +151,6 @@ class _HomeTabState extends State<_HomeTab> {
   void initState() {
     super.initState();
     _detectLocation();
-    _load();
   }
 
   Future<void> _detectLocation() async {
@@ -160,6 +159,7 @@ class _HomeTabState extends State<_HomeTab> {
       if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
         if (mounted) setState(() => _locationLabel = 'Enable location to find nearby services');
+        await _load();
         return;
       }
       var position = await Geolocator.getCurrentPosition(
@@ -216,6 +216,7 @@ class _HomeTabState extends State<_HomeTab> {
       await _load();
     } catch (_) {
       if (mounted) setState(() => _locationLabel = 'Could not detect location — tap to retry');
+      await _load();
     }
   }
 
@@ -263,8 +264,25 @@ class _HomeTabState extends State<_HomeTab> {
 
   List<ServiceItem> get _filtered {
     final q = _search.text.trim().toLowerCase();
+    final categoryIds = <String>{};
+    if (_selectedCategory != null) {
+      // A category may contain nested services/sub-services. Include every
+      // descendant of its root service, not only records with the same label.
+      final roots = _services.where((s) => s.parent.isEmpty && s.category.trim() == _selectedCategory);
+      categoryIds.addAll(roots.map((s) => s.id));
+      var changed = true;
+      while (changed) {
+        changed = false;
+        for (final service in _services) {
+          if (service.parent.isNotEmpty && categoryIds.contains(service.parent) && categoryIds.add(service.id)) {
+            changed = true;
+          }
+        }
+      }
+    }
     return _services.where((s) {
-      final matchesCategory = _selectedCategory == null || s.category == _selectedCategory;
+      final matchesCategory = _selectedCategory == null ||
+          s.category.trim() == _selectedCategory || categoryIds.contains(s.id);
       final matchesQuery = q.isEmpty || s.name.toLowerCase().contains(q) ||
           s.category.toLowerCase().contains(q) || s.tagline.toLowerCase().contains(q);
       return matchesCategory && matchesQuery;
