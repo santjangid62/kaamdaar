@@ -14,6 +14,75 @@ async function insertReviewOnce(doc: Record<string, unknown>) {
   }
 }
 
+
+export async function GET(req: Request) {
+  await ready();
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  const [users, providers, reviews] = await Promise.all([
+    all<User>("users"), all<Provider>("providers"),
+    all<Record<string, unknown> & { reviewerRole?: string; userId?: string; providerId?: string }>("reviews"),
+  ]);
+  const user = users.find((u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
+  const provider = providers.find((p) => normalizeIndianPhone(p.phone ?? "") === identity.phone);
+  if (provider) return NextResponse.json({
+    reviews: reviews.filter((r) => r.reviewerRole === "customer" && r.providerId === provider.id),
+    authoredReviews: reviews.filter((r) => r.reviewerRole === "provider" && r.providerId === provider.id),
+  });
+  if (user) return NextResponse.json({ reviews: reviews.filter((r) => r.reviewerRole === "customer" && r.userId === user.id) });
+  return NextResponse.json({ error: "Account not found" }, { status: 404 });
+}
+
+export async function PATCH(req: Request) {
+  await ready();
+  const identity = await firebaseIdentityFromRequest(req);
+  if (!identity) return NextResponse.json({ error: "Firebase sign-in is required" }, { status: 401 });
+  let body: { bookingId?: string; actorRole?: "customer" | "provider"; providerRating?: number; serviceRating?: number; customerRating?: number; text?: string };
+  try { body = await req.json() as typeof body; }
+  catch { return NextResponse.json({ error: "Invalid request body" }, { status: 400 }); }
+  const bookingId = String(body.bookingId ?? "");
+  const actorRole = body.actorRole === "provider" ? "provider" : "customer";
+  const rating = Number(actorRole === "provider" ? body.customerRating : body.providerRating);
+  const serviceRating = Number(body.serviceRating);
+  const text = String(body.text ?? "").trim().slice(0, 1000);
+  if (!bookingId || !Number.isInteger(rating) || rating < 1 || rating > 5 ||
+      (actorRole === "customer" && (!Number.isInteger(serviceRating) || serviceRating < 1 || serviceRating > 5))) {
+    return NextResponse.json({ error: "Booking and valid 1–5 star ratings are required" }, { status: 422 });
+  }
+  const [booking, users, providers, review] = await Promise.all([
+    get<Booking>("bookings", bookingId), all<User>("users"), all<Provider>("providers"),
+    get<Record<string, unknown> & { reviewerRole?: string; editCount?: number; userId?: string; providerId?: string }>("reviews", "review_" + bookingId + "_" + actorRole),
+  ]);
+  if (!booking || booking.status !== "completed" || !booking.paidAt || !review || review.reviewerRole !== actorRole) {
+    return NextResponse.json({ error: "Review not found or booking is not eligible" }, { status: 404 });
+  }
+  if ((Number(review.editCount) || 0) >= 1) return NextResponse.json({ error: "This review has already used its one allowed edit" }, { status: 409 });
+  if (actorRole === "customer") {
+    const user = users.find((u) => normalizeIndianPhone(u.phone ?? "") === identity.phone);
+    if (!user || review.userId !== user.id || booking.userId !== user.id) return NextResponse.json({ error: "Not your review" }, { status: 403 });
+  } else {
+    const provider = providers.find((p) => p.id === booking.providerId && normalizeIndianPhone(p.phone ?? "") === identity.phone);
+    if (!provider || review.providerId !== provider.id) return NextResponse.json({ error: "Not your review" }, { status: 403 });
+  }
+  const updated = await patch("reviews", "review_" + bookingId + "_" + actorRole, {
+    ...(actorRole === "customer" ? { providerRating: rating, rating, serviceRating } : { customerRating: rating, rating }),
+    text, editCount: 1, editedAt: Date.now(),
+  });
+  if (actorRole === "customer") {
+    const provider = providers.find((p) => p.id === booking.providerId);
+    if (provider) {
+      const rows = await all<Record<string, unknown> & { providerId?: string; reviewerRole?: string; rating?: number; author?: string; text?: string }>("reviews");
+      const own = rows.filter((r) => r.providerId === provider.id && r.reviewerRole === "customer");
+      const average = own.length ? own.reduce((sum, r) => sum + Number(r.rating ?? 0), 0) / own.length : 0;
+      await patch<Provider>("providers", provider.id, {
+        reviews: own.slice(-100).map((r) => ({ author: r.author ?? "Customer", rating: Number(r.rating ?? 0), text: r.text ?? "" })),
+        rating: Math.round(average * 10) / 10, reviewCount: own.length,
+      });
+    }
+  }
+  return NextResponse.json({ review: updated });
+}
+
 export async function POST(req: Request) {
   await ready();
   const identity = await firebaseIdentityFromRequest(req);
