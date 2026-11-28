@@ -1,6 +1,6 @@
 /** POST /api/reviews — one review from each party per completed booking. */
 import { NextResponse } from "next/server";
-import { all, get, insert, patch, ready } from "../../../server/db";
+import { all, claimReviewEdit, get, insert, patch, ready } from "../../../server/db";
 import { firebaseIdentityFromRequest, normalizeIndianPhone } from "../../../server/firebase-auth";
 import type { Booking, Provider, User } from "../../../lib/types";
 
@@ -64,10 +64,11 @@ export async function PATCH(req: Request) {
     const provider = providers.find((p) => p.id === booking.providerId && normalizeIndianPhone(p.phone ?? "") === identity.phone);
     if (!provider || review.providerId !== provider.id) return NextResponse.json({ error: "Not your review" }, { status: 403 });
   }
-  const updated = await patch("reviews", "review_" + bookingId + "_" + actorRole, {
+  const updated = await claimReviewEdit("review_" + bookingId + "_" + actorRole, {
     ...(actorRole === "customer" ? { providerRating: rating, rating, serviceRating } : { customerRating: rating, rating }),
-    text, editCount: 1, editedAt: Date.now(),
+    text, editedAt: Date.now(),
   });
+  if (!updated) return NextResponse.json({ error: "This review has already used its one allowed edit" }, { status: 409 });
   if (actorRole === "customer") {
     const provider = providers.find((p) => p.id === booking.providerId);
     if (provider) {
@@ -78,6 +79,15 @@ export async function PATCH(req: Request) {
         reviews: own.slice(-100).map((r) => ({ author: r.author ?? "Customer", rating: Number(r.rating ?? 0), text: r.text ?? "" })),
         rating: Math.round(average * 10) / 10, reviewCount: own.length,
       });
+    }
+  } else {
+    const customer = users.find((u) => u.id === booking.userId);
+    if (customer) {
+      const customerReviews = (customer as User & { customerReviews?: Array<Record<string, unknown> & { bookingId?: string }> }).customerReviews ?? [];
+      const synced = customerReviews.map((row) => row.bookingId === bookingId
+        ? { ...row, rating, text, editedAt: Date.now(), editCount: 1 }
+        : row);
+      await patch("users", customer.id, { customerReviews: synced });
     }
   }
   return NextResponse.json({ review: updated });
