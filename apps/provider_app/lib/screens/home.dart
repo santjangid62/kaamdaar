@@ -1261,7 +1261,7 @@ class WalletTab extends StatefulWidget {
 }
 
 class _WalletTabState extends State<WalletTab> {
-  ProviderItem? _me;
+
   WalletInfo? _wallet;
   List<WalletTxn> _txns = [];
   bool _loading = true;
@@ -1283,7 +1283,7 @@ class _WalletTabState extends State<WalletTab> {
       final txns = await Api.walletTxns(me.id);
       if (!mounted) return;
       setState(() {
-        _me = me;
+
         _wallet = wallet;
         _txns = txns;
       });
@@ -1293,42 +1293,6 @@ class _WalletTabState extends State<WalletTab> {
     }
   }
 
-  Future<void> _recharge() async {
-    final me = _me;
-    if (me == null) return;
-    final ctrl = TextEditingController(text: '500');
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add money to wallet'),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(prefixText: '₹ ', labelText: 'Amount'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: PColors.flame, foregroundColor: PColors.ink),
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    final amount = int.tryParse(ctrl.text.trim()) ?? 0;
-    if (amount <= 0) return;
-    try {
-      await Api.recharge(me.id, amount);
-      _load();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1365,23 +1329,9 @@ class _WalletTabState extends State<WalletTab> {
                       style: const TextStyle(
                           color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _recharge,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white54),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                          ),
-                          icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Add money',
-                              style: TextStyle(fontSize: 12.5)),
-                        ),
-                      ),
-                    ],
+                  const Text(
+                    'Wallet top-ups are processed by Admin after payment verification.',
+                    style: TextStyle(color: Colors.white70, fontSize: 11.5),
                   ),
                   const SizedBox(height: 8),
                   Text('Minimum balance ₹200 — 10% commission is debited after every paid job.',
