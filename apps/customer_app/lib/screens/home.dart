@@ -229,18 +229,22 @@ class _HomeTabState extends State<_HomeTab> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final user = await Api.restoreSession();
-      // area-aware catalogue: services covered by a Pro near the customer are
-      // listed first, every other service still follows in the same list
-      final services = await Api.catalog(lat: _latitude, lng: _longitude);
+      // Start independent network requests together so home-screen startup is
+      // bounded by the slowest request rather than the sum of each request.
+      final userFuture = Api.restoreSession();
+      final servicesFuture = Api.catalog(lat: _latitude, lng: _longitude);
+      final user = await userFuture;
+      final services = await servicesFuture;
       List<BookingItem> recent = [];
       List<ServiceItem> recommended = [];
       if (user != null) {
-        final all = await Api.userBookings(user.id);
+        final bookingsFuture = Api.userBookings(user.id);
+        final recommendationsFuture = Api.get('/api/recommendations');
+        final all = await bookingsFuture;
         recent = all.where((b) => b.isLive).toList()
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         try {
-          final data = await Api.get('/api/recommendations');
+          final data = await recommendationsFuture;
           recommended = (data['recommendations'] as List? ?? [])
               .whereType<Map<String, dynamic>>()
               .map(ServiceItem.fromJson)
