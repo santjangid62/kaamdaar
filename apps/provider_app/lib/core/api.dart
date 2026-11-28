@@ -115,7 +115,6 @@ class Api {
   /// the device is locked; retry without replaying any write operation.
   static Future<Map<String, dynamic>> get(String path) async {
     const delays = [Duration.zero, Duration(milliseconds: 500), Duration(seconds: 1)];
-    Object? lastError;
     for (var attempt = 0; attempt < delays.length; attempt++) {
       if (delays[attempt] > Duration.zero) {
         await Future<void>.delayed(delays[attempt]);
@@ -126,7 +125,6 @@ class Api {
             .timeout(const Duration(seconds: 15));
         final data = _decode(r);
         if (r.statusCode >= 500 && attempt < delays.length - 1) {
-          lastError = ApiException('Server temporarily unavailable', r.statusCode);
           continue;
         }
         if (r.statusCode >= 400) {
@@ -137,9 +135,7 @@ class Api {
         if (error.status == null || error.status! < 500 || attempt == delays.length - 1) {
           rethrow;
         }
-        lastError = error;
       } on SocketException catch (error) {
-        lastError = error;
       } on TimeoutException catch (error) {
         lastError = error;
       } on http.ClientException catch (error) {
@@ -147,7 +143,7 @@ class Api {
       }
     }
     throw ApiException(
-      'Internet connection is temporarily unavailable. Please check your network and try again. (${lastError ?? 'Network error'})',
+      'Internet connection is temporarily unavailable. Please check your network and try again.',
     );
   }
 
