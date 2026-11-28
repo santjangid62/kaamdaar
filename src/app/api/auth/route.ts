@@ -120,8 +120,21 @@ export async function POST(req: Request) {
       }
       return { sessionToken: result.token, response: null };
     } catch (error) {
-      console.error("[auth] device session could not be created", error);
-      return { sessionToken: undefined, response: NextResponse.json({ error: "Secure device login is temporarily unavailable. Please try again later." }, { status: 503 }) };
+      const reason = error instanceof Error ? error.message : "Unknown device-session failure";
+      const configFailure = reason.includes("DEVICE_SESSION_SECRET");
+      console.error("[auth] device session could not be created", {
+        role, accountId, failure: configFailure ? "DEVICE_SESSION_SECRET_INVALID" : "DEVICE_SESSION_STORAGE_OR_SIGNING_FAILURE",
+        message: reason.slice(0, 180),
+      });
+      return {
+        sessionToken: undefined,
+        response: NextResponse.json({
+          error: configFailure
+            ? "Secure device login is not configured correctly. Please contact support."
+            : "Secure device login is temporarily unavailable. Please try again later.",
+          code: configFailure ? "DEVICE_SESSION_CONFIG" : "DEVICE_SESSION_UNAVAILABLE",
+        }, { status: 503 }),
+      };
     }
   };
 

@@ -1,6 +1,8 @@
 /// Splash → Onboarding → Login → OTP (mirrors the web flow).
 library;
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/api.dart';
 import '../core/theme.dart';
@@ -229,8 +231,14 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
   bool _busy = false;
 
+  @override
+  void dispose() {
+    _phone.dispose();
+    super.dispose();
+  }
+
   Future<void> _sendOtp() async {
-    final digits = _phone.text.replaceAll(RegExp(r'\D'), '');
+    final digits = _phone.text.replaceAll(RegExp(r'\\D'), '');
     if (!Api.isValidIndianMobile(digits)) {
       setState(() => _error = 'Enter a valid 10-digit Indian mobile number');
       return;
@@ -245,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => OtpScreen(phone: '+91$digits', devCode: devCode)));
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -254,142 +262,129 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 30),
+      backgroundColor: const Color(0xFF071A31),
+      body: Stack(children: [
+        Positioned(top: -105, right: -95, child: _CustomerGlow(color: const Color(0xFF0E9F6E).withOpacity(.28))),
+        Positioned(bottom: 15, left: -105, child: _CustomerGlow(color: const Color(0xFFFF7A00).withOpacity(.20))),
+        SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 25, 22, 24),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                Container(
+                  width: 54, height: 54, padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(.10),
+                    borderRadius: BorderRadius.circular(17),
+                    border: Border.all(color: Colors.white.withOpacity(.18)),
+                  ),
+                  child: Image.asset('assets/kaamdaar-logo-white.png', fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.home_repair_service, color: Color(0xFFFF7A00), size: 32)),
+                ),
+                const SizedBox(width: 12),
+                const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('KAAMDAAR', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.8)),
+                  Text('CUSTOMER APP', style: TextStyle(color: Color(0xFFFFC857), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.8)),
+                ]),
+              ]),
+              const SizedBox(height: 42),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                    color: const Color(0xFF0B2240),
-                    borderRadius: BorderRadius.circular(20)),
-                child: const Icon(Icons.home_repair_service,
-                    color: Color(0xFFFF7A00), size: 44),
-                alignment: Alignment.center,
-              ),
-              const SizedBox(height: 24),
-              const Text('Welcome Back!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 6),
-              const Text('Enter your mobile number to continue',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.black54)),
-              const SizedBox(height: 28),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: _error == null
-                          ? const Color(0xFFE2E8F0)
-                          : const Color(0xFFDC2626)),
+                  color: const Color(0xFF0E9F6E).withOpacity(.15),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFF69D5B0).withOpacity(.24)),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 16),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF4F6F9),
-                        border: Border(
-                            right: BorderSide(color: Color(0xFFE2E8F0))),
-                      ),
-                      child: const Text('+91',
-                          style: TextStyle(fontWeight: FontWeight.w700)),
+                child: const Row(children: [
+                  Icon(Icons.home_repair_service_rounded, color: Color(0xFFFFC857), size: 27),
+                  SizedBox(width: 11),
+                  Expanded(child: Text('Har Kaam Turant.\nTrusted help at your doorstep.',
+                    style: TextStyle(color: Colors.white, fontSize: 21, height: 1.2, fontWeight: FontWeight.w900))),
+                ]),
+              ),
+              const SizedBox(height: 12),
+              Text('Book trusted professionals for cleaning, repairs and everyday home services.',
+                style: TextStyle(color: Colors.white.withOpacity(.65), fontSize: 13, height: 1.5)),
+              const SizedBox(height: 25),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(26),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(.10),
+                      borderRadius: BorderRadius.circular(26),
+                      border: Border.all(color: Colors.white.withOpacity(.20)),
                     ),
-                    Expanded(
-                      child: TextField(
-                        controller: _phone,
-                        keyboardType: TextInputType.phone,
-                        maxLength: 10,
-                        autofocus: true,
-                        onChanged: (_) => setState(() => _error = null),
-                        style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.2),
-                        decoration: const InputDecoration(
-                          counterText: '',
-                          hintText: '98765 43210',
-                          border: InputBorder.none,
-                          fillColor: Colors.transparent,
-                          filled: true,
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      const Text('Customer login', style: TextStyle(color: Colors.white, fontSize: 23, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 6),
+                      Text('Login or create your account using your mobile number.',
+                        style: TextStyle(color: Colors.white.withOpacity(.65), fontSize: 12.5)),
+                      const SizedBox(height: 20),
+                      const Text('MOBILE NUMBER', style: TextStyle(color: Color(0xFFFFC857), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                      const SizedBox(height: 9),
+                      Container(
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+                        child: TextField(
+                          controller: _phone,
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+                          onChanged: (_) => setState(() => _error = null),
+                          style: const TextStyle(color: Color(0xFF0B2240), fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: 1.1),
+                          decoration: const InputDecoration(
+                            prefixText: '+91  ', hintText: '98765 43210',
+                            border: InputBorder.none, filled: false,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 17),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text('Enter your 10-digit Indian mobile number.',
+                        style: TextStyle(color: Colors.white.withOpacity(.48), fontSize: 10.5)),
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
+                        Text(_error!, textAlign: TextAlign.center,
+                          style: const TextStyle(color: Color(0xFFFF9B9B), fontSize: 12)),
+                      ],
+                      const SizedBox(height: 18),
+                      PrimaryBtn(label: 'Continue with OTP', busy: _busy,
+                        onPressed: _busy ? null : _sendOtp),
+                      const SizedBox(height: 14),
+                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(Icons.shield_outlined, color: Colors.white.withOpacity(.48), size: 14),
+                        const SizedBox(width: 6),
+                        Text('Secure OTP authentication',
+                          style: TextStyle(color: Colors.white.withOpacity(.48), fontSize: 10.5)),
+                      ]),
+                    ]),
+                  ),
                 ),
-              ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(_error!,
-                      style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13)),
-                ),
-              const SizedBox(height: 20),
-              PrimaryBtn(
-                label: 'Continue',
-                busy: _busy,
-                onPressed: _busy ? null : _sendOtp,
-              ),
-              const SizedBox(height: 18),
-              const Row(children: [
-                Expanded(child: Divider()),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Text('or continue with',
-                      style: TextStyle(color: Colors.grey, fontSize: 12)),
-                ),
-                Expanded(child: Divider()),
-              ]),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _SocialButton(label: 'G', onTap: () {}),
-                  const SizedBox(width: 16),
-                  _SocialButton(label: '', onTap: () {}),
-                ],
               ),
               const SizedBox(height: 24),
-              const Text('By continuing, you agree to our Terms & Privacy Policy',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey, fontSize: 12)),
-            ],
+              Text('By continuing you agree to our Terms & Privacy Policy.',
+                textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withOpacity(.45), fontSize: 11)),
+              const SizedBox(height: 8),
+              Text('© Unique IT Solutions • Kaamdaar',
+                textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withOpacity(.32), fontSize: 10)),
+            ]),
           ),
         ),
-      ),
+      ]),
     );
   }
 }
 
-class _SocialButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  const _SocialButton({required this.label, required this.onTap});
-
+class _CustomerGlow extends StatelessWidget {
+  final Color color;
+  const _CustomerGlow({required this.color});
   @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 56,
-        height: 48,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Text(label,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    width: 270, height: 270,
+    decoration: BoxDecoration(shape: BoxShape.circle,
+      boxShadow: [BoxShadow(color: color, blurRadius: 95, spreadRadius: 28)]),
+  );
 }
 
 class OtpScreen extends StatefulWidget {
@@ -505,4 +500,39 @@ class _OtpScreenState extends State<OtpScreen> {
       ),
     );
   }
+}
+
+
+/// Entry point after location permission: restore the secure session without
+/// showing the legacy splash/onboarding flow.
+class LandingScreen extends StatefulWidget {
+  const LandingScreen({super.key});
+  @override
+  State<LandingScreen> createState() => _LandingScreenState();
+}
+
+class _LandingScreenState extends State<LandingScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  Future<void> _restore() async {
+    final user = await Api.restoreSession();
+    if (!mounted) return;
+    final Widget next = user == null
+        ? const LoginScreen()
+        : (user.firstName.trim().isEmpty
+            ? ProfileSetupScreen(user: user)
+            : const HomeScreen(homeTab: 0));
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => next),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+    body: Center(child: CircularProgressIndicator(color: Color(0xFFFF7A00))),
+  );
 }

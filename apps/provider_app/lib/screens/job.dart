@@ -30,6 +30,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   ProviderItem? _me;
   Timer? _poll;
   Timer? _gpsTimer;
+  Timer? _workClock;
   bool _loading = true;
   bool _busy = false;
   String? _error;
@@ -46,12 +47,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     super.initState();
     _me = widget.provider;
     _init();
+    _workClock = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _booking?.status == 'in_progress') setState(() {});
+    });
   }
 
   @override
   void dispose() {
     _poll?.cancel();
     _gpsTimer?.cancel();
+    _workClock?.cancel();
     unawaited(WakelockPlus.disable());
     _otp.dispose();
     _completionOtp.dispose();
@@ -384,6 +389,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       _header(b),
                       const SizedBox(height: 14),
                       _customerCard(b),
+                      if (b.status == 'in_progress') ...[
+                        const SizedBox(height: 14),
+                        _workTimerCard(b),
+                      ],
                       const SizedBox(height: 14),
                       _addressCard(b),
                       if (b.status == 'enroute') ...[
@@ -416,6 +425,29 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _workTimerCard(BookingItem booking) {
+    final startedAt = booking.startedAt;
+    final elapsed = startedAt == null
+        ? Duration.zero
+        : DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(startedAt));
+    final safe = elapsed.isNegative ? Duration.zero : elapsed;
+    final hours = safe.inHours.toString().padLeft(2, '0');
+    final minutes = (safe.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (safe.inSeconds % 60).toString().padLeft(2, '0');
+    return CardBox(
+      borderColor: PColors.green.withValues(alpha: .35),
+      child: Row(children: [
+        const Icon(Icons.timer_outlined, color: PColors.green, size: 25),
+        const SizedBox(width: 10),
+        const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Work duration', style: TextStyle(fontWeight: FontWeight.w800, color: PColors.ink)),
+          Text('Timer starts from server-recorded work start time', style: TextStyle(fontSize: 10.5, color: Colors.black54)),
+        ])),
+        Text('$hours:$minutes:$seconds', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: PColors.green)),
+      ]),
     );
   }
 

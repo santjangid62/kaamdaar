@@ -1,0 +1,77 @@
+name: Build Kaamdaar Production APKs
+
+on:
+  push:
+    branches:
+      - integrate/nov27-consolidated
+    paths:
+      - "apps/customer_app/**"
+      - "apps/provider_app/**"
+      - ".github/workflows/preview-qa-apks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.app }} Production APK
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: customer
+            directory: apps/customer_app
+            apk: kaamdaar-customer-production.apk
+          - app: provider
+            directory: apps/provider_app
+            apk: kaamdaar-provider-production.apk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: integrate/nov27-consolidated
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+          cache-dependency-path: ${{ matrix.directory }}/pubspec.lock
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.directory }}
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: ${{ matrix.directory }}
+        run: flutter analyze --no-fatal-infos
+
+      - name: Build Android APK against Production API
+        working-directory: ${{ matrix.directory }}
+        run: flutter build apk --debug --dart-define=API_BASE=https://kaamdaar-seven.vercel.app
+
+      - name: Verify APK target and checksum
+        working-directory: ${{ matrix.directory }}
+        run: |
+          APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
+          test -s "$APK_PATH"
+          echo "API_BASE=https://kaamdaar-seven.vercel.app"
+          sha256sum "$APK_PATH"
+          cp "$APK_PATH" "../../${{ matrix.apk }}"
+
+      - name: Upload direct APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaamdaar-${{ matrix.app }}-production-apk
+          path: ${{ matrix.apk }}
+          if-no-files-found: error
+          retention-days: 14

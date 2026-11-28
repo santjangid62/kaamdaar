@@ -113,7 +113,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   // Customers may cancel their own active booking; provider lifecycle changes are server-verified.
   if (actorRole === "customer") {
     const keys = Object.keys(body.patch ?? {});
-    const customerFields = new Set(["status", "cancellationReason"]);
+    const customerFields = new Set(["status", "cancellationReason", "paymentMethod"]);
     if (keys.some((key) => !customerFields.has(key))) {
       return NextResponse.json({ error: "Customers cannot edit provider or dispatch fields" }, { status: 403 });
     }
@@ -127,6 +127,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       changes.notifiedIds = [];
     } else if (changes.status !== undefined) {
       return NextResponse.json({ error: "Customers can only cancel an active booking" }, { status: 403 });
+    }
+    if (body.patch?.paymentMethod !== undefined) {
+      const method = String(body.patch.paymentMethod);
+      if (booking.status !== "completed" || booking.paidAt || booking.paymentReportedAt ||
+          !new Set(["cash", "upi"]).has(method)) {
+        return NextResponse.json({ error: "Payment method can be selected only for an unpaid completed booking" }, { status: 409 });
+      }
+      changes.paymentMethod = method;
+      changes.paymentSelectedAt = Date.now();
+      changes.paymentStatus = "selected";
     }
   }
 
@@ -220,6 +230,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       }
       const method = String(body.patch?.paymentMethod ?? "");
       if (!new Set(["cash", "upi"]).has(method)) return NextResponse.json({ error: "Select cash or UPI payment" }, { status: 422 });
+      if (booking.paymentMethod && booking.paymentMethod !== method) {
+        return NextResponse.json({ error: "Provider payment method must match the customer's selection" }, { status: 409 });
+      }
       const reference = String(body.patch?.paymentReference ?? "").trim().slice(0, 100);
       if (method === "upi" && reference.length < 6) return NextResponse.json({ error: "UPI transaction/reference ID is required for Admin verification" }, { status: 422 });
       changes.paymentStatus = "reported";

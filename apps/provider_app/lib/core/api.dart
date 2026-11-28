@@ -110,13 +110,42 @@ class Api {
     return data;
   }
 
+  /// GET requests are safe to retry after transient mobile-network failures.
+  /// Android can briefly lose DNS/connectivity while the app is backgrounded or
+  /// the device is locked; retry without replaying any write operation.
   static Future<Map<String, dynamic>> get(String path) async {
-    final r = await http.get(Uri.parse('$baseUrl$path'), headers: await _headers());
-    final data = _decode(r);
-    if (r.statusCode >= 400) {
-      throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
+    const delays = [Duration.zero, Duration(milliseconds: 500), Duration(seconds: 1)];
+    for (var attempt = 0; attempt < delays.length; attempt++) {
+      if (delays[attempt] > Duration.zero) {
+        await Future<void>.delayed(delays[attempt]);
+      }
+      try {
+        final r = await http
+            .get(Uri.parse('$baseUrl$path'), headers: await _headers())
+            .timeout(const Duration(seconds: 15));
+        final data = _decode(r);
+        if (r.statusCode >= 500 && attempt < delays.length - 1) {
+          continue;
+        }
+        if (r.statusCode >= 400) {
+          throw ApiException((data['error'] ?? 'Request failed').toString(), r.statusCode);
+        }
+        return data;
+      } on ApiException catch (error) {
+        if (error.status == null || error.status! < 500 || attempt == delays.length - 1) {
+          rethrow;
+        }
+      } on SocketException {
+        // Retry after transient DNS/connectivity loss.
+      } on TimeoutException {
+        // Retry a timed-out safe GET request.
+      } on http.ClientException {
+        // Retry transient HTTP transport failures.
+      }
     }
-    return data;
+    throw ApiException(
+      'Internet connection is temporarily unavailable. Please check your network and try again.',
+    );
   }
 
   static Future<Map<String, dynamic>> patch(String path, Map body) async {

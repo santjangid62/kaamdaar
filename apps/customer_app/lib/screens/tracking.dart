@@ -21,12 +21,13 @@ class TrackScreen extends StatefulWidget {
   State<TrackScreen> createState() => _TrackScreenState();
 }
 
-class _TrackScreenState extends State<TrackScreen> {
+class _TrackScreenState extends State<TrackScreen> with WidgetsBindingObserver {
   BookingItem? _booking;
   SessionUser? _user;
   Timer? _poll;
   bool _loading = true;
   bool _busy = false;
+  bool _refreshing = false;
   String? _error;
   int _rating = 0;
   int _serviceRating = 0;
@@ -41,11 +42,21 @@ class _TrackScreenState extends State<TrackScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _init();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Re-fetch after unlock/app switching; keep the last good booking visible.
+      unawaited(_refresh());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _poll?.cancel();
     _reviewText.dispose();
     _complaintText.dispose();
@@ -64,6 +75,8 @@ class _TrackScreenState extends State<TrackScreen> {
   }
 
   Future<void> _refresh() async {
+    if (_refreshing) return;
+    _refreshing = true;
     final user = _user;
     if (user == null) {
       if (mounted) {
@@ -72,6 +85,7 @@ class _TrackScreenState extends State<TrackScreen> {
           _error = 'Please log in again.';
         });
       }
+      _refreshing = false;
       return;
     }
     try {
@@ -105,8 +119,11 @@ class _TrackScreenState extends State<TrackScreen> {
             .showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      // A temporary DNS/network drop must not replace a valid tracking screen
+      // with a full-page error. The next poll/resume will retry automatically.
+      if (mounted && _booking == null) setState(() => _error = e.toString());
     } finally {
+      _refreshing = false;
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -212,6 +229,10 @@ class _TrackScreenState extends State<TrackScreen> {
                             const SizedBox(height: 14),
                             _otpCard(b),
                           ],
+                          if (b.status == 'completed' && b.paidAt == null) ...[
+                            const SizedBox(height: 14),
+                            _paymentSelectionCard(b),
+                          ],
                           if (b.status == 'completed' && b.paidAt != null) ...[
                             const SizedBox(height: 14),
                             _invoiceCard(b),
@@ -230,6 +251,54 @@ class _TrackScreenState extends State<TrackScreen> {
                 child: _actions(b),
               ),
             ),
+    );
+  }
+
+  Widget _paymentSelectionCard(BookingItem b) {
+    final selected = b.paymentMethod;
+    final reported = b.paymentStatus == 'reported' || b.paymentStatus == 'verified';
+    return CardBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Choose Payment Method',
+              style: TextStyle(fontWeight: FontWeight.w900, color: KColors.navy)),
+          const SizedBox(height: 6),
+          Text('Total payable: ${rupees(b.amount)}',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          if (reported) ...[
+            const SizedBox(height: 8),
+            Text('Payment reported by provider. Admin verification is pending.',
+                style: const TextStyle(color: KColors.green, fontWeight: FontWeight.w700)),
+          ] else ...[
+            const SizedBox(height: 10),
+            if (selected != null)
+              Text('Selected: ${selected.toUpperCase()}',
+                  style: const TextStyle(color: KColors.green, fontWeight: FontWeight.w800)),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _patch({'paymentMethod': 'cash'}),
+                    icon: const Icon(Icons.payments_outlined),
+                    label: const Text('Cash'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _busy ? null : () => _patch({'paymentMethod': 'upi'}),
+                    icon: const Icon(Icons.qr_code_2),
+                    label: const Text('UPI'),
+                  ),
+                ),
+              ],
+            ),
+            const Text('Choose how you will pay the professional. The professional will confirm collection in their app.',
+                style: TextStyle(fontSize: 11.5, color: Colors.black54)),
+          ],
+        ],
+      ),
     );
   }
 

@@ -80,6 +80,17 @@ export async function createDeviceSession(input: {
     expiresAt: now + 30 * 24 * 60 * 60 * 1000,
     revokedAt: null,
   };
+  const payload = Buffer.from(JSON.stringify({
+    accountKey: key,
+    accountId: input.accountId,
+    role: input.role,
+    phone: input.phone,
+    uid: input.uid,
+    sessionId: session.sessionId,
+    exp: Math.floor(session.expiresAt / 1000),
+  })).toString("base64url");
+  const unsigned = `ks1.${payload}`;
+  const signature = sign(unsigned); // Validate the production secret before writing the active-device record.
   const claimed = await claimDeviceSession<DeviceSessionRecord>(key, session);
   if (!claimed.claimed || !claimed.session) {
     const existing = claimed.session;
@@ -96,17 +107,7 @@ export async function createDeviceSession(input: {
       },
     };
   }
-  const payload = Buffer.from(JSON.stringify({
-    accountKey: key,
-    accountId: input.accountId,
-    role: input.role,
-    phone: input.phone,
-    uid: input.uid,
-    sessionId: session.sessionId,
-    exp: Math.floor(session.expiresAt / 1000),
-  })).toString("base64url");
-  const unsigned = `ks1.${payload}`;
-  return { token: `${unsigned}.${sign(unsigned)}`, session };
+  return { token: `${unsigned}.${signature}`, session };
 }
 
 export async function validateDeviceSession(token: string): Promise<{
